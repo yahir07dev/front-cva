@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import LoginForm from "@/src/components/auth/LoginForm";
+import LoginForm from "@/components/modules/gestionpersonal/auth/LoginForm";
 
 export const metadata: Metadata = {
   title: "Iniciar sesión",
