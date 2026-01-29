@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 const Dashboard = () => {
-  return <div>soy el Dashboard</div>;
+  return <div className="flex justify-center">soy el Dashboard</div>;
 };
 
 export default Dashboard;
