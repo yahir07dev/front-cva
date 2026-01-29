@@ -1,83 +1,74 @@
 import { createServerClient } from "@supabase/ssr";
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { resumeAndPrerenderToNodeStream } from "react-dom/static";
 
 export async function updateSession(request: NextRequest) {
-  // variable vacia para una respuesta
+  // 1. Configuración inicial de respuesta y Supabase
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
-  // realizar la conexion con Supabase
-  // se debe de crear un cliente servidor de supabase
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
-        // le indicamos a supabase como leer las coockies del navegador
-        getAll() {
-          return request.cookies.getAll();
-        },
-        // escribir nuevas coockies de ser necesario
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
-          // guardamos las coockies en la peticion actual "request"
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-
-          // actualizamos la repsuesta
-          response = NextResponse.next({
-            request,
-          });
-          // guardamos las coockies en la respuesta final para el navegador
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },
     },
-  ); // fin de la creacion del cliente servidor de supabase
+  );
 
-  // verificamos los datos del usuario dentro de supabase
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // validacion de la ruta raiz
+  // 2. Obtener usuario
+  const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  if (path === "/") {
-    const url = request.nextUrl.clone();
-    if (user) {
-      url.pathname = "/dashboard";
-    } else {
-      url.pathname = "/login";
+
+  // 3. Validar perfil (Solo si hay usuario)
+  let hasProfile = false;
+  if (user) {
+    const { data } = await supabase
+      .from("empleados")
+      .select("id")
+      .eq("usuario_id", user.id)
+      .single();
+    hasProfile = !!data;
+  }
+
+  // --- REGLAS DE REDIRECCIÓN (Lógica Corregida) ---
+
+  // A. Si NO está logueado y quiere entrar a Dashboard o Completar Perfil -> Login
+  if (!user && (path.startsWith("/dashboard") || path.startsWith("/complete-profile"))) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // B. Si ESTÁ logueado
+  if (user) {
+    // Caso 1: NO tiene perfil
+    if (!hasProfile) {
+      // Si no tiene perfil y NO está en /complete-profile, mandarlo ahí
+      if (!path.startsWith("/complete-profile")) {
+        return NextResponse.redirect(new URL("/complete-profile", request.url));
+      }
+      // Si ya está en /complete-profile, dejarlo pasar (evita el bucle)
+      return response; 
     }
-    return NextResponse.redirect(url);
+
+    // Caso 2: SÍ tiene perfil
+    if (hasProfile) {
+      // Si intenta ir a Login, Raíz o Completar Perfil -> Dashboard
+      if (path === "/" || path.startsWith("/login") || path.startsWith("/complete-profile")) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    }
   }
 
-  // si alguien no logueado quiere acceder al dashboard
-  if (
-    (!user && path.startsWith("/dashboard")) ||
-    path.startsWith("/complete-profile")
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login"; // lo redireccionamos al login
-    return NextResponse.redirect(url);
+  // C. Manejo de la raíz "/" para no logueados
+  if (path === "/" && !user) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // si alguien ya logueado quiere acceder al login
-  if (
-    user &&
-    (path.startsWith("/login") || path.startsWith("/complete-profile"))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard"; // lo redireccionamos al dashboard
-    return NextResponse.redirect(url);
-  }
-
-  // devolvemos la respuesta final
   return response;
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/src/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/src/hooks/useSession";
+import { useSession } from "@/hooks/useSession";
 
 export default function CompleteProfile() {
   const router = useRouter();
