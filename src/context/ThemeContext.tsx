@@ -7,18 +7,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light', // Valor por defecto seguro
   toggleTheme: () => {}
 })
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
+  // Inicializamos en 'light' para evitar que, si falla el script, la pantalla se vea negra por error.
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     // 1. SINCRONIZACIÓN INICIAL:
-    // En lugar de leer localStorage (que puede ser lento), 
-    // leemos directamente si el script del layout ya puso la clase 'dark' en el HTML.
-    // Esto evita que React intente "adivinar" y cause el parpadeo.
+    // Revisamos qué clase puso realmente el script del layout.
     const isDark = document.documentElement.classList.contains('dark')
     setTheme(isDark ? 'dark' : 'light')
   }, [])
@@ -28,8 +27,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     setTheme(newTheme)
     
     // 2. CAMBIO INMEDIATO:
-    // Guardamos en localStorage y forzamos la clase en el HTML manualmente.
-    // Al hacerlo aquí directo, la respuesta al click es instantánea.
+    // Guardamos y aplicamos la clase al instante
     localStorage.setItem('theme', newTheme)
     
     if (newTheme === 'dark') {
