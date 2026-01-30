@@ -1,8 +1,204 @@
 @import "tailwindcss";
 
-html,
+/* --- TRUCO PARA V4: Activar modo oscuro por CLASE manual --- */
+@variant dark (&:where(.dark, .dark *));
+
+/* --- PALETA DE COLORES "CUBIC DESIGN" --- */
+:root {
+  /* MODO CLARO (Light) */
+  --bg: #f4f4f4; /* Fondo general gris muy suave */
+  --card: #ffffff; /* Tarjetas blanco puro */
+  --border: #e6e8ec; /* Bordes muy sutiles */
+  --text: #111315; /* Texto principal casi negro */
+  --muted: #6f767e; /* Texto secundario gris */
+  --hover: #f8f9fa; /* Color para efectos hover */
+
+  /* COLOR ACENTO (Módulo 3: Naranja) */
+  --primary: #ff6a00; /* Naranja Vibrante */
+  --primary-hover: #ff8533;
+  --primary-fg: #ffffff; /* Texto sobre el naranja */
+}
+
+.dark {
+  /* MODO OSCURO (Dark - Estilo Navy Profundo) */
+  --bg: #111315; /* Fondo principal (No es negro puro) */
+  --card: #1a1d1f; /* Tarjetas (Un tono más claro que el fondo) */
+  --border: #272b30; /* Bordes oscuros pero visibles */
+  --text: #fcfcfc; /* Texto principal blanco */
+  --muted: #9a9fa5; /* Texto secundario gris claro */
+  --hover: #202427; /* Hover oscuro */
+
+  /* El naranja se mantiene vibrante */
+  --primary: #ff6a00;
+  --primary-hover: #ff8533;
+  --primary-fg: #ffffff;
+}
+
+/* --- CONEXIÓN CON TAILWIND V4 --- */
+@theme {
+  /* Definimos clases semánticas para usar en el HTML */
+  --color-background: var(--bg);
+  --color-card: var(--card);
+  --color-border: var(--border);
+
+  --color-text-main: var(--text);
+  --color-text-muted: var(--muted);
+  --color-hover-bg: var(--hover);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+}
+
+/* --- ESTILOS BASE --- */
 body {
-  background-color: #121212;
-  color: white;
-  min-height: 100%;
+  background-color: var(--bg);
+  color: var(--text);
+  /* Transiciones suaves para el cambio de tema */
+  transition-property: background-color, color, border-color;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@theme {
+  --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* Scrollbar moderno */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(120, 120, 120, 0.4),
+    rgba(80, 80, 80, 0.6)
+  );
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(160, 160, 160, 0.6),
+    rgba(120, 120, 120, 0.8)
+  );
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 120, 0.6) transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+:hover::-webkit-scrollbar-thumb {
+  opacity: 1;
+}
+
+/* Animación para el borde neón rotatorio */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-border {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+.neon-border-animated {
+  position: relative;
+  /* Creamos un borde transparente para reservar el espacio */
+  border: 2px solid transparent;
+  /* El truco: usamos un gradiente cónico que gira detrás del contenido */
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    /* Fondo de la tarjeta */
+    conic-gradient(
+        from var(--border-angle),
+        transparent 20%,
+        #f43f5e 50%,
+        #fb7185 60%,
+        transparent 80%
+      )
+      border-box; /* Borde giratorio rojo/rosa */
+  animation: rotate-border 4s linear infinite;
+  /* Sombra exterior para el brillo neón */
+  box-shadow: 0 0 20px -5px rgba(244, 63, 94, 0.5);
+}
+
+/* Aseguramos que el fondo de la tarjeta se adapte al tema */
+:root {
+  --bg-card: #ffffff;
+}
+.dark {
+  --bg-card: #111827; /* gray-900 */
+}
+
+/* --- EFECTO NEÓN LINE DRAWING --- */
+
+/* Definimos la variable animable para el ángulo */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-border {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Colores de fondo según el tema para que la card no sea transparente */
+:root {
+  --bg-card: #ffffff;
+}
+.dark {
+  --bg-card: #111827; /* gray-900 */
+}
+
+.neon-border-animated {
+  position: relative;
+
+  /* 1. Grosor de la línea neón */
+  border: 3px solid transparent;
+
+  /* 2. La Magia: Dos fondos superpuestos */
+  background: 
+    /* Fondo A: El color sólido de la tarjeta (tapa el centro) */
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    /* Fondo B: La línea que gira (solo se ve en el borde) */
+    /* Transparente el 75% del circulo -> Rojo -> Punta Blanca */
+    conic-gradient(
+        from var(--border-angle),
+        transparent 0%,
+        transparent 75%,
+        #ef4444 90%,
+        /* Cola Roja */ #ffffff 100% /* Punta Blanca Brillante */
+      )
+      border-box;
+
+  /* 3. Animación infinita */
+  animation: rotate-border 3s linear infinite;
+
+  /* 4. Resplandor Neón real */
+  /* El drop-shadow ilumina solo la parte no transparente (la línea) */
+  filter: drop-shadow(0 0 4px #ef4444);
 }

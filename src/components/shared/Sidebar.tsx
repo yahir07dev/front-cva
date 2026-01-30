@@ -1,0 +1,359 @@
+"use client";
+
+import { useState, JSX, useMemo, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useTheme } from "@/src/context/ThemeContext";
+import { createClient } from "@/src/lib/supabase/client";
+import {
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Sun,
+  Moon,
+  LogOut,
+  BarChart3,
+  LayoutDashboard,
+  TrendingUp,
+  Banknote,
+  GraduationCap,
+  Users,
+} from "lucide-react";
+
+interface SidebarProps {
+  empleadoNombre?: string;
+  rolNombre?: string;
+  isAdmin?: boolean;
+}
+
+interface MenuItem {
+  icon: JSX.Element;
+  label: string;
+  path?: string;
+  hasSubmenu?: boolean;
+  submenu?: SubMenuItem[];
+  id: string;
+}
+
+interface SubMenuItem {
+  icon: JSX.Element;
+  label: string;
+  path: string;
+}
+
+export default function Sidebar({}: SidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
+  const supabase = createClient();
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [rendimientoOpen, setRendimientoOpen] = useState(true);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const getModuleStyles = (moduleId: string) => {
+    switch (moduleId) {
+      case "rendimiento":
+        return {
+          light: "bg-orange-50 text-orange-600",
+          dark: "bg-orange-500/10 text-orange-400",
+          icon: "text-orange-600 dark:text-orange-400",
+          logoGradient: "from-orange-600 to-orange-800",
+        };
+      case "dashboard":
+        return {
+          light: "bg-blue-50 text-blue-600",
+          dark: "bg-blue-500/10 text-blue-400",
+          icon: "text-blue-600 dark:text-blue-400",
+          logoGradient: "from-blue-600 to-blue-800",
+        };
+      case "nomina":
+        return {
+          light: "bg-emerald-50 text-emerald-600",
+          dark: "bg-emerald-500/10 text-emerald-400",
+          icon: "text-emerald-600 dark:text-emerald-400",
+          logoGradient: "from-emerald-600 to-emerald-800",
+        };
+      case "asistencia":
+        return {
+          light: "bg-violet-50 text-violet-600",
+          dark: "bg-violet-500/10 text-violet-400",
+          icon: "text-violet-600 dark:text-violet-400",
+          logoGradient: "from-violet-600 to-violet-800",
+        };
+      default:
+        return {
+          light: "bg-gray-50 text-gray-600",
+          dark: "bg-gray-800 text-gray-300",
+          icon: "text-gray-600 dark:text-gray-400",
+          logoGradient: "from-gray-600 to-gray-800",
+        };
+    }
+  };
+
+  const currentActiveModule = useMemo(() => {
+    if (pathname.includes("/rendimiento")) return "rendimiento";
+    if (pathname.includes("/nomina")) return "nomina";
+    if (pathname.includes("/asistencia")) return "asistencia";
+    return "dashboard";
+  }, [pathname]);
+
+  const activeStyles = getModuleStyles(currentActiveModule);
+
+  const menuItems: MenuItem[] = [
+    {
+      id: "dashboard",
+      icon: <LayoutDashboard size={20} />,
+      label: "Dashboard",
+      path: "/dashboard",
+    },
+    {
+      id: "rendimiento",
+      icon: <TrendingUp size={20} />,
+      label: "Rendimiento",
+      hasSubmenu: true,
+      submenu: [
+        {
+          icon: <TrendingUp size={18} />,
+          label: "Actividades",
+          path: "/dashboard/rendimiento/actividades",
+        },
+        {
+          icon: <Users size={18} />,
+          label: "Feedback",
+          path: "/dashboard/rendimiento/comentarios",
+        },
+        {
+          icon: <BarChart3 size={18} strokeWidth={2} />,
+          label: "Analítica",
+          path: "/dashboard/rendimiento/reportes",
+        },
+      ],
+    },
+    {
+      id: "nomina",
+      icon: <Banknote size={20} />,
+      label: "Nómina",
+      path: "/dashboard/nomina",
+    },
+    {
+      id: "asistencia",
+      icon: <GraduationCap size={20} />,
+      label: "Asistencia",
+      path: "/dashboard/asistencia",
+    },
+  ];
+
+  const isActive = (path?: string) => path && pathname === path;
+  const isSectionActive = (
+    itemPath?: string,
+    hasSubmenu?: boolean,
+    id?: string,
+  ) => {
+    if (
+      hasSubmenu &&
+      id === "rendimiento" &&
+      pathname.startsWith("/dashboard/rendimiento")
+    )
+      return true;
+    return isActive(itemPath);
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setMobileOpen(true)}
+        className={`fixed top-5 left-4 z-[60] md:hidden transition-opacity duration-300 ${theme === "dark" ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"} ${mobileOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      >
+        <Menu size={24} />
+      </button>
+
+      <div
+        className={`fixed inset-0 z-[65] bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300 ${mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-[70] flex flex-col shadow-2xl md:shadow-none h-[100dvh] transition-all duration-300 ease-in-out ${theme === "dark" ? "bg-[#1a1d29]" : "bg-white"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} w-64 md:translate-x-0 md:static ${collapsed ? "md:w-20" : "md:w-64"}`}
+      >
+        <div
+          className={`h-20 flex items-center px-5 relative shrink-0 transition-all duration-300 ${collapsed ? "justify-center" : "justify-between"}`}
+        >
+          <div
+            className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? "w-0 opacity-0" : "w-auto opacity-100"}`}
+          >
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="flex items-center gap-3 group"
+            >
+              <div
+                className={`min-w-[40px] h-10 rounded-xl bg-gradient-to-br ${activeStyles.logoGradient} flex items-center justify-center shadow-md`}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="text-white"
+                >
+                  <path
+                    d="M12 2L2 7L12 12L22 7L12 2Z"
+                    fill="currentColor"
+                    fillOpacity="0.9"
+                  />
+                  <path
+                    d="M2 17L12 22L22 17"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 12L12 17L22 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <span
+                className={`font-bold text-lg tracking-tight whitespace-nowrap ${theme === "dark" ? "text-white" : "text-gray-900"}`}
+              >
+                RRHH
+              </span>
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              if (window.innerWidth < 768) setMobileOpen(false);
+              else setCollapsed(!collapsed);
+            }}
+            className={`p-2 rounded-lg transition-colors ${collapsed ? "absolute top-6 left-1/2 -translate-x-1/2" : ""} ${theme === "dark" ? "text-gray-400 hover:text-white hover:bg-gray-800" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"}`}
+          >
+            <div className="md:hidden">
+              <X size={24} />
+            </div>
+            <div className="hidden md:block">
+              {collapsed ? <Menu size={24} /> : <ChevronLeft size={20} />}
+            </div>
+          </button>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-none">
+          {menuItems.map((item, index) => {
+            const itemStyles = getModuleStyles(item.id);
+            const isItemActive = isSectionActive(
+              item.path,
+              item.hasSubmenu,
+              item.id,
+            );
+            return (
+              <div key={index}>
+                <div className="mb-2">
+                  <button
+                    onClick={() => {
+                      if (item.hasSubmenu) {
+                        if (collapsed) {
+                          setCollapsed(false);
+                          setRendimientoOpen(true);
+                        } else {
+                          setRendimientoOpen(!rendimientoOpen);
+                        }
+                      } else if (item.path) {
+                        router.push(item.path);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-300 group relative ${isItemActive ? (theme === "dark" ? `${itemStyles.dark} font-medium` : `${itemStyles.light} font-medium`) : theme === "dark" ? "text-gray-400 hover:bg-[#2d3142] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"} ${collapsed ? "justify-center" : ""}`}
+                    title={collapsed ? item.label : ""}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`min-w-[24px] flex justify-center transition-transform duration-300 ${collapsed ? "scale-110" : ""}`}
+                      >
+                        {item.icon}
+                      </span>
+                      <span
+                        className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"}`}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                    {item.hasSubmenu && (
+                      <ChevronRight
+                        size={16}
+                        className={`transition-all duration-300 ${rendimientoOpen ? "rotate-90" : ""} ${theme === "dark" ? "text-gray-500" : "text-gray-400"} ${collapsed ? "hidden" : "block"}`}
+                      />
+                    )}
+                  </button>
+                  {item.hasSubmenu && rendimientoOpen && (
+                    <div
+                      className={`mt-1 ml-4 pl-4 border-l-2 space-y-1 overflow-hidden transition-all duration-300 ${theme === "dark" ? "border-[#2d3142]" : "border-gray-200"} ${collapsed ? "max-h-0 opacity-0" : "max-h-40 opacity-100"}`}
+                    >
+                      {item.submenu?.map((sub, subIndex) => (
+                        <button
+                          key={subIndex}
+                          onClick={() => router.push(sub.path)}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all ${isActive(sub.path) ? (theme === "dark" ? `${itemStyles.dark} font-medium` : `${itemStyles.light} font-medium`) : theme === "dark" ? "text-gray-400 hover:bg-[#2d3142] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                        >
+                          <span className="opacity-70 scale-90">
+                            {sub.icon}
+                          </span>
+                          <span className="whitespace-nowrap">{sub.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 space-y-2 mt-auto shrink-0">
+          <button
+            onClick={toggleTheme}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${theme === "dark" ? "text-gray-400 hover:bg-[#2d3142] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"} ${collapsed ? "justify-center" : ""}`}
+            title="Cambiar Tema"
+          >
+            <span
+              className={`min-w-[24px] flex justify-center transition-transform duration-300 ${collapsed ? "scale-110" : ""}`}
+            >
+              {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
+            </span>
+            <span
+              className={`whitespace-nowrap font-medium text-sm transition-all duration-300 ${collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"}`}
+            >
+              Tema
+            </span>
+          </button>
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${theme === "dark" ? "text-gray-400 hover:bg-[#2d3142] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"} ${collapsed ? "justify-center" : ""}`}
+            title="Cerrar Sesión"
+          >
+            <span
+              className={`min-w-[24px] flex justify-center transition-transform duration-300 ${collapsed ? "scale-110" : ""}`}
+            >
+              <LogOut size={20} />
+            </span>
+            <span
+              className={`whitespace-nowrap font-medium text-sm transition-all duration-300 ${collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"}`}
+            >
+              Salir
+            </span>
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}

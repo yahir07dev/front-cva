@@ -32,12 +32,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-black">
-      <body
-        className={`${onest.className} bg-[#121212] text-white min-h-screen`}
-      >
-        {children}
-      </body>
+    <html lang="en">
+      <body className={`${onest.className} min-h-screen`}>{children}</body>
     </html>
   );
 }
