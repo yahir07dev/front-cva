@@ -1,8 +1,117 @@
 @import "tailwindcss";
 
-html,
-body {
-  background-color: #121212;
-  color: white;
-  min-height: 100%;
+/* --- TRUCO PARA V4: Activar modo oscuro por CLASE manual --- */
+@variant dark (&:where(.dark, .dark *));
+
+/* --- PALETA DE COLORES "CUBIC DESIGN" --- */
+:root {
+  /* MODO CLARO (Light) */
+  --bg: #F4F4F4;
+  --card: #FFFFFF;
+  --border: #E6E8EC;
+  --text: #111315;
+  --muted: #6F767E;
+  --hover: #F8F9FA;
+  --primary: #FF6A00;
+  --primary-hover: #FF8533;
+  --primary-fg: #FFFFFF;
+  --bg-card: #ffffff; /* Para el neón */
+}
+
+.dark {
+  /* MODO OSCURO (Dark) */
+  --bg: #111315;
+  --card: #1A1D1F;
+  --border: #272B30;
+  --text: #FCFCFC;
+  --muted: #9A9FA5;
+  --hover: #202427;
+  --primary: #FF6A00;
+  --primary-hover: #FF8533;
+  --primary-fg: #FFFFFF;
+  --bg-card: #111827; /* Para el neón */
+}
+
+/* --- CONEXIÓN CON TAILWIND V4 --- */
+@theme {
+  --color-background: var(--bg);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-text-main: var(--text);
+  --color-text-muted: var(--muted);
+  --color-hover-bg: var(--hover);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --shadow-card: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+/* Ajuste de sombra para dark mode fuera del bloque @theme para usar selector */
+.dark {
+  --shadow-card: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+/* --- ESTILOS BASE --- */
+/* IMPORTANTE: Usamos @layer base para que Tailwind lo maneje bien */
+@layer base {
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    /* HEMOS ELIMINADO LAS TRANSICIONES AQUÍ.
+       Esto evita que el navegador "anime" el cambio de color al cargar la página.
+       Es la clave para evitar el parpadeo negro/blanco.
+    */
+  }
+}
+
+/* --- SCROLLBAR --- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(120,120,120,0.4), rgba(80,80,80,0.6));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(160,160,160,0.6), rgba(120,120,120,0.8));
+}
+
+/* Firefox */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(120,120,120,0.6) transparent;
+  }
+}
+
+/* --- EFECTO NEÓN ANIMADO --- */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-border {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+.neon-border-animated {
+  position: relative;
+  border: 3px solid transparent; 
+  background: 
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    conic-gradient(
+      from var(--border-angle), 
+      transparent 0%, 
+      transparent 75%, 
+      #ef4444 90%, 
+      #ffffff 100%
+    ) border-box;
+  animation: rotate-border 3s linear infinite;
+  filter: drop-shadow(0 0 4px #ef4444);
 }
