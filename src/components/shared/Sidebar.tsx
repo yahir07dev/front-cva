@@ -4,6 +4,7 @@ import { useState, JSX, useMemo, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "@/src/context/ThemeContext";
 import { createClient } from "@/src/lib/supabase/client";
+
 import {
   Menu,
   X,
@@ -23,28 +24,32 @@ import {
   UserCog,
 } from "lucide-react";
 
-interface SidebarProps {
-  empleadoNombre?: string;
-  rolNombre?: string;
-  isAdmin?: boolean;
+// Definimos interfaces
+interface SubMenuItem {
+  icon: JSX.Element;
+  label: string;
+  path: string;
+  permission?: string;
 }
 
 interface MenuItem {
+  id: string;
   icon: JSX.Element;
   label: string;
   path?: string;
   hasSubmenu?: boolean;
   submenu?: SubMenuItem[];
-  id: string;
+  permission?: string | string[]; // Puede requerir uno o varios permisos
 }
 
-interface SubMenuItem {
-  icon: JSX.Element;
-  label: string;
-  path: string;
+interface SidebarProps {
+  permissions: string[]; // Recibimos los permisos directamente del Server Layout
+  empleadoNombre?: string;
+  rolNombre?: string;
+  isAdmin?: boolean;
 }
 
-export default function Sidebar({}: SidebarProps) {
+export default function Sidebar({ permissions = [] }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { toggleTheme } = useTheme();
@@ -52,9 +57,6 @@ export default function Sidebar({}: SidebarProps) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Nuevo: Estado para controlar qué menús están abiertos (por ID)
-  // Inicializado vacío para que empiecen cerrados
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   useEffect(() => {
@@ -74,6 +76,7 @@ export default function Sidebar({}: SidebarProps) {
     );
   };
 
+  // --- LÓGICA DE ESTILOS ---
   const getModuleClasses = (moduleId: string) => {
     switch (moduleId) {
       case "rendimiento":
@@ -125,7 +128,8 @@ export default function Sidebar({}: SidebarProps) {
 
   const activeStyles = getModuleClasses(currentActiveModule);
 
-  const menuItems: MenuItem[] = [
+  // --- DEFINICIÓN DEL MENÚ ---
+  const rawMenuItems: MenuItem[] = [
     {
       id: "dashboard",
       icon: <LayoutDashboard size={20} />,
@@ -137,15 +141,20 @@ export default function Sidebar({}: SidebarProps) {
       icon: <UserRound size={20} />,
       label: "Personal",
       hasSubmenu: true,
+      // Si tiene cualquiera de estos, se muestra el padre.
+      // Luego filtramos los hijos individualmente.
+      permission: ["empleados.update", "roles.update"],
       submenu: [
         {
           icon: <UserPen size={18} />,
           label: "Empleados",
+          permission: "empleados.update",
           path: "/dashboard/personal/empleados",
         },
         {
           icon: <UserCog size={18} />,
           label: "Roles",
+          permission: "roles.update",
           path: "/dashboard/personal/roles",
         },
       ],
@@ -155,6 +164,12 @@ export default function Sidebar({}: SidebarProps) {
       icon: <TrendingUp size={20} />,
       label: "Rendimiento",
       hasSubmenu: true,
+      permission: [
+        "rendimiento.create",
+        "actividades.create",
+        "asignaciones.create",
+      ],
+      // Si no tiene 'permission', es público (o depende solo de sus hijos)
       submenu: [
         {
           icon: <TrendingUp size={18} />,
@@ -178,6 +193,8 @@ export default function Sidebar({}: SidebarProps) {
       icon: <Banknote size={20} />,
       label: "Nómina",
       path: "/dashboard/nomina",
+      // Ejemplo: si quisieras restringir nomina:
+      // permission: "nomina.view"
     },
     {
       id: "asistencia",
@@ -187,8 +204,44 @@ export default function Sidebar({}: SidebarProps) {
     },
   ];
 
-  const isActive = (path?: string) => path && pathname === path;
+  // --- LÓGICA DE FILTRADO DE SEGURIDAD (CERO FLASH) ---
+  const filteredMenuItems = useMemo(() => {
+    // Función auxiliar para verificar un permiso único o array
+    const checkAccess = (reqPermission?: string | string[]) => {
+      if (!reqPermission) return true; // Si no hay restricción, es público
+      if (Array.isArray(reqPermission)) {
+        // Si es array, verificamos si tiene AL MENOS UNO de los permisos requeridos
+        return reqPermission.some((p) => permissions.includes(p));
+      }
+      return permissions.includes(reqPermission);
+    };
 
+    return rawMenuItems.reduce((acc, item) => {
+      // 1. Verificamos permiso del padre
+      if (!checkAccess(item.permission)) return acc;
+
+      // 2. Procesamos submenús si existen
+      let finalSubmenu = item.submenu;
+      if (item.submenu) {
+        // Filtramos los hijos según sus permisos individuales
+        finalSubmenu = item.submenu.filter((sub) =>
+          checkAccess(sub.permission),
+        );
+
+        // CRÍTICO: Si después de filtrar no quedan hijos y el padre no tiene path propio, ocultamos al padre
+        if (finalSubmenu.length === 0 && !item.path) {
+          return acc;
+        }
+      }
+
+      // 3. Agregamos el item (con sus submenús filtrados si aplica)
+      acc.push({ ...item, submenu: finalSubmenu });
+      return acc;
+    }, [] as MenuItem[]);
+  }, [permissions]); // Solo se recalcula si cambian los permisos (que vienen del server)
+
+  // Helpers de navegación
+  const isActive = (path?: string) => path && pathname === path;
   const isSectionActive = (
     hasSubmenu?: boolean,
     id?: string,
@@ -217,7 +270,11 @@ export default function Sidebar({}: SidebarProps) {
 
       {/* Overlay Mobile */}
       <div
-        className={`fixed inset-0 z-[65] bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300 ${mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 z-[65] bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300 ${
+          mobileOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
         onClick={() => setMobileOpen(false)}
       />
 
@@ -231,10 +288,14 @@ export default function Sidebar({}: SidebarProps) {
       >
         {/* Header */}
         <div
-          className={`h-20 flex items-center px-5 relative shrink-0 transition-all duration-300 ${collapsed ? "justify-center" : "justify-between"}`}
+          className={`h-20 flex items-center px-5 relative shrink-0 transition-all duration-300 ${
+            collapsed ? "justify-center" : "justify-between"
+          }`}
         >
           <div
-            className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? "w-0 opacity-0" : "w-auto opacity-100"}`}
+            className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${
+              collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+            }`}
           >
             <button
               onClick={() => router.push("/dashboard")}
@@ -283,7 +344,9 @@ export default function Sidebar({}: SidebarProps) {
                 ? setMobileOpen(false)
                 : setCollapsed(!collapsed)
             }
-            className={`p-2 rounded-lg transition-colors text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-white dark:hover:bg-gray-800 ${collapsed ? "absolute top-6 left-1/2 -translate-x-1/2" : ""}`}
+            className={`p-2 rounded-lg transition-colors text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-white dark:hover:bg-gray-800 ${
+              collapsed ? "absolute top-6 left-1/2 -translate-x-1/2" : ""
+            }`}
           >
             <div className="md:hidden">
               <X size={24} />
@@ -294,9 +357,9 @@ export default function Sidebar({}: SidebarProps) {
           </button>
         </div>
 
-        {/* Navegación */}
+        {/* Navegación USANDO filteredMenuItems en lugar de menuItems */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-none">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const itemStyles = getModuleClasses(item.id);
             const isItemActive = isSectionActive(
               item.hasSubmenu,
@@ -319,18 +382,28 @@ export default function Sidebar({}: SidebarProps) {
                   className={`
                     w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-300 group relative
                     ${collapsed ? "justify-center" : ""}
-                    ${isItemActive ? `${itemStyles.active} font-medium` : inactiveClasses}
+                    ${
+                      isItemActive
+                        ? `${itemStyles.active} font-medium`
+                        : inactiveClasses
+                    }
                   `}
                   title={collapsed ? item.label : ""}
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className={`min-w-[24px] flex justify-center transition-transform duration-300 ${collapsed ? "scale-110" : ""}`}
+                      className={`min-w-[24px] flex justify-center transition-transform duration-300 ${
+                        collapsed ? "scale-110" : ""
+                      }`}
                     >
                       {item.icon}
                     </span>
                     <span
-                      className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"}`}
+                      className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${
+                        collapsed
+                          ? "w-0 opacity-0 overflow-hidden"
+                          : "w-auto opacity-100"
+                      }`}
                     >
                       {item.label}
                     </span>
@@ -338,7 +411,9 @@ export default function Sidebar({}: SidebarProps) {
                   {item.hasSubmenu && !collapsed && (
                     <ChevronRight
                       size={16}
-                      className={`transition-transform duration-300 text-gray-400 ${isMenuOpen ? "rotate-90" : ""}`}
+                      className={`transition-transform duration-300 text-gray-400 ${
+                        isMenuOpen ? "rotate-90" : ""
+                      }`}
                     />
                   )}
                 </button>
@@ -350,7 +425,11 @@ export default function Sidebar({}: SidebarProps) {
                       <button
                         key={idx}
                         onClick={() => router.push(sub.path)}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all ${isActive(sub.path) ? `${itemStyles.active} font-medium` : inactiveClasses}`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all ${
+                          isActive(sub.path)
+                            ? `${itemStyles.active} font-medium`
+                            : inactiveClasses
+                        }`}
                       >
                         <span className="opacity-70 scale-90">{sub.icon}</span>
                         <span className="whitespace-nowrap">{sub.label}</span>
@@ -367,17 +446,25 @@ export default function Sidebar({}: SidebarProps) {
         <div className="p-4 space-y-2 mt-auto shrink-0">
           <button
             onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${inactiveClasses} ${collapsed ? "justify-center" : ""}`}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${inactiveClasses} ${
+              collapsed ? "justify-center" : ""
+            }`}
             title="Tema"
           >
             <span
-              className={`min-w-[24px] flex justify-center ${collapsed ? "scale-110" : ""}`}
+              className={`min-w-[24px] flex justify-center ${
+                collapsed ? "scale-110" : ""
+              }`}
             >
               <Sun size={20} className="block dark:hidden" />
               <Moon size={20} className="hidden dark:block" />
             </span>
             <span
-              className={`whitespace-nowrap font-medium text-sm transition-all duration-300 ${collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"}`}
+              className={`whitespace-nowrap font-medium text-sm transition-all duration-300 ${
+                collapsed
+                  ? "w-0 opacity-0 overflow-hidden"
+                  : "w-auto opacity-100"
+              }`}
             >
               Tema
             </span>
@@ -385,16 +472,24 @@ export default function Sidebar({}: SidebarProps) {
 
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${inactiveClasses} ${collapsed ? "justify-center" : ""}`}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${inactiveClasses} ${
+              collapsed ? "justify-center" : ""
+            }`}
             title="Salir"
           >
             <span
-              className={`min-w-[24px] flex justify-center ${collapsed ? "scale-110" : ""}`}
+              className={`min-w-[24px] flex justify-center ${
+                collapsed ? "scale-110" : ""
+              }`}
             >
               <LogOut size={20} />
             </span>
             <span
-              className={`whitespace-nowrap font-medium text-sm transition-all duration-300 ${collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"}`}
+              className={`whitespace-nowrap font-medium text-sm transition-all duration-300 ${
+                collapsed
+                  ? "w-0 opacity-0 overflow-hidden"
+                  : "w-auto opacity-100"
+              }`}
             >
               Salir
             </span>

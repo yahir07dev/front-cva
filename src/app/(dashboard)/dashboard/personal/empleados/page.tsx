@@ -2,12 +2,13 @@ import React from "react";
 import { Plus } from "lucide-react";
 import { Metadata } from "next";
 import EmpleadosTable from "@/src/components/employees/EmployeesTable";
-
+import { requirePermission } from "@/src/lib/auth/guard";
 export const metadata: Metadata = {
   title: "Empleados",
   description: "Resumen general",
 };
-export default function EmpleadosPage() {
+export default async function EmpleadosPage() {
+  await requirePermission("empleados.update");
   return (
     <div className="">
       {/* Header de la sección */}
