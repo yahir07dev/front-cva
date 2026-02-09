@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import ConfirmDialog from "@/components/shared/ConfirmDialog";
-import SuccessDialog from "@/components/shared/SuccessDialog";
+import { createClient } from "@/src/lib/supabase/client";
+import ConfirmDialog from "@/src/components/shared/ConfirmDialog";
+import SuccessDialog from "@/src/components/shared/SuccessDialog";
 
 interface EmpleadoForm {
   nombre: string;

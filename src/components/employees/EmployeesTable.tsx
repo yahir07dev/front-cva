@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import { Pencil, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
 interface Empleado {

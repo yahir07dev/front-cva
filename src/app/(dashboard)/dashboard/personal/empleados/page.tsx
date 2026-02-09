@@ -1,8 +1,8 @@
 import React from "react";
 import { Plus } from "lucide-react";
 import { Metadata } from "next";
-import EmpleadosTable from "@/components/employees/EmployeesTable";
-import { requirePermission } from "@/lib/auth/guard";
+import EmpleadosTable from "@/src/components/employees/EmployeesTable";
+import { requirePermission } from "@/src/lib/auth/guard";
 export const metadata: Metadata = {
   title: "Empleados",
   description: "Resumen general",

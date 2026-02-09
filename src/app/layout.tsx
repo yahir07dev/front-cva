@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: {
     template: "%s | CVA",
-    default: "SIGE",
+    default: "SIGE | CVA",
   },
   description: "Sistema Integral de Gestión Empresarial",
 };
@@ -33,7 +33,9 @@ export default function RootLayout({
   return (
     // IMPORTANTE: suppressHydrationWarning evita errores de consola por el cambio de clase que haremos manualmente
     <html lang="es" suppressHydrationWarning>
-      <body className={`${onest.className} ${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${onest.className} ${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         {/* SCRIPT ANTI-PARPADEO:
           Este script se ejecuta antes de que React cargue.
           1. Busca en localStorage.
