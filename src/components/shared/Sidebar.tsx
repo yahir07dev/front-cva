@@ -1,10 +1,17 @@
 'use client'
 
+<<<<<<< Updated upstream
 import { useState, JSX, useMemo, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useTheme } from '@/src/context/ThemeContext' 
 import { createClient } from '@/src/lib/supabase/client' 
 import { Menu, X, ChevronLeft, ChevronRight, Sun, Moon, LogOut, BarChart3, LayoutDashboard, TrendingUp, Banknote, GraduationCap, Users } from 'lucide-react'
+=======
+import { useState, JSX, useMemo, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useTheme } from "@/context/ThemeContext";
+import { createClient } from "@/lib/supabase/client";
+>>>>>>> Stashed changes
 
 interface SidebarProps {
   empleadoNombre?: string

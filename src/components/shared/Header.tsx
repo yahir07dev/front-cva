@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react'
 // Ya no necesitamos importar useTheme para los colores, el CSS lo hace solo.
+<<<<<<< Updated upstream
 import { createClient } from '@/src/lib/supabase/client' 
+=======
+import { createClient } from "@/lib/supabase/client";
+>>>>>>> Stashed changes
 
 export default function Header() {
   const supabase = createClient()

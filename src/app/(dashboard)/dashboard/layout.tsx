@@ -1,7 +1,10 @@
-import React from 'react'
-import { ThemeProvider } from '@/src/context/ThemeContext'
-import Sidebar from '@/src/components/shared/Sidebar'
-import Header from '@/src/components/shared/Header'
+import React from "react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server"; // Asegúrate de que esta ruta sea correcta
+import { ThemeProvider } from "@/context/ThemeContext";
+import { AuthProvider } from "@/context/AuthContext";
+import Sidebar from "@/components/shared/Sidebar";
+import Header from "@/components/shared/Header";
 
 export default function DashboardLayout({
   children,

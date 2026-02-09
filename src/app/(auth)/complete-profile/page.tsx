@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import LoginForm from "@/src/components/auth/LoginForm";
-import CompleteProfile from "@/src/components/auth/CompleteProfile";
+import LoginForm from "@/components/auth/LoginForm";
+import CompleteProfile from "@/components/auth/CompleteProfile";
 
 export const metadata: Metadata = {
   title: "Completar Registro",
