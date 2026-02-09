@@ -1,6 +1,6 @@
 // src/services/performanceService.ts
-import { createClient } from '@/lib/supabase/client';
-import { EstadoActividad, PrioridadActividad } from '@/types/performance'
+import { createClient } from '@/src/lib/supabase/client';
+import { EstadoActividad, PrioridadActividad } from '@/src/types/performance'
 
 const supabase = createClient()
 

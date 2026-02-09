@@ -1,10 +1,10 @@
 // src/hooks/usePerformance.ts
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useSession } from '@/hooks/useSession' 
-import { ActividadConRelaciones } from '@/types/performance'
-import { getSessionUserWithPermissions } from '@/app/auth/getSessionUser'
-import { hasPermission } from '@/app/auth/permissions' 
+import { createClient } from '@/src/lib/supabase/client'
+import { useSession } from '@/src/hooks/useSession' 
+import { ActividadConRelaciones } from '@/src/types/performance'
+import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
+import { hasPermission } from '@/src/app/auth/permissions' 
 
 export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const [actividades, setActividades] = useState<ActividadConRelaciones[]>(initialData || [])

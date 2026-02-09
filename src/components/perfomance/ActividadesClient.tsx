@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/src/lib/supabase/client'
 import { AlertCircle } from 'lucide-react'
-import { usePerformance } from '@/hooks/usePerformance'
-import { ActividadConRelaciones } from '@/types/performance'
-import { useSession } from '@/hooks/useSession'
+import { usePerformance } from '@/src/hooks/usePerformance'
+import { ActividadConRelaciones } from '@/src/types/performance'
+import { useSession } from '@/src/hooks/useSession'
 
 import ActividadesHeader from './ActividadesHeader'
 import CardActividad from './CardActividad'

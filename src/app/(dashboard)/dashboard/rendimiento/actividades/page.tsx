@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
-import ActividadesClient from '@/components/perfomance/ActividadesClient'
-import { ActividadConRelaciones } from '@/types/performance'
+import { createClient } from '@/src/lib/supabase/server'
+import ActividadesClient from '@/src/components/perfomance/ActividadesClient'
+import { ActividadConRelaciones } from '@/src/types/performance'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0 

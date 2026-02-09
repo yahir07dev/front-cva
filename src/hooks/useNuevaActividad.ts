@@ -1,11 +1,11 @@
 // src/hooks/useNuevaActividad.ts
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { getEmpleadosParaAsignacion, crearNuevaActividad } from '@/services/performanceService'
-import { PrioridadActividad } from '@/types/performance'
-import { useSession } from '@/hooks/useSession'
-import { getSessionUserWithPermissions } from '@/app/auth/getSessionUser'
-import { hasPermission } from '@/app/auth/permissions' 
+import { getEmpleadosParaAsignacion, crearNuevaActividad } from '@/src/services/performanceService'
+import { PrioridadActividad } from '@/src/types/performance'
+import { useSession } from '@/src/hooks/useSession'
+import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
+import { hasPermission } from '@/src/app/auth/permissions' 
 
 export function useNuevaActividad() {
   const router = useRouter()

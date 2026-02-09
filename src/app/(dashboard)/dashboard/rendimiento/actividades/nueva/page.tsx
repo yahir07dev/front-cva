@@ -5,8 +5,8 @@ import {
 } from 'lucide-react'
 
 // Imports adaptados a la nueva estructura del proyecto
-import { useNuevaActividad } from '@/hooks/useNuevaActividad'
-import SelectorEmpleados from '@/components/perfomance/SelectorEmpleados'
+import { useNuevaActividad } from '@/src/hooks/useNuevaActividad'
+import SelectorEmpleados from '@/src/components/perfomance/SelectorEmpleados'
 
 export default function NuevaActividadPage() {
   const { 
