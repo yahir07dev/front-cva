@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // <--- CAMBIO: Importar useEffect
 import { createClient } from '@/src/lib/supabase/client'
 import { AlertCircle } from 'lucide-react'
 import { usePerformance } from '@/src/hooks/usePerformance'
@@ -14,8 +14,11 @@ import ModalConfirmacion from './ModalConfirmacion'
 
 export default function ActividadesClient({ initialData }: { initialData: ActividadConRelaciones[] }) {
   const supabase = createClient()
-  const { session } = useSession() as any
+  const { session } = useSession() as any // Asumiendo que useSession puede devolver undefined al inicio
   
+  // <--- CAMBIO 1: Estado para controlar el "pestañeo"
+  const [isReady, setIsReady] = useState(false)
+
   const { 
     actividades, 
     stats, 
@@ -28,21 +31,20 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedActividad, setSelectedActividad] = useState<ActividadConRelaciones | null>(null)
-  
-  // ESTADOS PARA MODALES
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
-  
-  // Ahora guardamos no solo el ID, sino el NUEVO ESTADO al que se quiere ir
   const [accionPendiente, setAccionPendiente] = useState<{ id: number, nuevoEstado: string } | null>(null)
-  
   const [idParaEliminar, setIdParaEliminar] = useState<number | null>(null)
+
+  // <--- CAMBIO 2: Efecto para esperar a que la sesión cargue antes de mostrar nada
+  useEffect(() => {
+    if (session?.user) {
+      setIsReady(true)
+    }
+  }, [session])
 
   // --- LÓGICA CAMBIO DE ESTADO ---
   const handleStatusChange = async (id: number, nuevoEstado: string) => {
-    // 1. Buscamos la tarea
     const actividadActual = actividades.find(a => a.id === id);
-    
-    // 2. Verificamos asignación
     const isAssignedToMe = actividadActual?.asignacion_actividades?.some(
       (asig: any) => {
          const emp = asig.empleados || asig.empleado;
@@ -50,21 +52,16 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
       }
     );
 
-    // 3. Bloqueo de seguridad: Si eres Admin pero NO es tuya, no te dejo editar.
-    // EXCEPCIÓN: Si eres Admin y vas a APROBAR (completar), sí te dejo aunque no sea tuya.
     if (canManage && !isAssignedToMe && nuevoEstado !== 'completada') {
-      console.warn("Acción denegada: No puedes cambiar el estado de una tarea ajena.");
+      console.warn("Acción denegada");
       return 
     }
 
-    // 4. Si el cambio es "Delicado" (Completar o Revisión), pedimos confirmación
     if (nuevoEstado === 'completada' || nuevoEstado === 'revision') {
       setAccionPendiente({ id, nuevoEstado })
       setConfirmModalOpen(true)
       return
     }
-
-    // 5. Si es un cambio normal (pendientes, en progreso...), lo hacemos directo
     await actualizarEstadoEnBD(id, nuevoEstado)
   }
 
@@ -76,7 +73,6 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     }
   }
 
-  // --- LÓGICA ELIMINAR ---
   const handleDelete = (id: number) => {
     setIdParaEliminar(id)
   }
@@ -97,24 +93,17 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         updateData.fecha_completada = new Date().toISOString()
       }
       
-      const { error } = await supabase
-        .from('actividades')
-        .update(updateData)
-        .eq('id', id)
-
+      const { error } = await supabase.from('actividades').update(updateData).eq('id', id)
       if (error) throw error
       await recargar() 
-      
     } catch (error: any) {
-      console.error("Error en actualizarEstadoEnBD:", error.message)
-      alert('Error de permisos o conexión: ' + error.message)
+      console.error("Error:", error.message)
+      alert('Error: ' + error.message)
     }
   }
 
-  // --- LÓGICA DE EVALUACIÓN ---
   const handleGuardarEvaluacion = async (rating: number, nota: string) => {
     if (!selectedActividad || !session?.user?.id) return
-
     const { error } = await supabase.from('actividades').update({
         calificacion: rating,
         observaciones_evaluacion: nota.trim() || null,
@@ -122,7 +111,7 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         evaluado_por_id: session.user.id 
       }).eq('id', selectedActividad.id)
 
-    if (error) alert('Error al evaluar: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else {
       setModalOpen(false)
       recargar()
@@ -134,7 +123,9 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     setModalOpen(true)
   }
 
-  if (loading && actividades.length === 0) {
+  // <--- CAMBIO 3: Bloqueo de seguridad visual
+  // Si está cargando datos O si aún no sabemos quién es el usuario (isReady false) -> Spinner
+  if ((loading && actividades.length === 0) || !isReady) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-orange-500/30 border-t-orange-500" />
@@ -142,18 +133,17 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     )
   }
 
-  // Lógica para textos dinámicos del Modal
   const getModalTexts = () => {
       if (accionPendiente?.nuevoEstado === 'revision') {
           return {
               title: "¿Solicitar Revisión?",
               desc: "Se notificará a tu supervisor que has terminado. La tarea quedará bloqueada hasta que sea aprobada.",
-              variant: "info" as const // O 'primary' si tu modal lo soporta
+              variant: "info" as const 
           }
       }
       if (accionPendiente?.nuevoEstado === 'completada') {
            return {
-              title: canManage ? "¿Aprobar Tarea?" : "¿Tarea Finalizada?", // Texto diferente si es Admin
+              title: canManage ? "¿Aprobar Tarea?" : "¿Tarea Finalizada?", 
               desc: canManage ? "Al aprobar, confirmas que el trabajo cumple con los requisitos." : "Estás a punto de marcar esta tarea como completada.",
               variant: "success" as const
           }
@@ -204,7 +194,6 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         initialNota={selectedActividad?.observaciones_evaluacion || ''} 
       />
 
-      {/* MODAL DINÁMICO (Revisión o Completar) */}
       <ModalConfirmacion
         isOpen={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
