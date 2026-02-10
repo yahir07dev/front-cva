@@ -29,7 +29,7 @@ interface SubMenuItem {
   icon: JSX.Element;
   label: string;
   path: string;
-  permission?: string;
+  permission?: string | string[]; // Ajustado para aceptar array
 }
 
 interface MenuItem {
@@ -39,11 +39,11 @@ interface MenuItem {
   path?: string;
   hasSubmenu?: boolean;
   submenu?: SubMenuItem[];
-  permission?: string | string[]; // Puede requerir uno o varios permisos
+  permission?: string | string[];
 }
 
 interface SidebarProps {
-  permissions: string[]; // Recibimos los permisos directamente del Server Layout
+  permissions: string[]; 
   empleadoNombre?: string;
   rolNombre?: string;
   isAdmin?: boolean;
@@ -79,6 +79,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   // --- LÓGICA DE ESTILOS ---
   const getModuleClasses = (moduleId: string) => {
     switch (moduleId) {
+      // --- TU CAMBIO AQUÍ: Color Naranja para Rendimiento ---
       case "rendimiento":
         return {
           active:
@@ -119,7 +120,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   };
 
   const currentActiveModule = useMemo(() => {
-    if (pathname.includes("/rendimiento")) return "rendimiento";
+    if (pathname.includes("/rendimiento")) return "rendimiento"; // Detecta ruta
     if (pathname.includes("/nomina")) return "nomina";
     if (pathname.includes("/asistencia")) return "asistencia";
     if (pathname.includes("/personal")) return "personal";
@@ -141,50 +142,56 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       icon: <UserRound size={20} />,
       label: "Personal",
       hasSubmenu: true,
-      // Si tiene cualquiera de estos, se muestra el padre.
-      // Luego filtramos los hijos individualmente.
-      permission: ["empleados.update", "roles.update"],
+      permission: ["empleados.update", "roles.update", "acceso_total"],
       submenu: [
         {
           icon: <UserPen size={18} />,
           label: "Empleados",
-          permission: "empleados.update",
+          permission: ["empleados.update", "acceso_total"],
           path: "/dashboard/personal/empleados",
         },
         {
           icon: <UserCog size={18} />,
           label: "Roles",
-          permission: "roles.update",
+          permission: ["roles.update", "acceso_total"],
           path: "/dashboard/personal/roles",
         },
       ],
     },
+    // --- TU CAMBIO AQUÍ: Configuración de Rendimiento con Permisos ---
     {
       id: "rendimiento",
       icon: <TrendingUp size={20} />,
       label: "Rendimiento",
       hasSubmenu: true,
+      // Se muestra el padre si tienes al menos uno de estos permisos básicos de lectura
       permission: [
-        "rendimiento.create",
-        "actividades.create",
-        "asignaciones.create",
+        "actividades.read", 
+        "comentarios.read", 
+        "reportes.read_all", 
+        "acceso_total"
       ],
-      // Si no tiene 'permission', es público (o depende solo de sus hijos)
       submenu: [
         {
           icon: <TrendingUp size={18} />,
           label: "Actividades",
           path: "/dashboard/rendimiento/actividades",
+          // Todos (incluyendo empleados) pueden ver actividades
+          permission: ["actividades.read", "acceso_total"],
         },
         {
           icon: <Users size={18} />,
           label: "Feedback",
           path: "/dashboard/rendimiento/comentarios",
+          // Todos pueden ver feedback (el suyo o general)
+          permission: ["comentarios.read", "acceso_total"],
         },
         {
           icon: <BarChart3 size={18} strokeWidth={2} />,
           label: "Analítica",
           path: "/dashboard/rendimiento/reportes",
+          // ESTO ES CLAVE: Solo Admin/Supervisor ve este link
+          permission: ["reportes.read_all", "acceso_total"],
         },
       ],
     },
@@ -193,8 +200,6 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       icon: <Banknote size={20} />,
       label: "Nómina",
       path: "/dashboard/nomina",
-      // Ejemplo: si quisieras restringir nomina:
-      // permission: "nomina.view"
     },
     {
       id: "asistencia",
@@ -204,13 +209,19 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     },
   ];
 
-  // --- LÓGICA DE FILTRADO DE SEGURIDAD (CERO FLASH) ---
+  // --- LÓGICA DE FILTRADO DE SEGURIDAD ---
   const filteredMenuItems = useMemo(() => {
-    // Función auxiliar para verificar un permiso único o array
+    
+    // Función auxiliar robusta para verificar permisos
     const checkAccess = (reqPermission?: string | string[]) => {
-      if (!reqPermission) return true; // Si no hay restricción, es público
+      // 1. Si no pide permiso, es público
+      if (!reqPermission) return true; 
+      
+      // 2. Si el usuario tiene 'acceso_total', ve todo (God Mode)
+      if (permissions.includes('acceso_total')) return true;
+
+      // 3. Verificación normal
       if (Array.isArray(reqPermission)) {
-        // Si es array, verificamos si tiene AL MENOS UNO de los permisos requeridos
         return reqPermission.some((p) => permissions.includes(p));
       }
       return permissions.includes(reqPermission);
@@ -220,27 +231,26 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       // 1. Verificamos permiso del padre
       if (!checkAccess(item.permission)) return acc;
 
-      // 2. Procesamos submenús si existen
+      // 2. Procesamos submenús
       let finalSubmenu = item.submenu;
       if (item.submenu) {
-        // Filtramos los hijos según sus permisos individuales
+        // Filtramos hijos
         finalSubmenu = item.submenu.filter((sub) =>
           checkAccess(sub.permission),
         );
 
-        // CRÍTICO: Si después de filtrar no quedan hijos y el padre no tiene path propio, ocultamos al padre
+        // Si se quedó sin hijos y no es un link directo, lo ocultamos
         if (finalSubmenu.length === 0 && !item.path) {
           return acc;
         }
       }
 
-      // 3. Agregamos el item (con sus submenús filtrados si aplica)
       acc.push({ ...item, submenu: finalSubmenu });
       return acc;
     }, [] as MenuItem[]);
-  }, [permissions]); // Solo se recalcula si cambian los permisos (que vienen del server)
+  }, [permissions]);
 
-  // Helpers de navegación
+  // Helpers de navegación (Sin cambios)
   const isActive = (path?: string) => path && pathname === path;
   const isSectionActive = (
     hasSubmenu?: boolean,
@@ -262,8 +272,8 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       <button
         onClick={() => setMobileOpen(true)}
         className={`my-4.5 ml-2.5 fixed top-5 left-4 z-[60] md:hidden transition-opacity duration-300 
-          text-gray-500 hover:text-gray-900 dark:text-blue-400 dark:hover:text-white
-          ${mobileOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        text-gray-500 hover:text-gray-900 dark:text-blue-400 dark:hover:text-white
+        ${mobileOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <Menu size={24} />
       </button>
@@ -357,7 +367,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
           </button>
         </div>
 
-        {/* Navegación USANDO filteredMenuItems en lugar de menuItems */}
+        {/* Navegación */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-none">
           {filteredMenuItems.map((item) => {
             const itemStyles = getModuleClasses(item.id);
@@ -418,7 +428,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
                   )}
                 </button>
 
-                {/* Submenu con animación simple */}
+                {/* Submenu */}
                 {item.hasSubmenu && isMenuOpen && !collapsed && (
                   <div className="mt-1 ml-4 pl-4 border-l-2 border-gray-200 dark:border-[#2d3142] space-y-1">
                     {item.submenu?.map((sub, idx) => (
