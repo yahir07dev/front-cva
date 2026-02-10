@@ -506,6 +506,7 @@ export type Database = {
         | "en_progreso"
         | "completada"
         | "explicacion_requerida"
+        | "revision"
       prioridad_actividad: "alta" | "media" | "baja"
       tipo_comentario: "positivo" | "mejora" | "negativo"
     }
@@ -647,6 +648,7 @@ export const Constants = {
         "en_progreso",
         "completada",
         "explicacion_requerida",
+        "revision",
       ],
       prioridad_actividad: ["alta", "media", "baja"],
       tipo_comentario: ["positivo", "mejora", "negativo"],

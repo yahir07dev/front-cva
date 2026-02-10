@@ -27,6 +27,8 @@ export type TipoComentario = Database['public']['Enums']['tipo_comentario']
 export interface ActividadConRelaciones extends Actividad {
   asignacion_actividades?: (AsignacionActividad & {
     empleados?: {
+      id: number;          // <--- AGREGAR
+      usuario_id: string | null; // <--- AGREGAR (Vital para los permisos)
       nombre: string;
       apellidos: string;
       foto_perfil_url: string | null;

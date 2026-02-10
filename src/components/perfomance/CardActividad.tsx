@@ -1,8 +1,8 @@
 'use client'
 
-import { Clock, RotateCw, HelpCircle, CheckCircle2, Trash2, Star, User, Calendar, Zap, AlertCircle, CircleDot } from 'lucide-react'
+import { Clock, RotateCw, HelpCircle, CheckCircle2, Trash2, Star, User, Calendar, Zap, AlertCircle, CircleDot, Eye } from 'lucide-react'
 import { ActividadConRelaciones } from '@/src/types/performance'
-import { useSession } from '@/src/hooks/useSession' // Necesario para identificar al usuario
+import { useSession } from '@/src/hooks/useSession'
 
 interface CardActividadProps {
   actividad: ActividadConRelaciones
@@ -17,16 +17,16 @@ export default function CardActividad({ actividad: act, canManage, onStatusChang
   const { session } = useSession() as any
   const currentUserId = session?.user?.id
 
-  // VALIDACIÓN CLAVE: ¿Soy yo uno de los asignados?
-  // Buscamos tanto en 'empleados' (plural) como 'empleado' (singular) por seguridad.
+  // 1. VALIDACIÓN: ¿Soy yo uno de los asignados?
   const isAssignedToMe = act.asignacion_actividades?.some((asig: any) => {
     const emp = asig.empleados || asig.empleado;
     return emp?.usuario_id === currentUserId;
   });
 
   const isUrgent = act.estado === 'explicacion_requerida';
+  const isInReview = act.estado === 'revision';
 
-  // Configuración Visual según Estado
+  // 2. Configuración Visual según Estado
   const statusConfig: Record<string, { icon: any; label: string; bgClass: string; textClass: string }> = {
     pendiente: { 
       icon: Clock, label: 'Pendiente', 
@@ -35,6 +35,10 @@ export default function CardActividad({ actividad: act, canManage, onStatusChang
     en_progreso: { 
       icon: RotateCw, label: 'En progreso', 
       bgClass: 'bg-blue-100 dark:bg-blue-900/40', textClass: 'text-blue-700 dark:text-blue-300'
+    },
+    revision: { 
+      icon: Eye, label: 'En Revisión', 
+      bgClass: 'bg-purple-100 dark:bg-purple-900/40', textClass: 'text-purple-700 dark:text-purple-300'
     },
     explicacion_requerida: { 
       icon: HelpCircle, label: 'Requiere ayuda', 
@@ -62,6 +66,7 @@ export default function CardActividad({ actividad: act, canManage, onStatusChang
     <div className={`
       group rounded-2xl sm:rounded-3xl transition-all
       ${isUrgent ? 'neon-border-animated overflow-visible' : 'bg-white dark:bg-gray-900 shadow-sm hover:shadow-lg overflow-hidden'}
+      ${isInReview ? 'ring-2 ring-purple-500/50 shadow-purple-100 dark:shadow-none' : ''}
     `}>
       
       {/* Header */}
@@ -120,45 +125,103 @@ export default function CardActividad({ actividad: act, canManage, onStatusChang
         )}
       </div>
 
-      {/* Footer de Acciones (CORREGIDO) */}
+      {/* Footer de Acciones (LOGICA CORREGIDA) */}
       <div className={`p-4 ${isUrgent ? 'bg-transparent' : 'bg-gray-50 dark:bg-gray-900/50'} rounded-b-[inherit]`}>
         
-        {/* REGLA DE ORO: Si estoy asignado (isAssignedToMe), muestro botones. Sea Admin o Empleado. */}
+        {/* =========================================================
+            CASO 1: SOY EL TRABAJADOR (Admin O Empleado)
+            Si la tarea es mía, muestro botones de acción.
+           ========================================================= */}
         {isAssignedToMe && act.estado !== 'completada' ? (
           <div className="grid grid-cols-4 gap-2">
             {[
               { value: 'pendiente', icon: Clock },
               { value: 'en_progreso', icon: RotateCw },
               { value: 'explicacion_requerida', icon: HelpCircle },
-              { value: 'completada', icon: CheckCircle2 },
+              
+              // AQUÍ ESTÁ LA MAGIA:
+              // Si soy Admin (canManage) -> CHECK (Completar directo)
+              // Si soy Empleado -> OJO (Solicitar revisión)
+              canManage 
+                ? { value: 'completada', icon: CheckCircle2 } 
+                : { value: 'revision', icon: Eye }, 
+
             ].map((opt) => {
               const Icon = opt.icon
               const isActive = act.estado === opt.value
-              let btnClass = isActive ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25' : 'bg-white text-gray-500 dark:bg-gray-800 dark:text-gray-400';
-              if (isActive && opt.value === 'explicacion_requerida') btnClass = 'bg-rose-500 text-white shadow-lg shadow-rose-500/40 animate-pulse ring-2 ring-rose-300';
+              
+              let btnClass = isActive 
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25' 
+                : 'bg-white text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+
+              if (isActive && opt.value === 'explicacion_requerida') 
+                btnClass = 'bg-rose-500 text-white shadow-lg shadow-rose-500/40 animate-pulse ring-2 ring-rose-300';
+              
+              // Estilo revisión (Empleado)
+              if (isActive && opt.value === 'revision') 
+                btnClass = 'bg-purple-600 text-white shadow-lg shadow-purple-500/40 ring-2 ring-purple-300';
+              
+              // Estilo completado (Admin)
+              if (isActive && opt.value === 'completada')
+                 btnClass = 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
 
               return (
-                <button key={opt.value} onClick={() => onStatusChange(act.id, opt.value)} className={`flex items-center justify-center rounded-xl p-2.5 transition-all active:scale-95 ${btnClass}`}>
-                  <Icon size={18} className={isActive && opt.value === 'explicacion_requerida' ? 'animate-bounce' : ''} />
+                <button 
+                  key={opt.value} 
+                  onClick={() => onStatusChange(act.id, opt.value)} 
+                  className={`flex items-center justify-center rounded-xl p-2.5 transition-all active:scale-95 ${btnClass}`}
+                  // Tooltip condicional
+                  title={opt.value === 'revision' ? 'Solicitar Revisión' : opt.value === 'completada' ? 'Completar Tarea' : ''}
+                >
+                  <Icon size={18} className={isActive && (opt.value === 'revision' || opt.value === 'explicacion_requerida') ? 'animate-pulse' : ''} />
                 </button>
               )
             })}
           </div>
-        ) : (
+        ) 
+        
+        // =========================================================
+        // CASO 2: SOY MANAGER OBSERVANDO (No es mi tarea)
+        // =========================================================
+        : canManage && act.estado !== 'completada' ? (
+           <div className="flex justify-between items-center h-10">
+             <div className="text-xs text-gray-500 italic flex items-center gap-2">
+               {act.estado === 'revision' ? (
+                 <span className="flex items-center gap-1 text-purple-600 font-medium animate-pulse">
+                    <Eye size={14}/> Esperando aprobación
+                 </span>
+               ) : 'Supervisando...'}
+             </div>
+             
+             {/* Botón de aprobar (si está en revisión) */}
+             {act.estado === 'revision' && (
+               <button 
+                  onClick={() => onStatusChange(act.id, 'completada')}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 transition-all active:scale-95 text-xs font-bold"
+               >
+                 <CheckCircle2 size={16} />
+                 Aprobar Tarea
+               </button>
+             )}
+           </div>
+        )
+
+        // CASO 3: Solo visualización (Completada o Empleado viendo tarea ajena)
+        : (
           <div className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium ${current.bgClass} ${current.textClass}`}>
             <StatusIcon size={16} />
             <span>{current.label}</span>
           </div>
         )}
 
-        {/* Botones de Gestión (Solo Admin) */}
+        {/* Botones de Gestión (Eliminar/Evaluar) - SIEMPRE VISIBLES PARA ADMIN */}
         {canManage && (
-          <div className="mt-3 flex justify-end gap-2">
-            <button onClick={() => onDelete(act.id)} className="group/btn flex items-center justify-center rounded-xl bg-gray-50 p-2.5 text-gray-400 hover:text-red-600 dark:bg-gray-800">
+          <div className="mt-3 flex justify-end gap-2 border-t border-gray-100 dark:border-gray-800 pt-3">
+            <button onClick={() => onDelete(act.id)} className="group/btn flex items-center justify-center rounded-xl bg-gray-50 p-2.5 text-gray-400 hover:text-red-600 dark:bg-gray-800" title="Eliminar">
               <Trash2 size={18} />
             </button>
             {act.estado === 'completada' && (
-              <button onClick={() => onEvaluar(act)} className="group/btn flex items-center justify-center rounded-xl bg-amber-50 p-2.5 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/30">
+              <button onClick={() => onEvaluar(act)} className="group/btn flex items-center justify-center rounded-xl bg-amber-50 p-2.5 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/30" title="Evaluar">
                 <Star size={18} />
               </button>
             )}

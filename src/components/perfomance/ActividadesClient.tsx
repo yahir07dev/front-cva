@@ -28,8 +28,13 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedActividad, setSelectedActividad] = useState<ActividadConRelaciones | null>(null)
+  
+  // ESTADOS PARA MODALES
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
-  const [idParaCompletar, setIdParaCompletar] = useState<number | null>(null)
+  
+  // Ahora guardamos no solo el ID, sino el NUEVO ESTADO al que se quiere ir
+  const [accionPendiente, setAccionPendiente] = useState<{ id: number, nuevoEstado: string } | null>(null)
+  
   const [idParaEliminar, setIdParaEliminar] = useState<number | null>(null)
 
   // --- LÓGICA CAMBIO DE ESTADO ---
@@ -37,7 +42,7 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     // 1. Buscamos la tarea
     const actividadActual = actividades.find(a => a.id === id);
     
-    // 2. Verificamos asignación (igual que en la Card, para doble seguridad)
+    // 2. Verificamos asignación
     const isAssignedToMe = actividadActual?.asignacion_actividades?.some(
       (asig: any) => {
          const emp = asig.empleados || asig.empleado;
@@ -46,23 +51,27 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     );
 
     // 3. Bloqueo de seguridad: Si eres Admin pero NO es tuya, no te dejo editar.
-    if (canManage && !isAssignedToMe) {
+    // EXCEPCIÓN: Si eres Admin y vas a APROBAR (completar), sí te dejo aunque no sea tuya.
+    if (canManage && !isAssignedToMe && nuevoEstado !== 'completada') {
       console.warn("Acción denegada: No puedes cambiar el estado de una tarea ajena.");
       return 
     }
 
-    if (nuevoEstado === 'completada') {
-      setIdParaCompletar(id)
+    // 4. Si el cambio es "Delicado" (Completar o Revisión), pedimos confirmación
+    if (nuevoEstado === 'completada' || nuevoEstado === 'revision') {
+      setAccionPendiente({ id, nuevoEstado })
       setConfirmModalOpen(true)
       return
     }
+
+    // 5. Si es un cambio normal (pendientes, en progreso...), lo hacemos directo
     await actualizarEstadoEnBD(id, nuevoEstado)
   }
 
-  const confirmarCompletado = async () => {
-    if (idParaCompletar) {
-      await actualizarEstadoEnBD(idParaCompletar, 'completada')
-      setIdParaCompletar(null)
+  const confirmarAccion = async () => {
+    if (accionPendiente) {
+      await actualizarEstadoEnBD(accionPendiente.id, accionPendiente.nuevoEstado)
+      setAccionPendiente(null)
       setConfirmModalOpen(false)
     }
   }
@@ -133,6 +142,27 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     )
   }
 
+  // Lógica para textos dinámicos del Modal
+  const getModalTexts = () => {
+      if (accionPendiente?.nuevoEstado === 'revision') {
+          return {
+              title: "¿Solicitar Revisión?",
+              desc: "Se notificará a tu supervisor que has terminado. La tarea quedará bloqueada hasta que sea aprobada.",
+              variant: "info" as const // O 'primary' si tu modal lo soporta
+          }
+      }
+      if (accionPendiente?.nuevoEstado === 'completada') {
+           return {
+              title: canManage ? "¿Aprobar Tarea?" : "¿Tarea Finalizada?", // Texto diferente si es Admin
+              desc: canManage ? "Al aprobar, confirmas que el trabajo cumple con los requisitos." : "Estás a punto de marcar esta tarea como completada.",
+              variant: "success" as const
+          }
+      }
+      return { title: "Confirmar", desc: "¿Estás seguro?", variant: "info" as const }
+  }
+
+  const modalContent = getModalTexts()
+
   return (
     <div className="flex flex-col h-full space-y-6">
       <ActividadesHeader 
@@ -174,13 +204,14 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         initialNota={selectedActividad?.observaciones_evaluacion || ''} 
       />
 
+      {/* MODAL DINÁMICO (Revisión o Completar) */}
       <ModalConfirmacion
         isOpen={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
-        onConfirm={confirmarCompletado}
-        titulo="¿Tarea Finalizada?"
-        descripcion="Estás a punto de marcar esta tarea como completada. Se notificará a tu supervisor."
-        variant="success"
+        onConfirm={confirmarAccion}
+        titulo={modalContent.title}
+        descripcion={modalContent.desc}
+        variant={modalContent.variant}
       />
 
       <ModalConfirmacion

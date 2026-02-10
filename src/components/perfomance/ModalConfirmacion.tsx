@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, AlertTriangle, Trash2 } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Trash2, Eye } from 'lucide-react'
 
 interface ModalConfirmacionProps {
   isOpen: boolean
@@ -8,7 +8,7 @@ interface ModalConfirmacionProps {
   onConfirm: () => void
   titulo: string
   descripcion: string
-  variant?: 'success' | 'danger'
+  variant?: 'success' | 'danger' | 'info' // <--- Agregamos 'info'
 }
 
 export default function ModalConfirmacion({
@@ -22,19 +22,50 @@ export default function ModalConfirmacion({
   
   if (!isOpen) return null
 
-  // Configuración según variante (se mantiene tu diseño original)
-  const styles = variant === 'danger' ? {
-    iconBg: 'bg-rose-100 dark:bg-rose-900/30',
-    iconColor: 'text-rose-600 dark:text-rose-400',
-    btnBg: 'bg-rose-500 shadow-rose-500/25 hover:bg-rose-600',
-    Icon: Trash2
-  } : {
-    iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-    btnBg: 'bg-emerald-500 shadow-emerald-500/25 hover:bg-emerald-600',
-    Icon: CheckCircle2
+  // Configuración de Estilos por Variante
+  const getStyles = () => {
+    switch (variant) {
+      case 'danger':
+        return {
+          iconBg: 'bg-rose-100 dark:bg-rose-900/30',
+          iconColor: 'text-rose-600 dark:text-rose-400',
+          btnBg: 'bg-rose-500 shadow-rose-500/25 hover:bg-rose-600',
+          alertBg: 'bg-rose-50 dark:bg-rose-900/10',
+          alertText: 'text-rose-800 dark:text-rose-200',
+          alertIconColor: 'text-rose-600',
+          Icon: Trash2,
+          btnText: 'Sí, eliminar',
+          alertMessage: 'Esta acción es irreversible y no se podrá recuperar.'
+        }
+      case 'info': // <--- Nueva configuración para Revisión
+        return {
+          iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+          iconColor: 'text-purple-600 dark:text-purple-400',
+          btnBg: 'bg-purple-600 shadow-purple-500/25 hover:bg-purple-700',
+          alertBg: 'bg-purple-50 dark:bg-purple-900/10',
+          alertText: 'text-purple-800 dark:text-purple-200',
+          alertIconColor: 'text-purple-600',
+          Icon: Eye,
+          btnText: 'Sí, solicitar',
+          alertMessage: 'La tarea quedará bloqueada hasta ser aprobada.'
+        }
+      case 'success':
+      default:
+        return {
+          iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+          iconColor: 'text-emerald-600 dark:text-emerald-400',
+          btnBg: 'bg-emerald-500 shadow-emerald-500/25 hover:bg-emerald-600',
+          alertBg: 'bg-orange-50 dark:bg-orange-900/10',
+          alertText: 'text-orange-800 dark:text-orange-200',
+          alertIconColor: 'text-orange-600',
+          Icon: CheckCircle2,
+          btnText: 'Sí, confirmar',
+          alertMessage: 'Esta acción registrará la fecha y hora exacta.'
+        }
+    }
   }
 
+  const styles = getStyles()
   const IconComponent = styles.Icon
 
   return (
@@ -58,13 +89,10 @@ export default function ModalConfirmacion({
           </p>
           
           {/* Alerta visual dinámica */}
-          <div className={`mt-4 flex items-start gap-2 rounded-xl p-3 text-left ${variant === 'danger' ? 'bg-rose-50 dark:bg-rose-900/10' : 'bg-orange-50 dark:bg-orange-900/10'}`}>
-            <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${variant === 'danger' ? 'text-rose-600' : 'text-orange-600'}`} />
-            <p className={`text-xs ${variant === 'danger' ? 'text-rose-800 dark:text-rose-200' : 'text-orange-800 dark:text-orange-200'}`}>
-              {variant === 'danger' 
-                ? 'Esta acción es irreversible y no se podrá recuperar.'
-                : 'Esta acción registrará la fecha y hora exacta.'
-              }
+          <div className={`mt-4 flex items-start gap-2 rounded-xl p-3 text-left ${styles.alertBg}`}>
+            <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${styles.alertIconColor}`} />
+            <p className={`text-xs ${styles.alertText}`}>
+              {styles.alertMessage}
             </p>
           </div>
         </div>
@@ -84,7 +112,7 @@ export default function ModalConfirmacion({
             }}
             className={`rounded-xl py-3 text-sm font-bold text-white shadow-lg transition-all active:scale-95 ${styles.btnBg}`}
           >
-            {variant === 'danger' ? 'Sí, eliminar' : 'Sí, confirmar'}
+            {styles.btnText}
           </button>
         </div>
       </div>
