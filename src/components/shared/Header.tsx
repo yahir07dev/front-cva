@@ -60,7 +60,7 @@ export default function Header() {
       h-[72px] shrink-0 flex items-center mx-4 mt-4 mb-2
       rounded-xl z-40 transition-all duration-300
       pl-16 md:pl-6
-      /* SOLUCIÓN: Clases directas de Tailwind */
+      
       bg-white shadow-lg shadow-gray-200/50
       dark:bg-[#1a1d29] dark:shadow-gray-950/50
     "

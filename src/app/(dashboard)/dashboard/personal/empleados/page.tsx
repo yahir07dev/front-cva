@@ -16,11 +16,6 @@ export default async function EmpleadosPage() {
         <div>
           <h1 className="text-2xl font-bold">Empleados</h1>
         </div>
-
-        <button className="flex flex-row px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition items-center">
-          <Plus size={20} className="mr-2 " />
-          Nuevo empleado
-        </button>
       </div>
 
       {/* Tabla */}

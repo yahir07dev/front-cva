@@ -1,6 +1,6 @@
 import React from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/src/lib/supabase/server"; // Asegúrate de que esta ruta sea correcta
+import { createClient } from "@/src/lib/supabase/server";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { AuthProvider } from "@/src/context/AuthContext";
 import Sidebar from "@/src/components/shared/Sidebar";
@@ -39,11 +39,6 @@ export default async function DashboardLayout({
       <AuthProvider initialPermissions={permissions}>
         <div className="flex h-screen w-full bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-white overflow-hidden transition-colors duration-300">
           <div className="flex-none z-50">
-            {/* NOTA: Aquí TypeScript puede quejarte si tu componente Sidebar 
-               aún no acepta la prop 'permissions'. 
-               Lo arreglaremos en el siguiente paso cuando me pases el Sidebar.
-            */}
-            {/* @ts-ignore */}
             <Sidebar permissions={permissions} />
           </div>
 
