@@ -1,19 +1,24 @@
 // src/hooks/useFeedback.ts
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
+import { useSession } from '@/src/hooks/useSession'
 import { TipoComentario } from '@/src/types/performance'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions'
-import { getComentarios, crearComentario } from '@/src/services/feedbackService'
+// IMPORTANTE: Importamos eliminarComentario
+import { getComentarios, crearComentario, eliminarComentario } from '@/src/services/feedbackService'
 
 export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const supabase = createClient()
   const scrollRef = useRef<HTMLDivElement>(null)
+  
+  const { session } = useSession() as any
+  const currentUserId = session?.user?.id
+  const googleAvatar = session?.user?.user_metadata?.avatar_url
 
-  // 1. ESTADO DE PERMISOS (Reemplaza a isAdmin manual)
+  // 1. ESTADO DE PERMISOS
   const [userPerms, setUserPerms] = useState<string[]>([])
   
-  // Cargamos permisos reales al inicio
   useEffect(() => {
     const loadPerms = async () => {
       const data = await getSessionUserWithPermissions()
@@ -22,54 +27,74 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     if (initialUser) loadPerms()
   }, [initialUser])
 
-  // canCreate = Admin o Supervisor (quien puede escribir)
   const canCreate = useMemo(() => {
     return hasPermission(userPerms, ['comentarios.create', 'acceso_total'])
   }, [userPerms])
 
   // 2. ESTADOS DE DATOS
   const [loading, setLoading] = useState(false)
-  const [empleados] = useState<any[]>(initialEmpleados || [])
   
-  // Selección de Empleado:
-  // - Si puede crear (Admin), empieza en null.
-  // - Si NO puede crear (Empleado), se auto-selecciona a sí mismo.
+  // --- INYECCIÓN DE FOTO EN EMPLEADOS ---
+  const empleadosProcesados = useMemo(() => {
+      if (!initialEmpleados) return [];
+      
+      return initialEmpleados.map(emp => {
+          if (emp.usuario_id === currentUserId && (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '')) {
+              return { ...emp, foto_perfil_url: googleAvatar };
+          }
+          return emp;
+      });
+  }, [initialEmpleados, currentUserId, googleAvatar]);
+
+  const [empleados] = useState<any[]>(empleadosProcesados)
   const [selectedEmp, setSelectedEmp] = useState<any>(null)
 
   useEffect(() => {
-    if (!canCreate && initialUser && initialEmpleados) {
-      const me = initialEmpleados.find(e => e.usuario_id === initialUser.id)
+    if (!canCreate && initialUser && empleadosProcesados.length > 0) {
+      const me = empleadosProcesados.find(e => e.usuario_id === initialUser.id)
       if (me) setSelectedEmp(me)
     }
-  }, [canCreate, initialUser, initialEmpleados])
+  }, [canCreate, initialUser, empleadosProcesados])
 
   const [comentarios, setComentarios] = useState<any[]>([])
 
   // 3. ESTADOS DE UI
   const [searchTerm, setSearchTerm] = useState('')
-  // Ajustamos 'mensaje' a 'descripcion' para coincidir con tu BD
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{titulo: string, descripcion: string, tipo: TipoComentario}>({
     titulo: '',
     descripcion: '', 
-    tipo: 'positivo' as TipoComentario
+    tipo: 'positivo'
   })
 
-  // 4. CARGAR COMENTARIOS (y Realtime)
+  // 4. CARGAR COMENTARIOS
   useEffect(() => {
     if (!selectedEmp) {
       setComentarios([])
       return
     }
     
-    // Función de carga
     const fetchComments = async () => {
       setLoading(true)
       try {
-        // Obtenemos TODOS (el RLS filtra por nosotros, pero aquí filtramos en memoria
-        // para asegurar que solo vemos los del empleado seleccionado en la UI de Admin)
-        const data = await getComentarios() 
-        const filtrados = data.filter((c: any) => c.empleado_id === selectedEmp.id)
-        setComentarios(filtrados)
+        const data = await getComentarios(selectedEmp.id) 
+        
+        const comentariosConFoto = data.map((comentario: any) => {
+            const autor = comentario.autor;
+            if (autor?.usuario_id === currentUserId || comentario.autor_id === currentUserId) {
+                 if (!autor?.foto_perfil_url) {
+                     return {
+                         ...comentario,
+                         autor: {
+                             ...autor,
+                             foto_perfil_url: googleAvatar
+                         }
+                     };
+                 }
+            }
+            return comentario;
+        });
+
+        setComentarios(comentariosConFoto)
         scrollToBottom()
       } catch (error) {
         console.error(error)
@@ -80,7 +105,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
 
     fetchComments()
 
-    // Suscripción Realtime
+    // Suscripción Realtime (Escucha DELETE también)
     const channel = supabase.channel('chat-feedback-realtime')
       .on('postgres_changes', 
         { 
@@ -90,20 +115,27 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
           filter: `empleado_id=eq.${selectedEmp.id}` 
         }, 
         () => {
-          // Recargamos silenciosamente al recibir evento
-          getComentarios().then(data => {
-             const filtrados = data.filter((c: any) => c.empleado_id === selectedEmp.id)
-             setComentarios(filtrados)
-             scrollToBottom()
-          })
+          // Al recibir evento (INSERT, UPDATE o DELETE), recargamos
+           getComentarios(selectedEmp.id).then(data => {
+             const conFoto = data.map((c: any) => {
+                 if (c.autor?.usuario_id === currentUserId) {
+                     if (!c.autor?.foto_perfil_url) {
+                         return { ...c, autor: { ...c.autor, foto_perfil_url: googleAvatar } }
+                     }
+                 }
+                 return c;
+             })
+             setComentarios(conFoto)
+             // Solo hacemos scroll si fue un insert (opcional, pero mejora UX)
+             // scrollToBottom() 
+           })
         }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [selectedEmp, supabase])
+  }, [selectedEmp, supabase, currentUserId, googleAvatar])
 
-  // Helpers
   const scrollToBottom = () => {
     setTimeout(() => {
       if (scrollRef.current) {
@@ -124,11 +156,24 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
         descripcion: form.descripcion,
         titulo: form.titulo
       })
-      // Limpiamos form
       setForm({ ...form, titulo: '', descripcion: '', tipo: 'positivo' })
       scrollToBottom()
     } catch (error: any) {
       alert('Error: ' + error.message)
+    }
+  }
+
+  // --- NUEVA FUNCIÓN: ELIMINAR ---
+  const handleDelete = async (id: number) => {
+    try {
+      // 1. Llamamos al servicio
+      await eliminarComentario(id)
+      
+      // 2. Actualización optimista (borramos de la lista visualmente al instante)
+      setComentarios(prev => prev.filter(c => c.id !== id))
+      
+    } catch (error: any) {
+      alert('Error al eliminar: ' + error.message)
     }
   }
 
@@ -144,17 +189,19 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
 
   return {
     loading,
-    canCreate,       // Usamos esto en vez de isAdmin
+    canCreate,
     selectedEmp,
     setSelectedEmp,
-    empleados,       // Lista completa (el componente visual filtra con searchTerm)
+    empleados: empleadosProcesados,
     comentarios,
     searchTerm,
     setSearchTerm,
     form,
     setForm,
     handleSend,
+    handleDelete, // 👈 ¡Ahora exportamos esto!
     stats,
-    scrollRef
+    scrollRef,
+    currentUserId // Exportamos esto para saber qué botones de borrar mostrar
   }
 }

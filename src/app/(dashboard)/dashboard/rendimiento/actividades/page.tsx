@@ -10,32 +10,31 @@ export default async function ActividadesPage() {
 
   const { data, error } = await supabase 
     .from('actividades') 
-    .select(` 
+    .select(`
       *,
       areas ( nombre ),
       asignacion_actividades (
         *,
-        empleados ( 
+        empleados (
           id,
           usuario_id,
-          nombre, 
-          apellidos, 
-          foto_perfil_url 
+          nombre,
+          apellidos,
+          foto_perfil_url
         )
       )
-    `) 
+    `)
     .order('created_at', { ascending: false })
 
-  // Si hay error en la consola del servidor, esto te ayudará a verlo
   if (error) {
-    console.error("Error cargando actividades:", error)
+    console.error('Error cargando actividades:', error)
   }
 
-  return ( 
-    <div className="p-4 sm:p-6 lg:p-8">
-      <ActividadesClient 
-        initialData={(data as unknown as ActividadConRelaciones[]) || []} 
+  return (
+    <div className="px-4 sm:px-6 lg:px-8">
+      <ActividadesClient
+        initialData={(data as unknown as ActividadConRelaciones[]) || []}
       />
     </div>
-  ) 
+  )
 }

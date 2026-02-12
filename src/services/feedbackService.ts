@@ -1,32 +1,59 @@
-// src/services/feedbackService.ts
 import { createClient } from '@/src/lib/supabase/client'
 import { TipoComentario } from '@/src/types/performance'
 
 const supabase = createClient()
 
 /**
- * Obtiene los comentarios de rendimiento.
- * * NOTA: La seguridad (RLS) en la base de datos ya filtra automáticamente:
- * - Si es Admin/Supervisor: Puede ver los de todos.
- * - Si es Empleado: Solo recibe los suyos.
- * * @param empleadoId (Opcional) Si se pasa, filtra los comentarios de ese empleado específico.
+ * Obtiene la lista de empleados para el sidebar.
+ */
+export const getEmpleadosParaFeedback = async () => {
+  const { data, error } = await supabase
+    .from('empleados')
+    .select(`
+      id, 
+      usuario_id,
+      nombre, 
+      apellidos, 
+      foto_perfil_url,
+      roles ( nombre )
+    `)
+    .eq('estado', 'activo')
+    .is('deleted_at', null)
+    .order('nombre', { ascending: true })
+
+  if (error) {
+    console.error("Error al obtener empleados feedback:", error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Obtiene los comentarios usando las relaciones explícitas.
+ * IMPORTANTE: No usar comentarios (--) dentro del string select().
  */
 export const getComentarios = async (empleadoId?: number) => {
   let query = supabase
     .from('comentarios_rendimiento')
     .select(`
       *,
-      empleado:empleados!empleado_id (
+      empleado:empleados!fk_comentarios_empleado (
         id, 
+        usuario_id,
         nombre, 
         apellidos, 
         foto_perfil_url
+      ),
+      autor:empleados!fk_comentarios_autor (
+        id,
+        usuario_id,
+        nombre,
+        apellidos,
+        foto_perfil_url
       )
     `)
-    // Ordenamos por fecha ascendente (antiguos arriba, nuevos abajo) para estilo chat
     .order('created_at', { ascending: true })
 
-  // Si el componente pide filtrar por un usuario específico (ej. Admin seleccionando a Juan)
   if (empleadoId) {
     query = query.eq('empleado_id', empleadoId)
   }
@@ -42,8 +69,7 @@ export const getComentarios = async (empleadoId?: number) => {
 }
 
 /**
- * Crea un nuevo comentario de retroalimentación.
- * Requiere que el usuario tenga permiso 'comentarios.create'.
+ * Crea un comentario.
  */
 export const crearComentario = async (
   comentario: {
@@ -53,14 +79,10 @@ export const crearComentario = async (
     descripcion: string
   }
 ) => {
-  // 1. Obtener usuario actual para el 'autor_id'
   const { data: { user } } = await supabase.auth.getUser()
   
-  if (!user) {
-    throw new Error('No hay sesión activa para crear el comentario.')
-  }
+  if (!user) throw new Error('No hay sesión activa.')
 
-  // 2. Insertar en la base de datos
   const { data, error } = await supabase
     .from('comentarios_rendimiento')
     .insert([{
@@ -68,16 +90,32 @@ export const crearComentario = async (
       tipo: comentario.tipo,
       titulo: comentario.titulo,
       descripcion: comentario.descripcion,
-      autor_id: user.id,   // El usuario logueado es el autor
-      created_by: user.id  // Auditoría
+      autor_id: user.id,
+      created_by: user.id
     }])
     .select()
     .single()
 
   if (error) {
-    console.error("Error al crear comentario:", error.message)
+    console.error("Error creating comentario:", error.message)
     throw new Error(error.message)
   }
 
   return data
+}
+
+/**
+ * Elimina un comentario por su ID.
+ * (Las políticas RLS de Supabase asegurarán que solo el autor o un admin puedan borrarlo).
+ */
+export const eliminarComentario = async (id: number) => {
+  const { error } = await supabase
+    .from('comentarios_rendimiento')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error("Error al eliminar comentario:", error.message)
+    throw new Error(error.message)
+  }
 }

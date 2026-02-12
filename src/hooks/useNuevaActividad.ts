@@ -1,7 +1,8 @@
 // src/hooks/useNuevaActividad.ts
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { getEmpleadosParaAsignacion, crearNuevaActividad } from '@/src/services/performanceService'
+import { createClient } from '@/src/lib/supabase/client'
+import { crearNuevaActividad } from '@/src/services/performanceService'
 import { PrioridadActividad } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
@@ -10,14 +11,13 @@ import { hasPermission } from '@/src/app/auth/permissions'
 export function useNuevaActividad() {
   const router = useRouter()
   const { session } = useSession() as any
+  const supabase = createClient()
   
-  // Estados de Datos
   const [empleados, setEmpleados] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [userPerms, setUserPerms] = useState<string[]>([]) 
 
-  // Estados del Formulario
   const [form, setForm] = useState({
     titulo: '',
     descripcion: '',
@@ -26,55 +26,76 @@ export function useNuevaActividad() {
     asignados: [] as string[]
   })
 
-  // --- CARGA DE PERMISOS REALES DESDE DB ---
+  // --- CARGA DE PERMISOS ---
   useEffect(() => {
     const loadUserPermissions = async () => {
-      // Obtenemos los slugs vinculados al usuario
       const data = await getSessionUserWithPermissions()
       if (data) {
         setUserPerms(data.permissions)
       }
     }
-    
     if (session) {
       loadUserPermissions()
     }
   }, [session])
 
-  // --- LÓGICA DE PERMISOS BASADA EN EL PERFIL DE DB ---
   const canCreate = useMemo(() => {
     if (!session) return false;
-
-    // Yahir tiene 'acceso_total', lo que debe habilitar canCreate
-    const result = hasPermission(userPerms, ['actividades.create', 'acceso_total']);
-
-    console.log("=== NUEVA ACTIVIDAD PERMISSIONS DEBUG ===");
-    console.log("Slugs detectados:", userPerms);
-    console.log("¿Habilitar formulario (canCreate)?:", result);
-    
-    return result;
+    return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
   }, [userPerms, session]);
 
-  // Cargar empleados al iniciar (CORREGIDO)
+  // --- CARGAR EMPLEADOS E INYECTAR FOTO DE GOOGLE ---
   useEffect(() => {
     let isMounted = true;
     
-    if (canCreate) {
-      getEmpleadosParaAsignacion()
-        .then(data => {
-          if (isMounted) {
-            // Verificamos que los datos lleguen con la propiedad 'rol'
-            console.log("Empleados cargados para asignación:", data);
-            setEmpleados(data);
-          }
-        })
-        .catch(err => {
-          console.error("Error al cargar empleados:", err);
-        });
+    const fetchEmpleados = async () => {
+        try {
+            // 1. Agregamos 'usuario_id' para saber cuál es el usuario actual
+            const { data, error } = await supabase
+                .from('empleados')
+                .select(`
+                    id, 
+                    usuario_id, 
+                    nombre, 
+                    apellidos, 
+                    foto_perfil_url, 
+                    roles ( nombre )
+                `)
+                .eq('estado', 'activo')
+                .order('nombre', { ascending: true })
+
+            if (error) throw error
+
+            if (isMounted && data) {
+                // 2. Lógica de "Inyección": 
+                // Si el empleado es el usuario actual y no tiene foto en BD, le ponemos la de Google
+                const currentUserId = session?.user?.id;
+                const googleAvatar = session?.user?.user_metadata?.avatar_url;
+
+                const empleadosProcesados = data.map((emp) => {
+                    const esElUsuarioActual = emp.usuario_id === currentUserId;
+                    const noTieneFotoBD = !emp.foto_perfil_url || emp.foto_perfil_url.trim() === '';
+
+                    if (esElUsuarioActual && noTieneFotoBD && googleAvatar) {
+                        return { ...emp, foto_perfil_url: googleAvatar };
+                    }
+                    return emp;
+                });
+
+                console.log("Empleados cargados (con foto inyectada):", empleadosProcesados)
+                setEmpleados(empleadosProcesados)
+            }
+        } catch (error) {
+            console.error("Error al cargar empleados:", error)
+        }
+    }
+
+    if (canCreate && session) {
+      fetchEmpleados()
     }
 
     return () => { isMounted = false; };
-  }, [canCreate]);
+  }, [canCreate, supabase, session]); // Agregamos 'session' a dependencias
 
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
@@ -99,7 +120,6 @@ export function useNuevaActividad() {
 
     setLoading(true)
     try {
-      // El servicio valida contra las políticas RLS actualizadas
       await crearNuevaActividad({
         titulo: form.titulo,
         descripcion: form.descripcion,

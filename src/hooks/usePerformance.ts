@@ -4,8 +4,6 @@ import { useSession } from '@/src/hooks/useSession'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions' 
-// Importamos el tipo para el payload si quieres ser estricto, o usamos any
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const [supabase] = useState(() => createClient())
@@ -29,7 +27,7 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     return hasPermission(userPerms, ['actividades.update', 'acceso_total']);
   }, [userPerms]);
   
-  // 2. Fetch
+  // 2. Fetch (CON INYECCIÓN DE AVATAR DE GOOGLE)
   const fetchActividades = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -46,58 +44,87 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       
       if (error) throw error;
       
-      // console.log("🔄 Refresh datos:", data?.length)
-      setActividades(data as unknown as ActividadConRelaciones[] || [])
+      // --- INICIO LÓGICA DE FOTO GOOGLE ---
+      let datosProcesados = (data as unknown as ActividadConRelaciones[]) || [];
+
+      // Si tenemos sesión activa y avatar de Google...
+      if (session?.user?.user_metadata?.avatar_url) {
+         const currentUserId = session.user.id;
+         const googleAvatar = session.user.user_metadata.avatar_url;
+
+         // Recorremos todas las actividades
+         datosProcesados = datosProcesados.map(actividad => ({
+            ...actividad,
+            // Recorremos las asignaciones de cada actividad
+            asignacion_actividades: actividad.asignacion_actividades?.map((asig: any) => {
+               // Obtenemos el objeto empleado (manejamos si viene como array o objeto por seguridad)
+               const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
+
+               // Si es el usuario actual Y no tiene foto en BD...
+               if (emp && emp.usuario_id === currentUserId) {
+                  if (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '') {
+                      // ... Le inyectamos la foto de Google "al vuelo"
+                      // IMPORTANTE: Aseguramos devolver la estructura correcta dependiendo de si 'empleados' era array u objeto
+                      const empleadoActualizado = {
+                          ...emp,
+                          foto_perfil_url: googleAvatar
+                      };
+
+                      return {
+                          ...asig,
+                          empleados: Array.isArray(asig.empleados) ? [empleadoActualizado] : empleadoActualizado
+                      };
+                  }
+               }
+               return asig;
+            })
+         }));
+      }
+      // --- FIN LÓGICA ---
+
+      setActividades(datosProcesados)
+
     } catch (err) {
       console.error('Error fetching:', err)
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, session]) // Agregamos 'session' a las dependencias
 
   // 3. Carga inicial
   useEffect(() => {
     if (!initialData && session) fetchActividades()
   }, [fetchActividades, initialData, session])
 
-  // 4. --- REALTIME CORREGIDO ---
+  // 4. --- REALTIME ---
   useEffect(() => {
     if (!supabase || !session?.user?.id) return
 
-    // ID único para evitar colisiones de canales
     const channelId = `perf-${session.user.id}-${Date.now()}`
     
-    console.log('🔌 Conectando Realtime:', channelId)
+    // console.log('🔌 Conectando Realtime:', channelId)
 
     const channel = supabase
       .channel(channelId) 
-      // A) Escuchar cambios en ACTIVIDADES
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'actividades' },
-        (payload: any) => { // <--- TIPADO COMO ANY PARA EVITAR ERRORES DE TS
-          console.log('🔔 Cambio en Actividades:', payload.eventType)
+        (payload: any) => { 
+          // console.log('🔔 Cambio en Actividades')
           fetchActividades()
         }
       )
-      // B) Escuchar ASIGNACIONES
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'asignacion_actividades' },
-        (payload: any) => { // <--- TIPADO COMO ANY
-          console.log('🔔 Cambio en Asignación:', payload.eventType)
-          // Delay de seguridad vital para RLS
+        (payload: any) => { 
+          // console.log('🔔 Cambio en Asignación')
           setTimeout(() => fetchActividades(), 800) 
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') console.log('✅ Realtime Listo')
-        if (status === 'CHANNEL_ERROR') console.error('❌ Error de conexión Realtime')
-      })
+      .subscribe()
     
-    // Cleanup
     return () => {
-      console.log('🧹 Desconectando:', channelId)
       supabase.removeChannel(channel)
     }
   }, [supabase, session?.user?.id, fetchActividades])
@@ -105,11 +132,13 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
   // 5. Filtrado Frontend
   const actividadesSeguras = useMemo(() => {
      let lista = actividades;
+     // Si NO puede gestionar (es empleado normal), solo ve las suyas
      if (!canManage && session?.user?.id) {
        lista = actividades.filter(act => 
-           act.asignacion_actividades?.some((asig: any) => 
-               asig.empleados?.usuario_id === session.user.id
-           )
+           act.asignacion_actividades?.some((asig: any) => {
+               const emp = asig.empleados || asig.empleado;
+               return emp?.usuario_id === session.user.id
+           })
        );
      }
      return lista;

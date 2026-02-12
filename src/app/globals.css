@@ -3,33 +3,39 @@
 /* --- TRUCO PARA V4: Activar modo oscuro por CLASE manual --- */
 @variant dark (&:where(.dark, .dark *));
 
-/* --- PALETA DE COLORES "CUBIC DESIGN" --- */
+/* =========================================================
+   PALETA "SOFT DARK MODERN"
+   ========================================================= */
+
 :root {
-  /* MODO CLARO (Light) */
-  --bg: #F4F4F4;
+  /* ----- LIGHT ----- */
+  --bg: #F4F6F8;
   --card: #FFFFFF;
-  --border: #E6E8EC;
-  --text: #111315;
-  --muted: #6F767E;
-  --hover: #F8F9FA;
-  --primary: #FF6A00;
-  --primary-hover: #FF8533;
+  --border: #E5E7EB;
+  --text: #0F172A;
+  --muted: #64748B;
+  --hover: #F1F5F9;
+
+  --primary: #6366F1;
+  --primary-hover: #818CF8;
   --primary-fg: #FFFFFF;
-  --bg-card: #ffffff; /* Para el neón */
+
+  --bg-card: #ffffff;
 }
 
 .dark {
-  /* MODO OSCURO (Dark) */
-  --bg: #111315;
-  --card: #1A1D1F;
-  --border: #272B30;
-  --text: #FCFCFC;
-  --muted: #9A9FA5;
-  --hover: #202427;
-  --primary: #FF6A00;
-  --primary-hover: #FF8533;
-  --primary-fg: #FFFFFF;
-  --bg-card: #111827; /* Para el neón */
+  --bg: #0B0D10;
+  --card: #14161A;
+  --border: #1E2025;
+  --text: #EDEDED;
+  --muted: #9AA0A6;
+  --hover: #1B1E23;
+
+  --primary: #9B9EFF;
+  --primary-hover: #B3B7FF;
+  --primary-fg: #0B0D10;
+
+  --bg-card: #0B0D10;
 }
 
 /* --- CONEXIÓN CON TAILWIND V4 --- */
@@ -46,48 +52,69 @@
   --shadow-card: 0 10px 25px rgba(0,0,0,0.05);
 }
 
-/* Ajuste de sombra para dark mode fuera del bloque @theme para usar selector */
 .dark {
-  --shadow-card: 0 10px 25px rgba(0,0,0,0.4);
+  --shadow-card: 0 10px 30px rgba(0,0,0,0.6);
 }
 
-/* --- ESTILOS BASE --- */
-/* IMPORTANTE: Usamos @layer base para que Tailwind lo maneje bien */
+/* --- BASE --- */
 @layer base {
   body {
     background-color: var(--bg);
     color: var(--text);
-    /* HEMOS ELIMINADO LAS TRANSICIONES AQUÍ.
-       Esto evita que el navegador "anime" el cambio de color al cargar la página.
-       Es la clave para evitar el parpadeo negro/blanco.
-    */
   }
 }
 
-/* --- SCROLLBAR --- */
+/* =========================================================
+   SCROLLBAR NEUTRO (ESTILO GEMINI / MINIMALISTA)
+   ========================================================= */
+
+/* 1. Para Chrome, Safari y Edge (Webkit) */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(120,120,120,0.4), rgba(80,80,80,0.6));
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(160,160,160,0.6), rgba(120,120,120,0.8));
+  /* Gris suave con transparencia en modo claro */
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  border: 2px solid transparent; /* Crea un efecto de margen */
+  background-clip: content-box;
 }
 
-/* Firefox */
+.dark ::-webkit-scrollbar-thumb {
+  /* Gris claro casi transparente en modo oscuro */
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* 2. Para Firefox */
 @layer base {
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(120,120,120,0.6) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+
+  .dark * {
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   }
 }
 
-/* --- EFECTO NEÓN ANIMADO --- */
+/* =========================================================
+   EFECTOS ADICIONALES
+   ========================================================= */
+
 @property --border-angle {
   syntax: '<angle>';
   initial-value: 0deg;
@@ -102,16 +129,16 @@
 
 .neon-border-animated {
   position: relative;
-  border: 3px solid transparent; 
-  background: 
+  border: 3px solid transparent;
+  background:
     linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
     conic-gradient(
-      from var(--border-angle), 
-      transparent 0%, 
-      transparent 75%, 
-      #ef4444 90%, 
-      #ffffff 100%
+      from var(--border-angle),
+      transparent 0%,
+      transparent 70%,
+      #7C83FF 85%,
+      #A78BFA 100%
     ) border-box;
-  animation: rotate-border 3s linear infinite;
-  filter: drop-shadow(0 0 4px #ef4444);
+  animation: rotate-border 4s linear infinite;
+  filter: drop-shadow(0 0 6px #7C83FF);
 }

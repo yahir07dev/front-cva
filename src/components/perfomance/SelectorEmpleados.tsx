@@ -1,9 +1,9 @@
 'use client'
 
 import { Users, Check } from 'lucide-react'
+import Image from 'next/image'
 
 interface SelectorEmpleadosProps {
-  // Usamos any[] para mantener compatibilidad con la respuesta del servicio
   empleados: any[]
   asignados: string[]
   onToggle: (id: string) => void
@@ -15,33 +15,55 @@ export default function SelectorEmpleados({ empleados, asignados, onToggle }: Se
     `${nombre?.[0] || ''}${apellidos?.[0] || ''}`.toUpperCase()
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-900 sm:rounded-3xl">
-      <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-6 sm:py-4">
+    <div className="
+      overflow-hidden rounded-2xl 
+      bg-white/80 dark:bg-neutral-900/40 
+      border border-neutral-200/50 dark:border-neutral-800/30 
+      backdrop-blur-md shadow-xl
+      max-h-[500px] flex flex-col
+    ">
+      {/* Header */}
+      <div className="border-b border-neutral-200/50 dark:border-neutral-800/30 px-5 py-4 bg-neutral-50/50 dark:bg-transparent shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
-              <Users size={16} className="text-orange-600 dark:text-orange-400" />
+          <div className="flex items-center gap-3">
+            <div className="
+              flex h-9 w-9 items-center justify-center rounded-xl 
+              bg-orange-500/10 dark:bg-orange-500/20 ring-1 ring-orange-500/20
+            ">
+              <Users size={18} className="text-orange-600 dark:text-orange-400" />
             </div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white sm:text-lg">Asignar a</h2>
+            <h2 className="text-lg font-bold text-neutral-800 dark:text-neutral-100">
+              Asignar equipo
+            </h2>
           </div>
           {asignados.length > 0 && (
-            <div className="flex h-6 items-center justify-center rounded-full bg-orange-500 px-2.5 text-xs font-bold text-white">
+            <div className="
+              flex h-6 items-center justify-center rounded-full 
+              bg-orange-600 px-2.5 text-xs font-bold text-white 
+              shadow-lg shadow-orange-600/20
+            ">
               {asignados.length}
             </div>
           )}
         </div>
       </div>
 
-      <div className="p-4 sm:p-6">
+      {/* Lista con scrollbar */}
+      <div className="
+        p-4 sm:p-5 
+        overflow-y-auto 
+        scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700
+      ">
         {empleados.length > 0 ? (
-          <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {empleados.map((emp) => {
               const isSelected = asignados.includes(emp.id.toString())
+              const rolNombre = Array.isArray(emp.roles) ? emp.roles[0]?.nombre : emp.roles?.nombre
               
-              // Ajustamos la obtención del nombre del rol según la estructura de la DB 
-              const rolNombre = Array.isArray(emp.roles) 
-                ? emp.roles[0]?.nombre 
-                : emp.roles?.nombre
+              // Verificación de foto (BD o Google sync)
+              const fotoUrl = emp.foto_perfil_url && emp.foto_perfil_url.trim() !== '' 
+                ? emp.foto_perfil_url 
+                : null;
 
               return (
                 <button
@@ -49,48 +71,65 @@ export default function SelectorEmpleados({ empleados, asignados, onToggle }: Se
                   type="button"
                   onClick={() => onToggle(emp.id.toString())}
                   className={`
-                    group relative flex items-center gap-3 rounded-xl p-3 text-left transition-all active:scale-[0.98]
+                    group relative flex items-center gap-3 rounded-xl p-3 text-left transition-all duration-300 active:scale-95
                     ${isSelected 
-                      ? 'bg-orange-500 shadow-lg shadow-orange-500/25' 
-                      : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-800'
+                      ? 'bg-orange-500/10 dark:bg-orange-600/20 ring-2 ring-orange-500/50 shadow-sm' 
+                      : 'bg-neutral-100/50 dark:bg-neutral-800/40 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/60 ring-1 ring-neutral-200 dark:ring-neutral-700/50'
                     }
                   `}
                 >
+                  {/* AVATAR: Foto o Iniciales */}
                   <div className={`
-                    flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-all
+                    relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-all overflow-hidden
                     ${isSelected
-                      ? 'bg-white/20 text-white'
-                      : 'bg-white text-gray-700 shadow-sm dark:bg-gray-900 dark:text-gray-300'
+                      ? 'bg-orange-600 text-white shadow-md'
+                      : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
                     }
                   `}>
-                    {getInitials(emp.nombre, emp.apellidos)}
+                    {fotoUrl ? (
+                      <Image 
+                        src={fotoUrl} 
+                        alt={emp.nombre} 
+                        fill 
+                        className="object-cover"
+                        referrerPolicy="no-referrer" // Clave para que carguen fotos de Google sin errores
+                        sizes="40px"
+                      />
+                    ) : (
+                      <span>{getInitials(emp.nombre, emp.apellidos)}</span>
+                    )}
                   </div>
 
+                  {/* Info del Empleado */}
                   <div className="min-w-0 flex-1">
-                    <p className={`truncate text-sm font-medium ${isSelected ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                    <p className={`truncate text-sm font-semibold ${isSelected ? 'text-orange-700 dark:text-white' : 'text-neutral-700 dark:text-neutral-200'}`}>
                       {emp.nombre} {emp.apellidos}
                     </p>
-                    <p className={`truncate text-xs ${isSelected ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
+                    <p className={`truncate text-[11px] ${isSelected ? 'text-orange-600/80 dark:text-white/60' : 'text-neutral-500 dark:text-neutral-400'}`}>
                       {rolNombre || 'Sin rol'}
                     </p>
                   </div>
 
+                  {/* Check de Selección */}
                   <div className={`
-                    flex h-5 w-5 items-center justify-center rounded-full transition-all
-                    ${isSelected ? 'bg-white/20' : 'bg-transparent'}
+                    flex h-5 w-5 items-center justify-center rounded-full transition-all duration-300
+                    ${isSelected 
+                      ? 'bg-orange-600 text-white scale-110 shadow-md' 
+                      : 'bg-neutral-300/50 dark:bg-neutral-700/50 text-transparent'
+                    }
                   `}>
-                    {isSelected && <Check size={14} className="text-white" />}
+                    <Check size={12} strokeWidth={3} />
                   </div>
                 </button>
               )
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-              <Users size={20} className="text-gray-400" />
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+              <Users size={28} className="text-neutral-400" />
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Cargando equipo...</p>
+            <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Cargando equipo...</p>
           </div>
         )}
       </div>

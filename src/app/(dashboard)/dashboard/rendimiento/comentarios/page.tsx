@@ -1,6 +1,5 @@
 import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
-// NOTA: Ajusté la ruta a 'performance' para mantener la consistencia
 import FeedbackClient from '@/src/components/perfomance/feedback/FeedbackClient' 
 
 export const dynamic = 'force-dynamic'
@@ -16,11 +15,10 @@ export default async function ComentariosPage() {
   }
 
   // 2. Obtener Lista de Empleados
-  // Se obtienen todos los activos. El componente Cliente (FeedbackClient) y 
-  // el hook (useFeedback) se encargarán de ocultar la lista si el usuario no es Admin/Supervisor.
+  // CORRECCIÓN AQUÍ: Agregamos 'foto_perfil_url' al select
   const { data: empleados, error } = await supabase
     .from('empleados')
-    .select('id, usuario_id, nombre, apellidos, roles(nombre)')
+    .select('id, usuario_id, nombre, apellidos, foto_perfil_url, roles(nombre)') 
     .eq('estado', 'activo')
     .is('deleted_at', null)
     .order('nombre', { ascending: true })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react' // <--- CAMBIO: Importar useEffect
+import { useState, useEffect } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
 import { AlertCircle } from 'lucide-react'
 import { usePerformance } from '@/src/hooks/usePerformance'
@@ -9,14 +9,13 @@ import { useSession } from '@/src/hooks/useSession'
 
 import ActividadesHeader from './ActividadesHeader'
 import CardActividad from './CardActividad'
-import ModalEvaluacion from './ModalEvaluacion'
-import ModalConfirmacion from './ModalConfirmacion'
+import ModalEvaluacion from '../shared/ModalEvaluacion'
+import ModalConfirmacion from '../shared/ModalConfirmacion'
 
 export default function ActividadesClient({ initialData }: { initialData: ActividadConRelaciones[] }) {
   const supabase = createClient()
-  const { session } = useSession() as any // Asumiendo que useSession puede devolver undefined al inicio
+  const { session } = useSession() as any 
   
-  // <--- CAMBIO 1: Estado para controlar el "pestañeo"
   const [isReady, setIsReady] = useState(false)
 
   const { 
@@ -35,14 +34,12 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
   const [accionPendiente, setAccionPendiente] = useState<{ id: number, nuevoEstado: string } | null>(null)
   const [idParaEliminar, setIdParaEliminar] = useState<number | null>(null)
 
-  // <--- CAMBIO 2: Efecto para esperar a que la sesión cargue antes de mostrar nada
   useEffect(() => {
     if (session?.user) {
       setIsReady(true)
     }
   }, [session])
 
-  // --- LÓGICA CAMBIO DE ESTADO ---
   const handleStatusChange = async (id: number, nuevoEstado: string) => {
     const actividadActual = actividades.find(a => a.id === id);
     const isAssignedToMe = actividadActual?.asignacion_actividades?.some(
@@ -123,8 +120,7 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     setModalOpen(true)
   }
 
-  // <--- CAMBIO 3: Bloqueo de seguridad visual
-  // Si está cargando datos O si aún no sabemos quién es el usuario (isReady false) -> Spinner
+  // --- CORRECCIÓN: El loader debe estar antes del render final, pero después de los hooks ---
   if ((loading && actividades.length === 0) || !isReady) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -154,17 +150,27 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
   const modalContent = getModalTexts()
 
   return (
-    <div className="flex flex-col h-full space-y-6">
-      <ActividadesHeader 
-        stats={stats} 
-        filtro={filtro} 
-        setFiltro={setFiltro} 
-        canCreate={canManage} 
-      />
+    /* h-full y h-[calc...] fuerzan el límite de altura para que el scroll se active */
+    <div className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
+      
+      {/* Header Fijo */}
+      <div className="flex-none mb-6">
+        <ActividadesHeader 
+          stats={stats} 
+          filtro={filtro} 
+          setFiltro={setFiltro} 
+          canCreate={canManage} 
+        />
+      </div>
 
-      <div className="flex-1 min-h-0">
+      {/* ÁREA DE SCROLL: Aquí es donde aparece la barrita únicamente para las cards */}
+      <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-10
+                      scrollbar-thin 
+                      scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-800 
+                      scrollbar-track-transparent">
+        
         {actividades.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-3xl bg-white border border-dashed border-gray-200 dark:bg-gray-900 dark:border-gray-800">
+          <div className="flex h-64 flex-col items-center justify-center rounded-3xl bg-white border border-dashed border-gray-20 dark:bg-neutral-950">
             <AlertCircle className="h-10 w-10 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">No se encontraron tareas</h3>
             <p className="text-sm text-gray-500">Prueba con otro filtro o crea una nueva.</p>
@@ -185,6 +191,7 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         )}
       </div>
 
+      {/* Modales */}
       <ModalEvaluacion 
         isOpen={modalOpen} 
         onClose={() => setModalOpen(false)} 
