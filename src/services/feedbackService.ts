@@ -5,6 +5,7 @@ const supabase = createClient()
 
 /**
  * Obtiene la lista de empleados para el sidebar.
+ * Filtra estrictamente por personal ACTIVO.
  */
 export const getEmpleadosParaFeedback = async () => {
   const { data, error } = await supabase
@@ -15,9 +16,10 @@ export const getEmpleadosParaFeedback = async () => {
       nombre, 
       apellidos, 
       foto_perfil_url,
+      estado,
       roles ( nombre )
     `)
-    .eq('estado', 'activo')
+    .eq('estado', 'activo') // Filtro de seguridad principal
     .is('deleted_at', null)
     .order('nombre', { ascending: true })
 
@@ -29,8 +31,7 @@ export const getEmpleadosParaFeedback = async () => {
 }
 
 /**
- * Obtiene los comentarios usando las relaciones explícitas.
- * IMPORTANTE: No usar comentarios (--) dentro del string select().
+ * Obtiene los comentarios filtrando por integridad de datos.
  */
 export const getComentarios = async (empleadoId?: number) => {
   let query = supabase
@@ -42,14 +43,16 @@ export const getComentarios = async (empleadoId?: number) => {
         usuario_id,
         nombre, 
         apellidos, 
-        foto_perfil_url
+        foto_perfil_url,
+        estado
       ),
       autor:empleados!fk_comentarios_autor (
         id,
         usuario_id,
         nombre,
         apellidos,
-        foto_perfil_url
+        foto_perfil_url,
+        estado
       )
     `)
     .order('created_at', { ascending: true })
@@ -69,7 +72,7 @@ export const getComentarios = async (empleadoId?: number) => {
 }
 
 /**
- * Crea un comentario.
+ * Crea un comentario validando que el autor siga ACTIVO.
  */
 export const crearComentario = async (
   comentario: {
@@ -80,8 +83,18 @@ export const crearComentario = async (
   }
 ) => {
   const { data: { user } } = await supabase.auth.getUser()
-  
   if (!user) throw new Error('No hay sesión activa.')
+
+  // BLINDAJE: Verificar que el autor no sea un usuario de baja
+  const { data: perfilAutor } = await supabase
+    .from('empleados')
+    .select('estado')
+    .eq('usuario_id', user.id)
+    .single()
+
+  if (perfilAutor?.estado === 'baja') {
+    throw new Error('Cuenta desactivada. No tienes permitido enviar feedback.')
+  }
 
   const { data, error } = await supabase
     .from('comentarios_rendimiento')
@@ -97,7 +110,7 @@ export const crearComentario = async (
     .single()
 
   if (error) {
-    console.error("Error creating comentario:", error.message)
+    console.error("Error creando comentario:", error.message)
     throw new Error(error.message)
   }
 
@@ -105,8 +118,8 @@ export const crearComentario = async (
 }
 
 /**
- * Elimina un comentario por su ID.
- * (Las políticas RLS de Supabase asegurarán que solo el autor o un admin puedan borrarlo).
+ * Elimina un comentario. 
+ * Las políticas RLS ya bloquean esto si el usuario es 'baja'.
  */
 export const eliminarComentario = async (id: number) => {
   const { error } = await supabase

@@ -3,23 +3,35 @@ import { redirect } from 'next/navigation'
 import FeedbackClient from '@/src/components/perfomance/feedback/FeedbackClient' 
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function ComentariosPage() {
   const supabase = await createClient()
 
-  // 1. Obtener Usuario Actual
+  // 1. OBTENER USUARIO Y VERIFICAR ESTADO (Blindaje de Servidor)
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
     redirect('/login')
   }
 
-  // 2. Obtener Lista de Empleados
-  // CORRECCIÓN AQUÍ: Agregamos 'foto_perfil_url' al select
+  // Verificamos si el usuario actual está dado de baja
+  const { data: perfilLogueado } = await supabase
+    .from('empleados')
+    .select('estado')
+    .eq('usuario_id', user.id)
+    .single()
+
+  // Si es "baja", lo redirigimos fuera del módulo inmediatamente
+  if (perfilLogueado?.estado === 'baja') {
+    redirect('/login?error=cuenta_desactivada')
+  }
+
+  // 2. OBTENER LISTA DE EMPLEADOS ACTIVOS
   const { data: empleados, error } = await supabase
     .from('empleados')
-    .select('id, usuario_id, nombre, apellidos, foto_perfil_url, roles(nombre)') 
-    .eq('estado', 'activo')
+    .select('id, usuario_id, nombre, apellidos, foto_perfil_url, estado, roles(nombre)') 
+    .eq('estado', 'activo') // Filtro estricto para la lista lateral
     .is('deleted_at', null)
     .order('nombre', { ascending: true })
 
@@ -38,7 +50,7 @@ export default async function ComentariosPage() {
       </div>
 
       {/* Contenedor del Chat/Feedback */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
         <FeedbackClient 
           initialUser={user} 
           initialEmpleados={empleados || []} 

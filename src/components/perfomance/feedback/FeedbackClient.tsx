@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, MessageSquare, ArrowLeft, MoreVertical, ListTodo, TrendingUp, User } from 'lucide-react'
+import { CheckCircle2, MessageSquare, ArrowLeft, MoreVertical, ListTodo, TrendingUp, User, ShieldAlert } from 'lucide-react'
 import { useFeedback } from '@/src/hooks/useFeedback'
 import StatCard from '@/src/components/shared/StatCard'
 import ListaEmpleados from './ListaEmpleados'
@@ -16,10 +16,11 @@ interface FeedbackClientProps {
 
 export default function FeedbackClient({ initialUser, initialEmpleados }: FeedbackClientProps) {
 
-  // Hook principal de lógica
+  // Hook principal con blindaje de estado
   const {
     loading,
     canCreate,
+    userEstado, // <-- Estado inyectado (activo/baja)
     selectedEmp,
     setSelectedEmp,
     empleados,
@@ -29,16 +30,16 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
     form,
     setForm,
     handleSend,
-    handleDelete, // Función que llama al servicio (delete real)
+    handleDelete,
     currentUserId,
     stats,
     scrollRef
   } = useFeedback(initialUser, initialEmpleados)
 
-  // Estado local para manejar el modal de confirmación
   const [mensajeIdParaBorrar, setMensajeIdParaBorrar] = useState<number | null>(null)
 
-  // Función wrapper para confirmar el borrado
+  const isBaja = userEstado === 'baja'
+
   const confirmarBorrado = async () => {
     if (mensajeIdParaBorrar) {
        await handleDelete(mensajeIdParaBorrar)
@@ -51,6 +52,17 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
       h-full flex flex-col overflow-hidden 
       bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100
     ">
+      
+      {/* BANNER DE SEGURIDAD: Solo visible si el usuario es baja */}
+      {isBaja && (
+        <div className="flex-none bg-rose-600 text-white px-6 py-2.5 flex items-center gap-3 shadow-lg z-10 animate-in slide-in-from-top duration-300">
+          <ShieldAlert size={18} className="shrink-0" />
+          <p className="text-sm font-bold">
+            Cuenta desactivada: El acceso a este módulo está restringido y no puedes enviar feedback.
+          </p>
+        </div>
+      )}
+
       <div className="flex-1 flex overflow-hidden">
 
         {/* COLUMNA IZQUIERDA: LISTA EMPLEADOS */}
@@ -70,6 +82,7 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
         <div className={`
           flex-1 flex flex-col h-full min-w-0 relative bg-gray-50 dark:bg-neutral-950
           ${!canCreate ? 'flex' : (selectedEmp ? 'flex' : 'hidden md:flex')}
+          ${isBaja ? 'opacity-75 pointer-events-none' : ''} 
         `}>
           {selectedEmp ? (
             <>
@@ -90,7 +103,7 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
                   )}
 
                   {/* Avatar Header */}
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-md shrink-0 overflow-hidden">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-md shrink-0 overflow-hidden text-sm">
                     {selectedEmp.foto_perfil_url ? (
                         <img 
                             src={selectedEmp.foto_perfil_url} 
@@ -122,35 +135,15 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
               {/* Stats Bar */}
               <div className="flex-none p-4 bg-white dark:bg-neutral-950 border-b border-neutral-100 dark:border-neutral-800/40">
                 <div className="grid grid-cols-3 gap-4">
-                  <StatCard
-                    icon={ListTodo}
-                    label="Total"
-                    value={stats.total}
-                    accentColor="blue"
-                  />
-                  <StatCard
-                    icon={CheckCircle2}
-                    label="Positivos"
-                    value={stats.positivos}
-                    accentColor="green"
-                  />
-                  <StatCard
-                    icon={TrendingUp}
-                    label="Mejora"
-                    value={stats.mejora}
-                    accentColor="orange"
-                  />
+                  <StatCard icon={ListTodo} label="Total" value={stats.total} accentColor="blue" />
+                  <StatCard icon={CheckCircle2} label="Positivos" value={stats.positivos} accentColor="green" />
+                  <StatCard icon={TrendingUp} label="Mejora" value={stats.mejora} accentColor="orange" />
                 </div>
               </div>
 
-              {/* Área de Mensajes con scroll */}
+              {/* Área de Mensajes */}
               <div
-                className="
-                  flex-1 overflow-y-auto px-4 pb-6 md:px-6 
-                  scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent
-                  hover:scrollbar-thumb-neutral-400 dark:hover:scrollbar-thumb-neutral-600
-                  scrollbar-thumb-rounded-full scrollbar-track-rounded-full
-                "
+                className="flex-1 overflow-y-auto px-4 pb-6 md:px-6 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent"
                 ref={scrollRef}
               >
                 {loading && comentarios.length === 0 ? (
@@ -170,8 +163,7 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
                             key={msg.id} 
                             mensaje={msg} 
                             currentUserId={currentUserId}
-                            // En lugar de llamar directo a handleDelete, abrimos el modal
-                            onDelete={(id) => setMensajeIdParaBorrar(id)} 
+                            onDelete={isBaja ? undefined : (id) => setMensajeIdParaBorrar(id)} 
                         />
                       ))
                     )}
@@ -185,43 +177,35 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
                   form={form}
                   setForm={setForm}
                   onSend={handleSend}
-                  loading={loading}
+                  loading={loading || isBaja}
                 />
               ) : (
-                <div className="
-                  flex-none p-4 text-center text-sm text-neutral-400 
-                  bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800/40
-                  italic
-                ">
-                  Solo lectura
+                <div className="flex-none p-4 text-center text-sm text-neutral-400 bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800/40 italic">
+                  {isBaja ? 'Acceso denegado: Cuenta inactiva' : 'Solo lectura'}
                 </div>
               )}
             </>
           ) : (
-            // Estado vacío (Solo para Admin)
             <div className="hidden md:flex flex-col items-center justify-center h-full text-center p-8 bg-gray-50 dark:bg-neutral-950">
               <div className="h-24 w-24 bg-white dark:bg-neutral-900/70 rounded-full flex items-center justify-center mb-6 shadow-sm border border-neutral-200 dark:border-transparent">
                 <User size={48} className="text-neutral-300 dark:text-neutral-600" />
               </div>
               <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Selecciona un empleado</h3>
-              <p className="text-neutral-500 dark:text-neutral-400 max-w-xs">
-                Para ver el historial de feedback.
-              </p>
+              <p className="text-neutral-500 dark:text-neutral-400 max-w-xs">Para ver el historial de feedback.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal de Confirmación Global */}
       <ModalConfirmacion
         isOpen={!!mensajeIdParaBorrar}
         onClose={() => setMensajeIdParaBorrar(null)}
         onConfirm={confirmarBorrado}
         titulo="¿Eliminar comentario?"
-        descripcion="Estás a punto de eliminar este mensaje permanentemente. Esta acción no se puede deshacer."
+        descripcion="Estás a punto de eliminar este mensaje permanentemente."
         variant="danger"
         textConfirmar="Sí, eliminar"
-        loading={loading} // Opcional, si quieres mostrar spinner mientras borra
+        loading={loading}
       />
     </div>
   )

@@ -23,6 +23,9 @@ import {
   UserRound,
   UserPen,
   UserCog,
+  // IMPORTAMOS LOS NUEVOS ICONOS AQUÍ
+  Building2, 
+  MapPin
 } from "lucide-react";
 
 /* ================= TIPOS ================= */
@@ -78,6 +81,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     if (id === "rendimiento") {
       return "bg-orange-500/15 text-orange-600 dark:bg-orange-600/25 dark:text-orange-400";
     }
+    // AGREGAMOS EL COLOR AZUL PARA ORGANIZACIÓN
+    if (id === "organizacion") {
+      return "bg-blue-500/15 text-blue-600 dark:bg-blue-600/25 dark:text-blue-400";
+    }
+    // Si quisieras agregar el morado para personal, sería aquí:
+    // if (id === "personal") return "bg-purple-500/15 text-purple-600...";
+    
     return "bg-neutral-200/50 dark:bg-neutral-800/40 text-neutral-900 dark:text-neutral-100";
   };
 
@@ -112,6 +122,24 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         },
       ],
     },
+    // --- NUEVA SECCIÓN DE ORGANIZACIÓN ---
+    {
+      id: "organizacion",
+      icon: <Building2 size={20} />, // Icono de Edificio/Estructura
+      label: "Organización",
+      hasSubmenu: true,
+      // Permisos para Admin (acceso_total) y Supervisor (areas.read)
+      permission: ["areas.read", "acceso_total"], 
+      submenu: [
+        {
+          icon: <MapPin size={18} />, // Icono de ubicación/área
+          label: "Áreas",
+          path: "/dashboard/organizacion/areas",
+          permission: ["areas.read", "acceso_total"],
+        },
+      ],
+    },
+    // -------------------------------------
     {
       id: "rendimiento",
       icon: <TrendingUp size={20} />,

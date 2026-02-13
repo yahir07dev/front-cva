@@ -5,7 +5,6 @@ import { useSession } from '@/src/hooks/useSession'
 import { TipoComentario } from '@/src/types/performance'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions'
-// IMPORTANTE: Importamos eliminarComentario
 import { getComentarios, crearComentario, eliminarComentario } from '@/src/services/feedbackService'
 
 export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
@@ -16,29 +15,46 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const currentUserId = session?.user?.id
   const googleAvatar = session?.user?.user_metadata?.avatar_url
 
-  // 1. ESTADO DE PERMISOS
+  // 1. ESTADO DE PERMISOS Y SEGURIDAD (Blindaje)
   const [userPerms, setUserPerms] = useState<string[]>([])
+  const [userEstado, setUserEstado] = useState<string>('activo')
   
   useEffect(() => {
-    const loadPerms = async () => {
+    const loadUserData = async () => {
+      // Carga de permisos
       const data = await getSessionUserWithPermissions()
       if (data) setUserPerms(data.permissions)
+
+      // Verificación de estado de cuenta
+      if (currentUserId) {
+        const { data: emp } = await supabase
+          .from('empleados')
+          .select('estado')
+          .eq('usuario_id', currentUserId)
+          .single()
+        
+        if (emp) setUserEstado(emp.estado)
+      }
     }
-    if (initialUser) loadPerms()
-  }, [initialUser])
+    if (initialUser) loadUserData()
+  }, [initialUser, currentUserId, supabase])
 
   const canCreate = useMemo(() => {
+    // Bloqueo preventivo si el usuario está de baja
+    if (userEstado === 'baja') return false
     return hasPermission(userPerms, ['comentarios.create', 'acceso_total'])
-  }, [userPerms])
+  }, [userPerms, userEstado])
 
   // 2. ESTADOS DE DATOS
   const [loading, setLoading] = useState(false)
   
-  // --- INYECCIÓN DE FOTO EN EMPLEADOS ---
+  // Filtrado y procesamiento de empleados (Solo activos para la lista)
   const empleadosProcesados = useMemo(() => {
       if (!initialEmpleados) return [];
       
-      return initialEmpleados.map(emp => {
+      return initialEmpleados
+        .filter(emp => emp.estado === 'activo') // Filtro de seguridad
+        .map(emp => {
           if (emp.usuario_id === currentUserId && (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '')) {
               return { ...emp, foto_perfil_url: googleAvatar };
           }
@@ -46,9 +62,10 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
       });
   }, [initialEmpleados, currentUserId, googleAvatar]);
 
-  const [empleados] = useState<any[]>(empleadosProcesados)
   const [selectedEmp, setSelectedEmp] = useState<any>(null)
+  const [comentarios, setComentarios] = useState<any[]>([])
 
+  // Autoselección para empleados sin permiso de gestión
   useEffect(() => {
     if (!canCreate && initialUser && empleadosProcesados.length > 0) {
       const me = empleadosProcesados.find(e => e.usuario_id === initialUser.id)
@@ -56,9 +73,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     }
   }, [canCreate, initialUser, empleadosProcesados])
 
-  const [comentarios, setComentarios] = useState<any[]>([])
-
-  // 3. ESTADOS DE UI
+  // 3. UI Y FILTROS
   const [searchTerm, setSearchTerm] = useState('')
   const [form, setForm] = useState<{titulo: string, descripcion: string, tipo: TipoComentario}>({
     titulo: '',
@@ -66,7 +81,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     tipo: 'positivo'
   })
 
-  // 4. CARGAR COMENTARIOS
+  // 4. CARGAR COMENTARIOS Y REALTIME
   useEffect(() => {
     if (!selectedEmp) {
       setComentarios([])
@@ -81,13 +96,10 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
         const comentariosConFoto = data.map((comentario: any) => {
             const autor = comentario.autor;
             if (autor?.usuario_id === currentUserId || comentario.autor_id === currentUserId) {
-                 if (!autor?.foto_perfil_url) {
+                 if (!autor?.foto_perfil_url && googleAvatar) {
                      return {
                          ...comentario,
-                         autor: {
-                             ...autor,
-                             foto_perfil_url: googleAvatar
-                         }
+                         autor: { ...autor, foto_perfil_url: googleAvatar }
                      };
                  }
             }
@@ -105,32 +117,21 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
 
     fetchComments()
 
-    // Suscripción Realtime (Escucha DELETE también)
-    const channel = supabase.channel('chat-feedback-realtime')
+    // Suscripción Realtime optimizada
+    const channel = supabase.channel(`chat-${selectedEmp.id}`)
       .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'comentarios_rendimiento', 
-          filter: `empleado_id=eq.${selectedEmp.id}` 
-        }, 
-        () => {
-          // Al recibir evento (INSERT, UPDATE o DELETE), recargamos
-           getComentarios(selectedEmp.id).then(data => {
-             const conFoto = data.map((c: any) => {
-                 if (c.autor?.usuario_id === currentUserId) {
-                     if (!c.autor?.foto_perfil_url) {
-                         return { ...c, autor: { ...c.autor, foto_perfil_url: googleAvatar } }
-                     }
-                 }
-                 return c;
-             })
-             setComentarios(conFoto)
-             // Solo hacemos scroll si fue un insert (opcional, pero mejora UX)
-             // scrollToBottom() 
-           })
-        }
+        { event: '*', schema: 'public', table: 'comentarios_rendimiento', filter: `empleado_id=eq.${selectedEmp.id}` }, 
+        () => fetchComments()
       )
+      // Si el estado de un empleado cambia a baja, refrescamos la lista
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, () => {
+          // Si el empleado seleccionado es dado de baja, lo deseleccionamos
+          if (selectedEmp) {
+              supabase.from('empleados').select('estado').eq('id', selectedEmp.id).single().then(({data}) => {
+                  if (data?.estado === 'baja') setSelectedEmp(null);
+              });
+          }
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -144,9 +145,10 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     }, 100)
   }
 
-  // Acción de Enviar
+  // Acción de Enviar Segura
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (userEstado === 'baja') return alert('Cuenta desactivada.')
     if (!form.descripcion.trim() || !form.titulo.trim() || !selectedEmp) return
 
     try {
@@ -163,21 +165,16 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     }
   }
 
-  // --- NUEVA FUNCIÓN: ELIMINAR ---
   const handleDelete = async (id: number) => {
+    if (userEstado === 'baja') return alert('Acceso denegado.')
     try {
-      // 1. Llamamos al servicio
       await eliminarComentario(id)
-      
-      // 2. Actualización optimista (borramos de la lista visualmente al instante)
       setComentarios(prev => prev.filter(c => c.id !== id))
-      
     } catch (error: any) {
       alert('Error al eliminar: ' + error.message)
     }
   }
 
-  // Stats Calculados
   const stats = useMemo(() => {
     if (!comentarios.length) return { total: 0, positivos: 0, mejora: 0 }
     return {
@@ -190,6 +187,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   return {
     loading,
     canCreate,
+    userEstado, // Exportamos estado para la UI
     selectedEmp,
     setSelectedEmp,
     empleados: empleadosProcesados,
@@ -199,9 +197,9 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     form,
     setForm,
     handleSend,
-    handleDelete, // 👈 ¡Ahora exportamos esto!
+    handleDelete,
     stats,
     scrollRef,
-    currentUserId // Exportamos esto para saber qué botones de borrar mostrar
+    currentUserId
   }
 }

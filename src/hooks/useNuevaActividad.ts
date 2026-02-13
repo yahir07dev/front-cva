@@ -17,6 +17,7 @@ export function useNuevaActividad() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [userPerms, setUserPerms] = useState<string[]>([]) 
+  const [userEstado, setUserEstado] = useState<string>('activo') //
 
   const [form, setForm] = useState({
     titulo: '',
@@ -26,31 +27,41 @@ export function useNuevaActividad() {
     asignados: [] as string[]
   })
 
-  // --- CARGA DE PERMISOS ---
+  // 1. CARGA DE PERMISOS Y ESTADO REAL (Blindaje)
   useEffect(() => {
-    const loadUserPermissions = async () => {
+    const loadUserData = async () => {
+      // Cargamos permisos
       const data = await getSessionUserWithPermissions()
       if (data) {
         setUserPerms(data.permissions)
       }
+
+      // Verificamos estado de salud de la cuenta (activo/baja)
+      if (session?.user?.id) {
+        const { data: emp } = await supabase
+          .from('empleados')
+          .select('estado')
+          .eq('usuario_id', session.user.id)
+          .single()
+        
+        if (emp) setUserEstado(emp.estado)
+      }
     }
-    if (session) {
-      loadUserPermissions()
-    }
-  }, [session])
+
+    if (session) loadUserData()
+  }, [session, supabase])
 
   const canCreate = useMemo(() => {
-    if (!session) return false;
+    if (!session || userEstado === 'baja') return false; // Bloqueo preventivo si es baja
     return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
-  }, [userPerms, session]);
+  }, [userPerms, session, userEstado]);
 
-  // --- CARGAR EMPLEADOS E INYECTAR FOTO DE GOOGLE ---
+  // 2. CARGAR EMPLEADOS E INYECTAR FOTO DE GOOGLE
   useEffect(() => {
     let isMounted = true;
     
     const fetchEmpleados = async () => {
         try {
-            // 1. Agregamos 'usuario_id' para saber cuál es el usuario actual
             const { data, error } = await supabase
                 .from('empleados')
                 .select(`
@@ -61,14 +72,13 @@ export function useNuevaActividad() {
                     foto_perfil_url, 
                     roles ( nombre )
                 `)
-                .eq('estado', 'activo')
+                .eq('estado', 'activo') // Solo personal vigente
+                .is('deleted_at', null)
                 .order('nombre', { ascending: true })
 
             if (error) throw error
 
             if (isMounted && data) {
-                // 2. Lógica de "Inyección": 
-                // Si el empleado es el usuario actual y no tiene foto en BD, le ponemos la de Google
                 const currentUserId = session?.user?.id;
                 const googleAvatar = session?.user?.user_metadata?.avatar_url;
 
@@ -82,7 +92,6 @@ export function useNuevaActividad() {
                     return emp;
                 });
 
-                console.log("Empleados cargados (con foto inyectada):", empleadosProcesados)
                 setEmpleados(empleadosProcesados)
             }
         } catch (error) {
@@ -95,7 +104,7 @@ export function useNuevaActividad() {
     }
 
     return () => { isMounted = false; };
-  }, [canCreate, supabase, session]); // Agregamos 'session' a dependencias
+  }, [canCreate, supabase, session]);
 
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
@@ -110,9 +119,15 @@ export function useNuevaActividad() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  // 3. ENVÍO SEGURO
   const handleSubmit = async () => {
+    // Verificación final de estado antes de disparar el servicio
+    if (userEstado === 'baja') {
+      return alert('Acceso denegado. Tu cuenta no está activa.')
+    }
+
     if (!canCreate) {
-      return alert('No tienes permisos (slug: actividades.create) para realizar esta acción.')
+      return alert('No tienes permisos para realizar esta acción.')
     }
 
     if (form.asignados.length === 0) return alert('Selecciona al menos un empleado.')
@@ -134,8 +149,7 @@ export function useNuevaActividad() {
         router.refresh()
       }, 1500)
     } catch (error: any) {
-      console.error("Error al crear:", error.message);
-      alert('Error de base de datos: ' + error.message)
+      alert('Error: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -146,6 +160,7 @@ export function useNuevaActividad() {
     empleados,
     loading,
     success,
+    userEstado,
     toggleEmpleado,
     handleChange,
     handleSubmit,

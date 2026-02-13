@@ -1,9 +1,10 @@
 import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
-import NuevaActividadClient from '@/src/components/perfomance/NuevaActividadClient' // Ajusté ruta 'perfomance' -> 'performance'
+import NuevaActividadClient from '@/src/components/perfomance/NuevaActividadClient'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function NuevaActividadPage() {
   const supabase = await createClient()
@@ -12,16 +13,27 @@ export default async function NuevaActividadPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. VERIFICACIÓN DE PERMISOS (SERVIDOR)
-  // Obtenemos los slugs de permisos del usuario usando tu RPC
+  // 2. BLINDAJE DE ESTADO (Servidor)
+  // Verificamos si el usuario (aunque sea admin) está ACTIVO
+  const { data: perfil } = await supabase
+    .from('empleados')
+    .select('estado')
+    .eq('usuario_id', user.id)
+    .single()
+
+  if (perfil?.estado === 'baja') { //
+    redirect('/login?error=cuenta_desactivada')
+  }
+
+  // 3. VERIFICACIÓN DE PERMISOS (SERVIDOR)
+  // Obtenemos los slugs de permisos del usuario usando la RPC
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
 
   // Permisos requeridos: crear actividad O acceso total (admin)
   const canCreate = permisos.includes('actividades.create') || permisos.includes('acceso_total')
 
-  // 3. SI NO TIENE PERMISO -> BLOQUEO TOTAL
-  // Esto evita que renderice siquiera el formulario
+  // 4. SI NO TIENE PERMISO -> BLOQUEO TOTAL
   if (!canCreate) {
     return (
       <AccessDenied 
@@ -30,6 +42,10 @@ export default async function NuevaActividadPage() {
     )
   }
 
-  // 4. Si tiene permiso -> Renderizar formulario cliente
-  return <NuevaActividadClient />
+  // 5. Si todo está en orden -> Renderizar formulario cliente
+  return (
+    <div className="h-full">
+      <NuevaActividadClient />
+    </div>
+  )
 }
