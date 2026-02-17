@@ -9,72 +9,58 @@ export const revalidate = 0
 export default async function AreasPage() {
   const supabase = await createClient()
 
-  // 1. Verificación básica de sesión
+  // 1. Verificación de sesión y estado
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. BLINDAJE DE ESTADO (Servidor)
   const { data: perfil } = await supabase
     .from('empleados')
     .select('estado')
     .eq('usuario_id', user.id)
     .single()
 
-  if (perfil?.estado === 'baja') {
-    redirect('/login?error=cuenta_desactivada')
-  }
+  if (perfil?.estado === 'baja') redirect('/login?error=cuenta_desactivada')
 
-  // 3. VERIFICACIÓN DE PERMISOS (SERVIDOR)
-  // Usamos la RPC que ya tienes configurada y es infalible
+  // 2. Permisos
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
-
-  // Permisos requeridos para ver esta página: áreas.read O acceso total
   const canView = permisos.includes('areas.read') || permisos.includes('acceso_total')
 
-  // 4. SI NO TIENE PERMISO -> BLOQUEO TOTAL
-  if (!canView) {
-    return (
-      <AccessDenied 
-        message="No tienes los permisos necesarios para gestionar la estructura organizacional. Contacta a un administrador." 
-      />
-    )
-  }
+  if (!canView) return <AccessDenied message="No tienes permisos." />
 
-  // 5. CARGA DE DATOS (Solo si pasó el blindaje anterior)
+  // 3. Carga de datos
   const [areasRes, empleadosRes] = await Promise.all([
-    supabase
-      .from('areas')
-      .select(`
-        id, nombre, descripcion, encargado_id,
-        encargado:empleados!fk_areas_encargado(id, nombre, apellidos, foto_perfil_url)
-      `)
-      .is('deleted_at', null)
-      .order('nombre', { ascending: true }),
-
-    supabase
-      .from('empleados')
-      .select('id, nombre, apellidos, foto_perfil_url, area_id')
-      .eq('estado', 'activo')
-      .is('deleted_at', null)
-      .order('nombre', { ascending: true })
+    supabase.from('areas').select(`*, encargado:empleados!fk_areas_encargado(*)`).is('deleted_at', null).order('nombre'),
+    supabase.from('empleados').select('*').eq('estado', 'activo').is('deleted_at', null).order('nombre')
   ])
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 animate-in fade-in duration-500">
-      <div className="mb-6 flex flex-col gap-1">
-        <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-          Estructura Organizacional
-        </h2>
-        <p className="text-muted-foreground text-sm italic">
-          Gestión de departamentos y asignación operativa de personal.
-        </p>
-      </div>
+    /**
+     * 🟢 INTEGRACIÓN TOTAL CON EL FONDO:
+     * - Fondo consistente en toda la página
+     * - Sin bordes ni separaciones
+     */
+    <div className="h-full w-full overflow-y-auto bg-neutral-50 dark:bg-neutral-950">
       
-      <AreasClient 
-        initialAreas={areasRes.data || []} 
-        initialEmpleados={empleadosRes.data || []}
-      />
+      {/* Contenido integrado con el fondo */}
+      <div className="px-4 sm:px-6 lg:px-8 py-6 pb-32">
+        
+        {/* Encabezado integrado (sin borde inferior) */}
+        <div className="mb-6">
+          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
+            Estructura Organizacional
+          </h2>
+          <p className="text-neutral-500 dark:text-neutral-400 text-sm italic mt-1">
+            Gestión de departamentos y asignación operativa.
+          </p>
+        </div>
+        
+        {/* Cliente - Ya maneja su propio fondo integrado */}
+        <AreasClient 
+          initialAreas={areasRes.data || []} 
+          initialEmpleados={empleadosRes.data || []}
+        />
+      </div>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { Search, Briefcase, UserX } from 'lucide-react'
+import { Search, UserX } from 'lucide-react'
+import Image from 'next/image'
 
 interface ListaEmpleadosProps {
   empleados: any[]
@@ -26,114 +27,114 @@ export default function ListaEmpleados({
   })
 
   return (
-    <div className="
-      flex flex-col h-full 
-      bg-neutral-50 dark:bg-neutral-950 
-      text-neutral-900 dark:text-neutral-100 
-      w-full md:w-80 lg:w-96 shrink-0 
-      transition-all duration-300
-      border-r border-neutral-200 dark:border-neutral-800/40
-    ">
+    <div className="flex flex-col h-full w-full bg-white dark:bg-neutral-950 md:w-80 lg:w-96 shrink-0 transition-all duration-300 md:border-r border-neutral-100 dark:border-neutral-800/50">
       
-      {/* Header Buscador */}
-      <div className="flex-none p-5 pb-3">
-        <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 mb-4">Feedback</h2>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+      {/* Header Buscador (Compacto y Sticky) */}
+      <div className="flex-none px-4 py-4 md:p-5 sticky top-0 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-xl z-10 border-b border-neutral-50 dark:border-white/5">
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-4 tracking-tight">Feedback</h2>
+        
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-neutral-400 group-focus-within:text-orange-500 transition-colors" />
+          </div>
           <input 
             type="text" 
             placeholder="Buscar empleado..." 
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)}
             className="
-              w-full bg-white dark:bg-neutral-900/70 
-              rounded-xl py-3 pl-10 pr-4 text-sm 
-              outline-none text-neutral-900 dark:text-neutral-100 
+              block w-full pl-10 pr-3 py-2.5 
+              text-sm font-medium
+              bg-neutral-100 dark:bg-neutral-900 
+              border-transparent 
+              text-neutral-900 dark:text-white 
               placeholder:text-neutral-500 
-              focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/30 
-              transition-all duration-200 border border-neutral-200 dark:border-neutral-800/40
-              backdrop-blur-sm
+              rounded-xl 
+              focus:outline-none focus:bg-white dark:focus:bg-black focus:ring-2 focus:ring-orange-500/20 focus:shadow-lg
+              transition-all duration-200
             "
           />
         </div>
       </div>
 
-      {/* Lista con scrollbar adaptativo */}
-      <div className="
-        flex-1 overflow-y-auto p-3 space-y-1.5 
-        scrollbar-thin 
-        scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700
-        scrollbar-track-transparent
-        hover:scrollbar-thumb-neutral-400 dark:hover:scrollbar-thumb-neutral-600
-        scrollbar-thumb-rounded-full scrollbar-track-rounded-full
-      ">
-        
+      {/* Lista de Empleados */}
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 scrollbar-hide">
         {loading ? (
-          [1, 2, 3, 4].map(i => (
-            <div key={i} className="flex items-center gap-4 p-3 animate-pulse">
-              <div className="h-12 w-12 rounded-xl bg-neutral-200 dark:bg-neutral-800/70" />
+          [1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="flex items-center gap-3 p-2 rounded-xl animate-pulse">
+              <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-neutral-800" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-800/70 rounded" />
-                <div className="h-3 w-20 bg-neutral-200 dark:bg-neutral-800/70 rounded" />
+                <div className="h-3 w-24 bg-neutral-100 dark:bg-neutral-800 rounded" />
+                <div className="h-2 w-16 bg-neutral-100 dark:bg-neutral-800 rounded" />
               </div>
             </div>
           ))
         ) : empleadosFiltrados.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-neutral-500 text-center px-4">
-            <UserX size={32} className="mb-3 opacity-60" />
-            <p className="text-sm">No se encontraron empleados</p>
+          <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
+            <UserX size={24} className="mb-2 opacity-50" />
+            <p className="text-xs font-medium">Sin resultados</p>
           </div>
         ) : (
           empleadosFiltrados.map(emp => {
             const isSelected = selectedId === emp.id
-            const rolData = emp.roles || emp.rol
-            const rolNombre = Array.isArray(rolData) ? rolData[0]?.nombre : rolData?.nombre
-            
-            // Verificación de foto
-            const fotoUrl = emp.foto_perfil_url && emp.foto_perfil_url.trim() !== '' 
-                ? emp.foto_perfil_url 
-                : null;
+            const rolNombre = Array.isArray(emp.roles) ? emp.roles[0]?.nombre : emp.roles?.nombre
+            const fotoUrl = emp.foto_perfil_url && emp.foto_perfil_url.trim() !== '' ? emp.foto_perfil_url : null
 
             return (
               <button
                 key={emp.id}
                 onClick={() => onSelect(emp)}
                 className={`
-                  w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-200 text-left group
+                  w-full flex items-center gap-3 p-2 rounded-xl transition-all duration-200 text-left group
                   ${isSelected 
-                    ? 'bg-orange-600/10 dark:bg-orange-600/30 ring-1 ring-orange-500/40 shadow-md shadow-orange-600/10 text-orange-950 dark:text-white' 
-                    : 'hover:bg-neutral-200/50 dark:hover:bg-neutral-900/70 text-neutral-700 dark:text-neutral-200 hover:ring-1 hover:ring-neutral-300 dark:hover:ring-neutral-700/50'
+                    ? 'bg-neutral-900 dark:bg-white shadow-md transform scale-[1.02]' 
+                    : 'hover:bg-neutral-50 dark:hover:bg-white/5 active:scale-[0.98]'
                   }
                 `}
               >
-                {/* Avatar: Foto o Iniciales */}
-                <div className={`
-                  h-12 w-12 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm transition-transform group-hover:scale-105 shrink-0 overflow-hidden
-                  ${isSelected 
-                    ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30' 
-                    : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-300 ring-1 ring-neutral-300 dark:ring-neutral-700/40'
-                  }
-                `}>
-                  {fotoUrl ? (
-                    <img 
-                      src={fotoUrl} 
-                      alt={emp.nombre} 
-                      className="h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span>{emp.nombre?.[0]}{emp.apellidos?.[0]}</span>
+                {/* Avatar */}
+                <div className="relative h-10 w-10 flex-shrink-0">
+                  <div className={`
+                    absolute inset-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold transition-all
+                    ${isSelected 
+                      ? 'bg-neutral-800 text-white ring-2 ring-neutral-700 dark:bg-neutral-200 dark:text-black dark:ring-white' 
+                      : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                    }
+                  `}>
+                    {fotoUrl ? (
+                      <Image 
+                        src={fotoUrl} 
+                        alt={emp.nombre} 
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <span>{emp.nombre?.[0]}{emp.apellidos?.[0]}</span>
+                    )}
+                  </div>
+                  
+                  {/* Indicador de Selección (Punto) */}
+                  {isSelected && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500 border-2 border-white dark:border-black"></span>
+                    </span>
                   )}
                 </div>
 
-                {/* Info Text */}
+                {/* Texto */}
                 <div className="flex-1 min-w-0">
-                  <span className={`font-semibold truncate block text-sm ${isSelected ? 'text-orange-900 dark:text-white' : 'text-neutral-800 dark:text-neutral-100'}`}>
+                  <span className={`
+                    block text-sm font-bold truncate transition-colors
+                    ${isSelected ? 'text-white dark:text-black' : 'text-neutral-900 dark:text-neutral-200'}
+                  `}>
                     {emp.nombre} {emp.apellidos}
                   </span>
-                  <p className={`text-xs truncate flex items-center gap-1.5 mt-0.5 ${isSelected ? 'text-orange-800/70 dark:text-white/80' : 'text-neutral-500 dark:text-neutral-400'}`}>
-                    <Briefcase size={12} /> 
+                  <p className={`
+                    text-[11px] truncate mt-0.5 font-medium transition-colors
+                    ${isSelected ? 'text-neutral-400 dark:text-neutral-500' : 'text-neutral-500 dark:text-neutral-500'}
+                  `}>
                     {rolNombre || 'Sin rol'}
                   </p>
                 </div>

@@ -79,8 +79,8 @@ export default function Header() {
         mx-4 mt-0 mb-4             
         rounded-b-2xl
         bg-white dark:bg-neutral-950
-        border-b-2 border-neutral-200/80 dark:border-neutral-700/70  
-        border-x border-neutral-200/40 dark:border-neutral-800/40    
+        border-b-2 border-neutral-200/80 dark:border-0
+        border-x border-neutral-200/40 dark:border-0
         shadow-[0_6px_16px_-6px_rgba(0,0,0,0.10)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.45)]
       "
     >
@@ -91,7 +91,7 @@ export default function Header() {
 
         {/* SECCIÓN PERFIL */}
         <div className="flex items-center gap-4">
-          <div className="w-0.5 h-10 hidden sm:block bg-neutral-300/50 dark:bg-neutral-600/50 rounded-full" />
+          <div className="w-0.5 h-10 hidden sm:block bg-neutral-300/50 dark:bg-neutral-700/50 rounded-full" />
 
           <div className="flex items-center gap-3">
             {/* Avatar Inteligente */}
@@ -100,7 +100,7 @@ export default function Header() {
                 relative w-10 h-10 rounded-full 
                 overflow-hidden shadow-md
                 ${!avatarUrl ? "bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white font-semibold text-base" : ""}
-                ${loading ? "animate-pulse bg-neutral-200" : ""}
+                ${loading ? "animate-pulse bg-neutral-200 dark:bg-neutral-800" : ""}
               `}
             >
               {loading ? (

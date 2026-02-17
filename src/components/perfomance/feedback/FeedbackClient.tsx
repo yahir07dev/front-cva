@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle2, MessageSquare, ArrowLeft, MoreVertical, ListTodo, TrendingUp, User, ShieldAlert } from 'lucide-react'
 import { useFeedback } from '@/src/hooks/useFeedback'
-import StatCard from '@/src/components/shared/StatCard'
 import ListaEmpleados from './ListaEmpleados'
 import MensajeItem from './MensajeItem'
 import ChatInput from './ChatInput'
 import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion'
+import Image from 'next/image'
 
 interface FeedbackClientProps {
   initialUser: any
@@ -16,11 +16,11 @@ interface FeedbackClientProps {
 
 export default function FeedbackClient({ initialUser, initialEmpleados }: FeedbackClientProps) {
 
-  // Hook principal con blindaje de estado
   const {
     loading,
     canCreate,
-    userEstado, // <-- Estado inyectado (activo/baja)
+    canManage, // Usamos esto para ocultar el avatar
+    userEstado,
     selectedEmp,
     setSelectedEmp,
     empleados,
@@ -37,6 +37,14 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
   } = useFeedback(initialUser, initialEmpleados)
 
   const [mensajeIdParaBorrar, setMensajeIdParaBorrar] = useState<number | null>(null)
+  
+  // EFECTO DE AUTO-SELECCIÓN
+  useEffect(() => {
+    if (!canManage && !selectedEmp && initialUser) {
+      const me = empleados.find(e => e.usuario_id === initialUser.id)
+      if (me) setSelectedEmp(me)
+    }
+  }, [canManage, selectedEmp, empleados, initialUser, setSelectedEmp])
 
   const isBaja = userEstado === 'baja'
 
@@ -47,27 +55,49 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
     }
   }
 
-  return (
+  const MiniStatCard = ({ icon: Icon, label, value, color, bg }: any) => (
     <div className="
-      h-full flex flex-col overflow-hidden 
-      bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100
+      min-w-[140px] snap-center flex flex-col items-start justify-center p-3 gap-1.5
+      rounded-2xl border border-neutral-100 dark:border-0
+      bg-white dark:bg-white/[0.02] shadow-sm transition-all duration-300
+      md:min-w-0 md:w-full md:p-5 md:gap-3 md:hover:shadow-md md:hover:-translate-y-1
     ">
+      <div className="flex items-center gap-3 w-full">
+        <div className={`
+          p-1.5 rounded-lg transition-all shrink-0
+          md:p-3 md:rounded-xl
+          ${bg} ${color}
+        `}>
+          <Icon strokeWidth={2.5} className="h-4 w-4 md:h-6 md:w-6" />
+        </div>
+        <span className={`
+          text-xl font-black truncate transition-all
+          md:text-3xl
+          ${color}
+        `}>{value}</span>
+      </div>
+      <p className="
+        text-[10px] font-bold text-neutral-400 uppercase tracking-wider whitespace-nowrap
+        md:text-sm md:text-neutral-500 md:whitespace-normal
+      ">{label}</p>
+    </div>
+  )
+
+  return (
+    <div className="h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 overflow-hidden relative">
       
-      {/* BANNER DE SEGURIDAD: Solo visible si el usuario es baja */}
       {isBaja && (
-        <div className="flex-none bg-rose-600 text-white px-6 py-2.5 flex items-center gap-3 shadow-lg z-10 animate-in slide-in-from-top duration-300">
-          <ShieldAlert size={18} className="shrink-0" />
-          <p className="text-sm font-bold">
-            Cuenta desactivada: El acceso a este módulo está restringido y no puedes enviar feedback.
-          </p>
+        <div className="flex-none bg-rose-600 text-white px-3 py-1 flex items-center justify-center gap-2 shadow-md z-30 text-[10px] font-bold uppercase tracking-wide">
+          <ShieldAlert size={12} className="shrink-0" />
+          <span>Cuenta inactiva</span>
         </div>
       )}
 
       <div className="flex-1 flex overflow-hidden">
 
-        {/* COLUMNA IZQUIERDA: LISTA EMPLEADOS */}
-        {canCreate && (
-          <div className={`${selectedEmp ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 shrink-0 border-r border-neutral-200 dark:border-neutral-800/40`}>
+        {/* LISTA DE EMPLEADOS */}
+        {canManage && (
+          <div className={`${selectedEmp ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 shrink-0 z-20 border-r border-neutral-100 dark:border-neutral-800`}>
             <ListaEmpleados
               empleados={empleados}
               selectedId={selectedEmp?.id}
@@ -78,84 +108,109 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
           </div>
         )}
 
-        {/* COLUMNA DERECHA: CHAT */}
+        {/* ÁREA DE CHAT */}
         <div className={`
-          flex-1 flex flex-col h-full min-w-0 relative bg-gray-50 dark:bg-neutral-950
-          ${!canCreate ? 'flex' : (selectedEmp ? 'flex' : 'hidden md:flex')}
-          ${isBaja ? 'opacity-75 pointer-events-none' : ''} 
+          flex-1 flex flex-col h-full min-w-0 relative bg-neutral-50/50 dark:bg-black/20
+          ${!canManage ? 'flex' : (selectedEmp ? 'flex' : 'hidden md:flex')}
+          ${isBaja ? 'opacity-80' : ''} 
         `}>
           {selectedEmp ? (
             <>
-              {/* Header del Chat */}
-              <div className="
-                flex-none h-20 flex items-center justify-between px-6 
-                bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800/40
-                shadow-sm dark:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]
-              ">
-                <div className="flex items-center gap-4">
-                  {canCreate && (
+              {/* Header */}
+              <div className="flex-none h-14 px-3 flex items-center justify-between bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-100 dark:border-0 z-20 md:px-6">
+                <div className="flex items-center gap-3 min-w-0">
+                  
+                  {/* Botón Volver (Solo Managers) */}
+                  {canManage && (
                     <button
                       onClick={() => setSelectedEmp(null)}
-                      className="md:hidden p-2 -ml-2 text-neutral-500 dark:text-neutral-400 hover:bg-gray-100 dark:hover:text-neutral-800 rounded-full transition-colors"
+                      className="md:hidden p-1.5 -ml-1 text-neutral-500 active:bg-neutral-100 rounded-full transition-colors"
                     >
-                      <ArrowLeft size={24} />
+                      <ArrowLeft size={18} />
                     </button>
                   )}
 
-                  {/* Avatar Header */}
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-md shrink-0 overflow-hidden text-sm">
-                    {selectedEmp.foto_perfil_url ? (
-                        <img 
-                            src={selectedEmp.foto_perfil_url} 
-                            alt={selectedEmp.nombre} 
-                            className="h-full w-full object-cover"
-                            referrerPolicy="no-referrer"
-                        />
-                    ) : (
-                        <span>{selectedEmp.nombre?.[0]}{selectedEmp.apellidos?.[0]}</span>
-                    )}
-                  </div>
+                  {/* 🔴 CAMBIO AQUÍ: El avatar solo se muestra si 'canManage' es true */}
+                  {canManage && (
+                    <div className="relative h-8 w-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0 ring-1 ring-neutral-200 dark:ring-neutral-800">
+                      {selectedEmp.foto_perfil_url ? (
+                          <Image 
+                              src={selectedEmp.foto_perfil_url} 
+                              alt={selectedEmp.nombre} 
+                              fill
+                              className="object-cover"
+                          />
+                      ) : (
+                          <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500">
+                              {selectedEmp.nombre?.[0]}
+                          </div>
+                      )}
+                    </div>
+                  )}
                   
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-neutral-900 dark:text-neutral-100 leading-tight text-lg truncate">
+                  <div className="min-w-0 flex flex-col justify-center">
+                    <h3 className="font-bold text-xs text-neutral-900 dark:text-white truncate leading-none mb-0.5 md:text-sm">
                       {selectedEmp.nombre} {selectedEmp.apellidos}
                     </h3>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <p className="text-neutral-500 dark:text-neutral-400">Historial de Feedback</p>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <p className="text-[9px] font-medium text-neutral-400 dark:text-neutral-500 truncate leading-none md:text-xs">
+                         {canManage ? 'Historial activo' : 'Mi Historial'}
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <button className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 rounded-full transition-colors">
-                  <MoreVertical size={20} />
-                </button>
+                {/* Menú de opciones (Solo Managers) */}
+                {canManage && (
+                  <button className="p-1.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+                    <MoreVertical size={16} />
+                  </button>
+                )}
               </div>
 
-              {/* Stats Bar */}
-              <div className="flex-none p-4 bg-white dark:bg-neutral-950 border-b border-neutral-100 dark:border-neutral-800/40">
-                <div className="grid grid-cols-3 gap-4">
-                  <StatCard icon={ListTodo} label="Total" value={stats.total} accentColor="blue" />
-                  <StatCard icon={CheckCircle2} label="Positivos" value={stats.positivos} accentColor="green" />
-                  <StatCard icon={TrendingUp} label="Mejora" value={stats.mejora} accentColor="orange" />
+              {/* STATS */}
+              <div className="flex-none pt-3 pb-2 px-3 bg-neutral-50/50 dark:bg-transparent z-10 md:px-6 md:py-6">
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pb-2 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0 px-1">
+                  <MiniStatCard 
+                    icon={ListTodo} 
+                    label="Total Feedback" 
+                    value={stats.total} 
+                    color="text-blue-600 dark:text-blue-400" 
+                    bg="bg-blue-100 dark:bg-blue-500/10"
+                  />
+                  <MiniStatCard 
+                    icon={CheckCircle2} 
+                    label="Positivos" 
+                    value={stats.positivos} 
+                    color="text-emerald-600 dark:text-emerald-400" 
+                    bg="bg-emerald-100 dark:bg-emerald-500/10"
+                  />
+                  <MiniStatCard 
+                    icon={TrendingUp} 
+                    label="A Mejorar" 
+                    value={stats.mejora} 
+                    color="text-orange-600 dark:text-orange-400" 
+                    bg="bg-orange-100 dark:bg-orange-500/10"
+                  />
                 </div>
               </div>
 
-              {/* Área de Mensajes */}
+              {/* LISTA MENSAJES */}
               <div
-                className="flex-1 overflow-y-auto px-4 pb-6 md:px-6 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent"
+                className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-4 pb-4 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 md:px-6"
                 ref={scrollRef}
               >
                 {loading && comentarios.length === 0 ? (
                   <div className="flex h-full items-center justify-center">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500/30 border-t-orange-500" />
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
                   </div>
                 ) : (
-                  <div className="space-y-4 pt-4">
+                  <div className="space-y-1 md:space-y-2"> 
                     {comentarios.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-40 opacity-60">
-                        <MessageSquare size={48} className="mb-3 text-neutral-300 dark:text-neutral-500" />
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Historial limpio</p>
+                      <div className="flex flex-col items-center justify-center h-48 opacity-40">
+                        <MessageSquare size={28} className="mb-2 text-neutral-400" />
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Sin historial</p>
                       </div>
                     ) : (
                       comentarios.map((msg) => (
@@ -163,7 +218,7 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
                             key={msg.id} 
                             mensaje={msg} 
                             currentUserId={currentUserId}
-                            onDelete={isBaja ? undefined : (id) => setMensajeIdParaBorrar(id)} 
+                            onDelete={canManage && !isBaja ? (id) => setMensajeIdParaBorrar(id) : undefined} 
                         />
                       ))
                     )}
@@ -171,27 +226,25 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
                 )}
               </div>
 
-              {/* Input Area */}
-              {canCreate ? (
-                <ChatInput
-                  form={form}
-                  setForm={setForm}
-                  onSend={handleSend}
-                  loading={loading || isBaja}
-                />
-              ) : (
-                <div className="flex-none p-4 text-center text-sm text-neutral-400 bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800/40 italic">
-                  {isBaja ? 'Acceso denegado: Cuenta inactiva' : 'Solo lectura'}
+              {/* INPUT */}
+              {canCreate && !isBaja ? (
+                <div className="flex-none z-30 w-full bg-white dark:bg-neutral-950 border-t border-neutral-100 dark:border-0 pb-safe">
+                  <ChatInput
+                    form={form}
+                    setForm={setForm}
+                    onSend={handleSend}
+                    loading={loading}
+                  />
                 </div>
-              )}
+              ) : null}
             </>
           ) : (
-            <div className="hidden md:flex flex-col items-center justify-center h-full text-center p-8 bg-gray-50 dark:bg-neutral-950">
-              <div className="h-24 w-24 bg-white dark:bg-neutral-900/70 rounded-full flex items-center justify-center mb-6 shadow-sm border border-neutral-200 dark:border-transparent">
-                <User size={48} className="text-neutral-300 dark:text-neutral-600" />
+            /* Estado vacío (Solo Managers) */
+            <div className="hidden md:flex flex-col items-center justify-center h-full text-center p-8 text-neutral-400">
+              <div className="h-20 w-20 bg-neutral-100 dark:bg-neutral-900 rounded-full flex items-center justify-center mb-4">
+                <User size={32} className="opacity-50" />
               </div>
-              <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Selecciona un empleado</h3>
-              <p className="text-neutral-500 dark:text-neutral-400 max-w-xs">Para ver el historial de feedback.</p>
+              <p className="text-sm font-medium">Selecciona un miembro del equipo</p>
             </div>
           )}
         </div>
@@ -201,10 +254,10 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
         isOpen={!!mensajeIdParaBorrar}
         onClose={() => setMensajeIdParaBorrar(null)}
         onConfirm={confirmarBorrado}
-        titulo="¿Eliminar comentario?"
-        descripcion="Estás a punto de eliminar este mensaje permanentemente."
+        titulo="¿Borrar feedback?"
+        descripcion="Esta acción es irreversible."
         variant="danger"
-        textConfirmar="Sí, eliminar"
+        textConfirmar="Borrar"
         loading={loading}
       />
     </div>

@@ -16,14 +16,8 @@ interface AreasClientProps {
 
 export default function AreasClient({ initialAreas, initialEmpleados }: AreasClientProps) {
   const { 
-    areas, 
-    empleados, 
-    loading, 
-    canManage, 
-    handleCrear, 
-    handleEditar, 
-    handleEliminar, 
-    handleAsignar 
+    areas, empleados, loading, canManage, 
+    handleCrear, handleEditar, handleEliminar, handleAsignar 
   } = useAreasData(initialAreas, initialEmpleados)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -36,77 +30,66 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
 
   if (loading && areas.length === 0) return <SkeletonLoader type="grid" />
 
-  const permisosParaCard = {
-    canUpdate: canManage,
-    canDelete: canManage
-  }
-
-  const openCreateModal = () => {
-    setAreaToEdit(null)
-    setIsModalOpen(true)
-  }
-
-  const handleEditClick = (area: any) => {
-    setAreaToEdit(area)
-    setIsModalOpen(true)
-  }
-
-  const handleDeleteClick = async (id: number) => {
-    if (confirm('¿Estás seguro de eliminar este departamento? Esta acción no se puede deshacer.')) {
-      await handleEliminar(id)
-    }
-  }
+  const permisosParaCard = { canUpdate: canManage, canDelete: canManage }
 
   const handleModalSubmit = async (nombre: string, descripcion: string, encargadoId: number | null) => {
     try {
-      if (areaToEdit) {
-        await handleEditar(areaToEdit.id, nombre, descripcion, encargadoId)
-      } else {
-        await handleCrear(nombre, descripcion, encargadoId)
-      }
-      setIsModalOpen(false)
-      setAreaToEdit(null)
-    } catch (error) {
-      console.error("Error al guardar área:", error)
-      alert("Ocurrió un error al guardar. Revisa la consola.")
-    }
+      if (areaToEdit) await handleEditar(areaToEdit.id, nombre, descripcion, encargadoId)
+      else await handleCrear(nombre, descripcion, encargadoId)
+      setIsModalOpen(false); setAreaToEdit(null)
+    } catch (error) { console.error(error) }
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
+    <div className="space-y-6 animate-in fade-in duration-500 bg-neutral-50 dark:bg-neutral-950 min-h-screen">
       
-      {/* 1. Dashboard de Estadísticas */}
-      <AreaStats empleados={empleados} areas={areas} />
+      {/* 1. Estadísticas - Ahora se integra con el fondo */}
+      <div className="px-6 pt-6">
+        <AreaStats empleados={empleados} areas={areas} />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* 2. Sección de Catálogo de Áreas (Izquierda) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <input 
-                type="text"
-                placeholder="Buscar departamento..."
-                // CAMBIO: focus:ring-blue-500/40 (Antes Orange)
-                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-card border border-border focus:ring-2 focus:ring-blue-500/40 outline-none transition-all text-sm"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
-            </div>
-
-            {canManage && (
-              <button 
-                onClick={openCreateModal}
-                // CAMBIO: bg-blue-600 y shadow-blue-600 (Antes Orange)
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-blue-600/20"
-              >
-                <Plus size={18} />
-                <span>Nueva Área</span>
-              </button>
-            )}
+      {/* 2. Buscador y Botón - Integrado sin bordes */}
+      <div className="sticky top-0 z-10 bg-neutral-50/80 dark:bg-neutral-950/80 backdrop-blur-md py-4 px-6">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full sm:max-w-md group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Buscar departamento..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-white/5 border border-neutral-200/50 dark:border-0 outline-none focus:ring-2 focus:ring-blue-500/20 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400"
+            />
           </div>
 
+          {canManage && (
+            <button 
+              onClick={() => { setAreaToEdit(null); setIsModalOpen(true); }}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-95 transition-all hover:bg-blue-700"
+            >
+              <Plus size={18} />
+              <span>Nueva Área</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 3. Grid de Contenido - Sin fondos adicionales */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-6 pb-6">
+        
+        {/* Asignación - Componente con su propio fondo */}
+        <div className="lg:col-span-4 order-1 lg:order-2">
+          <div className="max-h-[500px] lg:max-h-none flex flex-col h-full">
+            <AreaAssignment 
+              empleados={empleados} 
+              areas={areas} 
+              onUpdate={handleAsignar}
+            />
+          </div>
+        </div>
+
+        {/* Catálogo de Áreas - Grid de cards */}
+        <div className="lg:col-span-8 order-2 lg:order-1">
           {areasFiltradas.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {areasFiltradas.map(area => (
@@ -114,26 +97,17 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
                   key={area.id} 
                   area={area} 
                   permisos={permisosParaCard}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteClick}
+                  onEdit={(a) => { setAreaToEdit(a); setIsModalOpen(true); }}
+                  onDelete={async (id) => { if(confirm('¿Borrar?')) await handleEliminar(id); }}
                 />
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 bg-card/50 border border-dashed border-border rounded-3xl text-muted-foreground">
-              <LayoutGrid size={40} className="mb-3 opacity-20" />
-              <p className="text-sm italic">No se encontraron departamentos registrados.</p>
+            <div className="flex flex-col items-center justify-center py-20 bg-transparent">
+              <LayoutGrid size={40} className="mb-2 text-neutral-400" />
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Sin resultados.</p>
             </div>
           )}
-        </div>
-
-        {/* 3. Panel de Asignación de Personal (Derecha) */}
-        <div className="space-y-6">
-          <AreaAssignment 
-            empleados={empleados} 
-            areas={areas} 
-            onUpdate={handleAsignar}
-          />
         </div>
       </div>
 
@@ -141,7 +115,7 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSubmit={handleModalSubmit} 
-        initialData={areaToEdit}
+        initialData={areaToEdit} 
         empleados={empleados}
       />
     </div>

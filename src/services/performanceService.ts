@@ -42,24 +42,23 @@ export const crearNuevaActividad = async (
     throw new Error('Tu cuenta está desactivada.');
   }
 
-  // --- CORRECCIÓN DE ZONA HORARIA AQUÍ ---
   const ahora = new Date();
-  // Forzamos a que la fecha límite se cree correctamente
   const limite = new Date(actividad.fecha_limite);
 
+  // Validación de tiempo: No se pueden crear tareas en el pasado
   if (limite.getTime() <= ahora.getTime()) {
     throw new Error('La fecha y hora límite deben ser mayores a la hora actual.');
   }
 
-  // Convertimos a ISO String para que Supabase lo reciba con zona horaria UTC explícita
-  // o asegúrate de que el string lleve el offset (Z o -06:00)
+  // Normalizamos a ISO para consistencia en el cálculo de rachas
   const fechaParaDB = limite.toISOString(); 
 
+  // 1. CREACIÓN DE LA ACTIVIDAD
   const { data: nuevaActividad, error: actError } = await supabase
     .from('actividades')
     .insert([{
       ...actividad,
-      fecha_limite: fechaParaDB, // Usamos la fecha normalizada
+      fecha_limite: fechaParaDB,
       estado: 'pendiente' as EstadoActividad,
       created_by: user.id 
     }])
@@ -68,10 +67,14 @@ export const crearNuevaActividad = async (
 
   if (actError) throw new Error('Error al crear: ' + actError.message);
 
+  // 2. ASIGNACIÓN A EMPLEADOS
+  // Registramos la asignación. Para las rachas, esto nos dirá qué días
+  // el empleado TENÍA tareas pendientes que completar.
   const filasAsignacion = empleadosIds.map(empId => ({
     actividad_id: nuevaActividad.id,
     empleado_id: parseInt(empId),
-    estado_individual: 'asignada' as const
+    estado_individual: 'asignada' as const,
+    fecha_asignacion: ahora.toISOString() // Añadimos marca de tiempo de asignación
   }))
 
   const { error: asignError } = await supabase

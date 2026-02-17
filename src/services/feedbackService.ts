@@ -4,8 +4,7 @@ import { TipoComentario } from '@/src/types/performance'
 const supabase = createClient()
 
 /**
- * Obtiene la lista de empleados para el sidebar.
- * Filtra estrictamente por personal ACTIVO.
+ * Obtiene la lista de empleados activos para el sidebar.
  */
 export const getEmpleadosParaFeedback = async () => {
   const { data, error } = await supabase
@@ -19,7 +18,7 @@ export const getEmpleadosParaFeedback = async () => {
       estado,
       roles ( nombre )
     `)
-    .eq('estado', 'activo') // Filtro de seguridad principal
+    .eq('estado', 'activo')
     .is('deleted_at', null)
     .order('nombre', { ascending: true })
 
@@ -31,28 +30,27 @@ export const getEmpleadosParaFeedback = async () => {
 }
 
 /**
- * Obtiene los comentarios filtrando por integridad de datos.
+ * Obtiene los comentarios.
+ * CORRECCIÓN: Valida que empleadoId sea numérico para evitar error de BigInt.
  */
-export const getComentarios = async (empleadoId?: number) => {
+export const getComentarios = async (empleadoId?: number | string) => {
+  // 1. BLINDAJE CONTRA UUIDs
+  // Si recibimos un ID que no es un número (ej. un UUID de auth), retornamos vacío
+  // para evitar el crash de "invalid input syntax for type bigint".
+  if (empleadoId && isNaN(Number(empleadoId))) {
+      console.warn("Se intentó buscar comentarios con un ID inválido (posible UUID):", empleadoId);
+      return [];
+  }
+
   let query = supabase
     .from('comentarios_rendimiento')
     .select(`
       *,
       empleado:empleados!fk_comentarios_empleado (
-        id, 
-        usuario_id,
-        nombre, 
-        apellidos, 
-        foto_perfil_url,
-        estado
+        id, usuario_id, nombre, apellidos, foto_perfil_url, estado
       ),
       autor:empleados!fk_comentarios_autor (
-        id,
-        usuario_id,
-        nombre,
-        apellidos,
-        foto_perfil_url,
-        estado
+        id, usuario_id, nombre, apellidos, foto_perfil_url, estado
       )
     `)
     .order('created_at', { ascending: true })
@@ -72,7 +70,7 @@ export const getComentarios = async (empleadoId?: number) => {
 }
 
 /**
- * Crea un comentario validando que el autor siga ACTIVO.
+ * Crea un comentario validando estado del autor.
  */
 export const crearComentario = async (
   comentario: {
@@ -85,7 +83,7 @@ export const crearComentario = async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No hay sesión activa.')
 
-  // BLINDAJE: Verificar que el autor no sea un usuario de baja
+  // Verificar que el autor no esté de baja
   const { data: perfilAutor } = await supabase
     .from('empleados')
     .select('estado')
@@ -118,8 +116,7 @@ export const crearComentario = async (
 }
 
 /**
- * Elimina un comentario. 
- * Las políticas RLS ya bloquean esto si el usuario es 'baja'.
+ * Elimina un comentario por ID.
  */
 export const eliminarComentario = async (id: number) => {
   const { error } = await supabase

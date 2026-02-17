@@ -4,6 +4,7 @@ import { useSession } from '@/src/hooks/useSession'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions' 
+import { isSameDay, subDays, startOfDay, parseISO } from 'date-fns'
 
 export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const [supabase] = useState(() => createClient())
@@ -16,7 +17,7 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const { session, loading: sessionLoading } = useSession() as any
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30000) // Actualizamos cada 30s para mayor precisión
+    const timer = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(timer)
   }, [])
 
@@ -113,7 +114,59 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       return lista;
   }, [actividades, canManage, session]);
 
-  // --- CORRECCIÓN CLAVE AQUÍ ---
+  // --- NUEVA LÓGICA DE RACHAS (STREAKS) ---
+  const rachaData = useMemo(() => {
+    const source = actividadesSeguras;
+    
+    // 1. Agrupar actividades por día (usando fecha_limite o created_at)
+    const actividadesPorDia: Record<string, ActividadConRelaciones[]> = {};
+    
+    source.forEach(act => {
+      const fecha = act.fecha_limite ? parseISO(act.fecha_limite) : parseISO(act.created_at as string);
+      const diaKey = startOfDay(fecha).toISOString();
+      if (!actividadesPorDia[diaKey]) actividadesPorDia[diaKey] = [];
+      actividadesPorDia[diaKey].push(act);
+    });
+
+    // 2. Calcular Racha de Días Registrados (Días con al menos 1 tarea completada)
+    let rachaDias = 0;
+    let rachaPerfecta = 0;
+    let checkDate = startOfDay(now);
+
+    // Bucle hacia atrás para contar días seguidos
+    while (true) {
+      const key = checkDate.toISOString();
+      const actsDelDia = actividadesPorDia[key] || [];
+      
+      // ¿Hubo alguna actividad completada este día?
+      const algunaCompletada = actsDelDia.some(a => a.estado === 'completada');
+      
+      if (algunaCompletada) {
+        rachaDias++;
+        // ¿Fue un día perfecto? (Todas las del día completadas)
+        const todoCompletado = actsDelDia.every(a => a.estado === 'completada');
+        if (todoCompletado) rachaPerfecta++;
+        
+        checkDate = subDays(checkDate, 1);
+      } else {
+        // Si no es hoy y no hubo actividad, se rompe la racha
+        if (!isSameDay(checkDate, now)) break;
+        // Si es hoy y no hay completadas aún, no rompemos, solo saltamos al día anterior
+        checkDate = subDays(checkDate, 1);
+        // Pero si el día anterior tampoco tiene nada, ahí sí rompe
+        const prevKey = checkDate.toISOString();
+        if (!(actividadesPorDia[prevKey]?.some(a => a.estado === 'completada'))) break;
+      }
+    }
+
+    return {
+      diasRegistrados: rachaDias,
+      diasPerfectos: rachaPerfecta,
+      mejorRacha: rachaDias, // Aquí podrías comparar contra un valor en la DB en el futuro
+      mejorRachaPerfecta: rachaPerfecta
+    };
+  }, [actividadesSeguras, now]);
+
   const stats = useMemo(() => {
     const source = actividadesSeguras;
     const ahoraMs = now.getTime();
@@ -122,7 +175,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     
     const noRealizadas = source.filter(a => {
       if (!a.fecha_limite || a.estado === 'completada') return false;
-      // Aseguramos que el parseo no desfase la hora
       const limiteMs = new Date(a.fecha_limite).getTime();
       return limiteMs < ahoraMs;
     }).length;
@@ -132,7 +184,7 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       if (!isEnProceso) return false;
       if (!a.fecha_limite) return true;
       const limiteMs = new Date(a.fecha_limite).getTime();
-      return limiteMs >= ahoraMs; // Sigue siendo pendiente si no ha pasado el tiempo
+      return limiteMs >= ahoraMs;
     }).length;
 
     const evaluadas = source.filter(a => (a.calificacion || 0) > 0);
@@ -140,29 +192,31 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       ? (evaluadas.reduce((sum, a) => sum + (a.calificacion || 0), 0) / evaluadas.length).toFixed(1) 
       : '—';
     
-    return { total: source.length, completadas, pendientes, noRealizadas, promedio };
-  }, [actividadesSeguras, now]);
+    return { 
+      total: source.length, 
+      completadas, 
+      pendientes, 
+      noRealizadas, 
+      promedio,
+      ...rachaData // Inyectamos las rachas en las stats
+    };
+  }, [actividadesSeguras, now, rachaData]);
 
   const actividadesFiltradas = useMemo(() => {
     if (filtro === 'todas') return actividadesSeguras;
-    
     const ahoraMs = now.getTime();
-
     if (filtro === 'no_realizadas') {
       return actividadesSeguras.filter(a => 
         a.estado !== 'completada' && 
         a.fecha_limite && new Date(a.fecha_limite).getTime() < ahoraMs
       );
     }
-    
-    // Si filtramos por "pendiente", debemos excluir las que ya expiraron (aunque el estado diga pendiente)
     if (filtro === 'pendiente') {
         return actividadesSeguras.filter(a => 
             a.estado === 'pendiente' && 
             (!a.fecha_limite || new Date(a.fecha_limite).getTime() >= ahoraMs)
         );
     }
-
     return actividadesSeguras.filter(a => a.estado === filtro);
   }, [actividadesSeguras, filtro, now]);
 
@@ -173,6 +227,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     canManage, 
     filtro,
     setFiltro,
-    recargar: fetchActividades
+    recargar: fetchActividades,
   }
 }

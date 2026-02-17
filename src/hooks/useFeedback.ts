@@ -1,4 +1,3 @@
-// src/hooks/useFeedback.ts
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
 import { useSession } from '@/src/hooks/useSession'
@@ -15,17 +14,15 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const currentUserId = session?.user?.id
   const googleAvatar = session?.user?.user_metadata?.avatar_url
 
-  // 1. ESTADO DE PERMISOS Y SEGURIDAD (Blindaje)
+  // 1. ESTADO DE PERMISOS
   const [userPerms, setUserPerms] = useState<string[]>([])
   const [userEstado, setUserEstado] = useState<string>('activo')
   
   useEffect(() => {
     const loadUserData = async () => {
-      // Carga de permisos
       const data = await getSessionUserWithPermissions()
       if (data) setUserPerms(data.permissions)
 
-      // Verificación de estado de cuenta
       if (currentUserId) {
         const { data: emp } = await supabase
           .from('empleados')
@@ -39,21 +36,27 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     if (initialUser) loadUserData()
   }, [initialUser, currentUserId, supabase])
 
+  // Lógica de Permisos
   const canCreate = useMemo(() => {
-    // Bloqueo preventivo si el usuario está de baja
     if (userEstado === 'baja') return false
     return hasPermission(userPerms, ['comentarios.create', 'acceso_total'])
   }, [userPerms, userEstado])
 
-  // 2. ESTADOS DE DATOS
+  // NUEVO: canManage define si ve la lista lateral (Admin/Supervisor)
+  const canManage = useMemo(() => {
+     if (userEstado === 'baja') return false
+     // Ajusta estos permisos según tu lógica de "Gestor"
+     return hasPermission(userPerms, ['acceso_total', 'comentarios.read_all', 'roles.read'])
+  }, [userPerms, userEstado])
+
+  // 2. PROCESAMIENTO DE DATOS
   const [loading, setLoading] = useState(false)
   
-  // Filtrado y procesamiento de empleados (Solo activos para la lista)
   const empleadosProcesados = useMemo(() => {
       if (!initialEmpleados) return [];
       
       return initialEmpleados
-        .filter(emp => emp.estado === 'activo') // Filtro de seguridad
+        .filter(emp => emp.estado === 'activo')
         .map(emp => {
           if (emp.usuario_id === currentUserId && (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '')) {
               return { ...emp, foto_perfil_url: googleAvatar };
@@ -65,15 +68,22 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const [selectedEmp, setSelectedEmp] = useState<any>(null)
   const [comentarios, setComentarios] = useState<any[]>([])
 
-  // Autoselección para empleados sin permiso de gestión
+  // 3. AUTO-SELECCIÓN CORREGIDA (El parche clave)
   useEffect(() => {
-    if (!canCreate && initialUser && empleadosProcesados.length > 0) {
+    // Si NO puede gestionar (es empleado normal) y no hay nadie seleccionado...
+    if (!canManage && initialUser && empleadosProcesados.length > 0 && !selectedEmp) {
+      
+      // Buscamos el objeto empleado que coincide con el usuario logueado
       const me = empleadosProcesados.find(e => e.usuario_id === initialUser.id)
-      if (me) setSelectedEmp(me)
+      
+      if (me) {
+        // Seleccionamos el perfil CORRECTO (el que tiene id numérico)
+        setSelectedEmp(me)
+      }
     }
-  }, [canCreate, initialUser, empleadosProcesados])
+  }, [canManage, initialUser, empleadosProcesados, selectedEmp])
 
-  // 3. UI Y FILTROS
+  // 4. UI STATES
   const [searchTerm, setSearchTerm] = useState('')
   const [form, setForm] = useState<{titulo: string, descripcion: string, tipo: TipoComentario}>({
     titulo: '',
@@ -81,7 +91,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     tipo: 'positivo'
   })
 
-  // 4. CARGAR COMENTARIOS Y REALTIME
+  // 5. FETCHING Y REALTIME
   useEffect(() => {
     if (!selectedEmp) {
       setComentarios([])
@@ -91,6 +101,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     const fetchComments = async () => {
       setLoading(true)
       try {
+        // Ahora selectedEmp.id siempre será un número gracias al useEffect de arriba
         const data = await getComentarios(selectedEmp.id) 
         
         const comentariosConFoto = data.map((comentario: any) => {
@@ -117,19 +128,15 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
 
     fetchComments()
 
-    // Suscripción Realtime optimizada
+    // Suscripción Realtime
     const channel = supabase.channel(`chat-${selectedEmp.id}`)
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'comentarios_rendimiento', filter: `empleado_id=eq.${selectedEmp.id}` }, 
         () => fetchComments()
       )
-      // Si el estado de un empleado cambia a baja, refrescamos la lista
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, () => {
-          // Si el empleado seleccionado es dado de baja, lo deseleccionamos
-          if (selectedEmp) {
-              supabase.from('empleados').select('estado').eq('id', selectedEmp.id).single().then(({data}) => {
-                  if (data?.estado === 'baja') setSelectedEmp(null);
-              });
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, (payload) => {
+          if (selectedEmp && payload.new.id === selectedEmp.id && payload.new.estado === 'baja') {
+              setSelectedEmp(null);
           }
       })
       .subscribe()
@@ -145,7 +152,6 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     }, 100)
   }
 
-  // Acción de Enviar Segura
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (userEstado === 'baja') return alert('Cuenta desactivada.')
@@ -155,8 +161,8 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
       await crearComentario({
         empleado_id: selectedEmp.id,
         tipo: form.tipo,
-        descripcion: form.descripcion,
-        titulo: form.titulo
+        titulo: form.titulo,
+        descripcion: form.descripcion
       })
       setForm({ ...form, titulo: '', descripcion: '', tipo: 'positivo' })
       scrollToBottom()
@@ -187,7 +193,8 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   return {
     loading,
     canCreate,
-    userEstado, // Exportamos estado para la UI
+    canManage, // <--- EXPORTADO PARA QUE EL CLIENTE LO USE
+    userEstado,
     selectedEmp,
     setSelectedEmp,
     empleados: empleadosProcesados,

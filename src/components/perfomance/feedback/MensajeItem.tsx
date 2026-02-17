@@ -1,7 +1,8 @@
 'use client'
 
-import { CheckCircle2, AlertCircle, XCircle, MessageSquare, Calendar, Trash2 } from 'lucide-react'
+import { CheckCircle2, AlertCircle, XCircle, MessageSquare, Trash2 } from 'lucide-react'
 import { TipoComentario } from '@/src/types/performance'
+import Image from 'next/image'
 
 interface MensajeItemProps {
   mensaje: {
@@ -16,7 +17,7 @@ interface MensajeItemProps {
         apellidos?: string, 
         foto_perfil_url?: string | null 
     }
-    autor_id?: string // UUID del autor en la tabla comentarios
+    autor_id?: string 
   }
   currentUserId?: string
   onDelete?: (id: number) => void
@@ -24,135 +25,96 @@ interface MensajeItemProps {
 
 export default function MensajeItem({ mensaje, currentUserId, onDelete }: MensajeItemProps) {
   
-  // Lógica de estilos (tuya original)
-  const getStyle = (t: string | null | undefined) => {
+  // Estilos simplificados (Solo color de texto y puntos)
+  const getTheme = (t: string | null | undefined) => {
     switch (t) {
       case 'positivo':
-        return {
-          icon: CheckCircle2,
-          color: 'text-emerald-600 dark:text-emerald-400',
-          bgIcon: 'bg-emerald-100 dark:bg-emerald-600/15 ring-1 ring-emerald-500/20',
-          badge: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
-          borderColor: 'border-emerald-200 dark:border-emerald-500/40'
-        }
+        return { icon: CheckCircle2, color: 'text-emerald-500', dot: 'bg-emerald-500' }
       case 'mejora':
-        return {
-          icon: AlertCircle,
-          color: 'text-amber-600 dark:text-amber-400',
-          bgIcon: 'bg-amber-100 dark:bg-amber-600/15 ring-1 ring-amber-500/20',
-          badge: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
-          borderColor: 'border-amber-200 dark:border-amber-500/40'
-        }
+        return { icon: AlertCircle, color: 'text-amber-500', dot: 'bg-amber-500' }
       case 'negativo':
-        return {
-          icon: XCircle,
-          color: 'text-rose-600 dark:text-rose-400',
-          bgIcon: 'bg-rose-100 dark:bg-rose-600/15 ring-1 ring-rose-500/20',
-          badge: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',
-          borderColor: 'border-rose-200 dark:border-rose-500/40'
-        }
+        return { icon: XCircle, color: 'text-rose-500', dot: 'bg-rose-500' }
       default:
-        return {
-          icon: MessageSquare,
-          color: 'text-orange-600 dark:text-orange-400',
-          bgIcon: 'bg-orange-100 dark:bg-orange-600/15 ring-1 ring-orange-500/20',
-          badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
-          borderColor: 'border-orange-200 dark:border-orange-500/40'
-        }
+        return { icon: MessageSquare, color: 'text-blue-500', dot: 'bg-blue-500' }
     }
   }
 
-  const style = getStyle(mensaje.tipo)
-  const Icon = style.icon
+  const theme = getTheme(mensaje.tipo)
   const fecha = mensaje.created_at 
-    ? new Date(mensaje.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
-    : 'Fecha desconocida'
+    ? new Date(mensaje.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    : ''
 
-  // Determinar si puedo borrar (soy el autor)
   const isMyMessage = mensaje.autor?.usuario_id === currentUserId || mensaje.autor_id === currentUserId;
-
-  // Lógica de Foto del Autor
   const autorNombre = mensaje.autor?.nombre || 'Usuario';
-  const autorApellido = mensaje.autor?.apellidos || '';
   const fotoUrl = mensaje.autor?.foto_perfil_url;
 
   return (
-    <div className={`
-      relative w-full rounded-2xl p-5 transition-all duration-300 group
-      bg-white dark:bg-neutral-900/70 backdrop-blur-md
-      border ${style.borderColor}
-      shadow-[0_8px_25px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_25px_-10px_rgba(0,0,0,0.5)]
-      hover:shadow-[0_12px_35px_-12px_rgba(0,0,0,0.15)] dark:hover:shadow-[0_12px_35px_-12px_rgba(0,0,0,0.6)]
-      hover:-translate-y-0.5
-    `}>
+    <div className="group relative w-full flex gap-4 p-4 rounded-[20px] hover:bg-neutral-50 dark:hover:bg-white/[0.02] transition-colors duration-200">
       
-      {/* Header del Mensaje */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-3">
-            
-          {/* Avatar del Autor */}
-          <div className="relative h-10 w-10 rounded-full overflow-hidden ring-2 ring-white dark:ring-neutral-800 shadow-sm bg-neutral-200 flex items-center justify-center shrink-0">
-             {fotoUrl ? (
-                <img 
-                  src={fotoUrl} 
-                  alt={autorNombre}
-                  className="h-full w-full object-cover"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                />
-             ) : (
-                <span className="text-xs font-bold text-neutral-500">
-                    {autorNombre[0]}{autorApellido[0]}
-                </span>
-             )}
-             
-             {/* Icono pequeño del tipo de mensaje superpuesto */}
-             <div className={`absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-white dark:bg-neutral-900`}>
-                <div className={`p-1 rounded-full ${style.bgIcon} ${style.color}`}>
-                    <Icon size={10} strokeWidth={3} />
-                </div>
-             </div>
-          </div>
-
-          {/* Info Autor y Título */}
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-                {autorNombre} {autorApellido}
-            </span>
-            <h4 className="font-bold text-neutral-800 dark:text-neutral-100 text-sm leading-tight group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-              {mensaje.titulo || 'Sin Asunto'}
-            </h4>
-          </div>
-        </div>
-
-        {/* Fecha y Acciones */}
-        <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 dark:text-neutral-500 bg-neutral-50 dark:bg-neutral-800/30 px-2 py-1 rounded-md border border-neutral-100 dark:border-neutral-800">
-                <Calendar size={10} />
-                <span>{fecha}</span>
+      {/* 1. Avatar (Lado Izquierdo) */}
+      <div className="flex-shrink-0">
+        <div className="relative h-10 w-10 rounded-2xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-sm">
+          {fotoUrl ? (
+            <Image 
+              src={fotoUrl} 
+              alt={autorNombre}
+              fill
+              className="object-cover"
+              sizes="40px"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-xs font-bold text-neutral-400">
+              {autorNombre[0]}
             </div>
-            
-            {/* Botón Eliminar (Solo si es mi mensaje) */}
-            {isMyMessage && onDelete && (
-                <button 
-                    onClick={() => onDelete(mensaje.id)}
-                    className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                    title="Eliminar comentario"
-                >
-                    <Trash2 size={14} />
-                </button>
-            )}
+          )}
         </div>
       </div>
 
-      {/* Cuerpo del mensaje */}
-      <div className="pl-[52px]"> {/* Indentación para alinear con el texto del header */}
-          <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md mb-2 inline-block ${style.badge}`}>
-            {mensaje.tipo || 'General'}
-          </span>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap">
-            {mensaje.descripcion}
-          </p>
+      {/* 2. Contenido del Mensaje */}
+      <div className="flex-1 min-w-0 pt-0.5">
+        
+        {/* Header: Autor + Fecha + Tipo */}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-neutral-900 dark:text-white truncate">
+              {autorNombre} {mensaje.autor?.apellidos}
+            </span>
+            <span className="text-[10px] text-neutral-400 font-medium">•</span>
+            <span className="text-[10px] text-neutral-400 font-medium">{fecha}</span>
+          </div>
+          
+          {/* Badge Minimalista (Punto + Texto) */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-neutral-100 dark:bg-white/5">
+            <div className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
+            <span className={`text-[9px] font-bold uppercase tracking-wider ${theme.color}`}>
+              {mensaje.tipo || 'General'}
+            </span>
+          </div>
+        </div>
+
+        {/* Título (si existe) */}
+        {mensaje.titulo && (
+          <h4 className="text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+            {mensaje.titulo}
+          </h4>
+        )}
+
+        {/* Cuerpo del Texto */}
+        <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap">
+          {mensaje.descripcion}
+        </p>
+
+        {/* Botón Eliminar (Flotante al hacer hover) */}
+        {isMyMessage && onDelete && (
+          <div className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button 
+              onClick={() => onDelete(mensaje.id)}
+              className="p-2 text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors"
+            >
+              <Trash2 size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -8,7 +8,7 @@ export const revalidate = 0
 export default async function ComentariosPage() {
   const supabase = await createClient()
 
-  // 1. OBTENER USUARIO Y VERIFICAR ESTADO (Blindaje de Servidor)
+  // 1. OBTENER USUARIO Y VERIFICAR ESTADO
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -22,7 +22,6 @@ export default async function ComentariosPage() {
     .eq('usuario_id', user.id)
     .single()
 
-  // Si es "baja", lo redirigimos fuera del módulo inmediatamente
   if (perfilLogueado?.estado === 'baja') {
     redirect('/login?error=cuenta_desactivada')
   }
@@ -31,7 +30,7 @@ export default async function ComentariosPage() {
   const { data: empleados, error } = await supabase
     .from('empleados')
     .select('id, usuario_id, nombre, apellidos, foto_perfil_url, estado, roles(nombre)') 
-    .eq('estado', 'activo') // Filtro estricto para la lista lateral
+    .eq('estado', 'activo') 
     .is('deleted_at', null)
     .order('nombre', { ascending: true })
 
@@ -40,9 +39,10 @@ export default async function ComentariosPage() {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8">
-       {/* Header de la Página */}
-       <div className="flex-none mb-6">
+    <div className="h-[100dvh] md:h-full flex flex-col p-0 pb-30 md:p-6 lg:p-8 overflow-hidden">
+       
+       {/* HEADER OCULTO EN MÓVIL */}
+       <div className="hidden md:block flex-none mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Feedback y Retroalimentación</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Historial de comentarios, mejoras y seguimiento del equipo.
@@ -50,7 +50,7 @@ export default async function ComentariosPage() {
       </div>
 
       {/* Contenedor del Chat/Feedback */}
-      <div className="flex-1 min-h-0 bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
+      <div className="flex-1 min-h-0 bg-white dark:bg-neutral-900 md:rounded-2xl overflow-hidden md:border border-neutral-200 dark:border-0 shadow-sm">
         <FeedbackClient 
           initialUser={user} 
           initialEmpleados={empleados || []} 

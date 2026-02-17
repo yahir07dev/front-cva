@@ -13,7 +13,7 @@ export default async function ReportesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. Blindaje de Estado: El usuario debe estar activo
+  // 2. Blindaje de Estado
   const { data: perfilLogueado } = await supabase
     .from('empleados')
     .select('id, nombre, apellidos, estado')
@@ -24,7 +24,7 @@ export default async function ReportesPage() {
     redirect('/login?error=cuenta_desactivada')
   }
 
-  // 3. Validación Jerárquica de Permisos
+  // 3. Validación de Permisos
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
   const canViewReports = permisos.includes('acceso_total') || permisos.includes('reportes.read_all')
@@ -37,8 +37,7 @@ export default async function ReportesPage() {
     )
   }
 
-  // 4. Carga de Datos con soporte para Avatares e Incumplimientos
-  // Agregamos 'estado' en el select e incluimos 'no_realizada' en el filtro
+  // 4. Carga de Actividades (Solo éxitos e incumplimientos)
   const { data: actividades } = await supabase
     .from('actividades')
     .select(`
@@ -57,35 +56,20 @@ export default async function ReportesPage() {
         )
       )
     `)
-    // Filtramos para incluir tanto éxitos como tareas vencidas para el Score Global
     .in('estado', ['completada', 'no_realizada'])
     .is('deleted_at', null)
     .eq('asignacion_actividades.empleados.estado', 'activo')
 
-  const { data: feedback } = await supabase
-    .from('comentarios_rendimiento')
-    .select(`
-      id, tipo, created_at, 
-      empleado:empleados!inner(
-        id, 
-        usuario_id, 
-        nombre, 
-        apellidos, 
-        estado, 
-        foto_perfil_url
-      )
-    `)
-    .eq('empleados.estado', 'activo')
-    .is('empleados.deleted_at', null)
-
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 animate-in fade-in duration-500">
-      <ReportesClient 
-        actividades={actividades || []} 
-        feedback={feedback || []}
-        currentUserId={perfilLogueado?.id}
-        isAdmin={true} 
-      />
+    // Ajuste de altura dinámica para evitar que el contenido se oculte en móvil
+    <div className="h-[100dvh] md:h-full flex flex-col p-0 pb-20 md:p-6 lg:p-8 overflow-hidden animate-in fade-in duration-500">
+      <div className="flex-1 min-h-0 bg-white dark:bg-neutral-900 md:rounded-3xl overflow-hidden md:border border-neutral-200 dark:border-0 shadow-sm">
+        <ReportesClient 
+          actividades={actividades || []} 
+          currentUserId={perfilLogueado?.id}
+          isAdmin={true} 
+        />
+      </div>
     </div>
   )
 }
