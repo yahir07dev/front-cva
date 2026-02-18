@@ -17,7 +17,7 @@ export default async function NuevaActividadPage() {
   // Verificamos si el usuario (aunque sea admin) está ACTIVO
   const { data: perfil } = await supabase
     .from('empleados')
-    .select('estado')
+    .select('estado,areas(nombre)')
     .eq('usuario_id', user.id)
     .single()
 

@@ -4,7 +4,65 @@ import { useSession } from '@/src/hooks/useSession'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions' 
-import { isSameDay, subDays, startOfDay, parseISO } from 'date-fns'
+import { isSameDay, subDays, startOfDay, parseISO, isValid } from 'date-fns'
+
+// 🛠️ HELPER EXTERNO: Calcula la racha para cualquier lista de actividades dada.
+// Al estar fuera del componente, evitamos recrearlo en cada render (menos crashes).
+function calcularRachas(listaActividades: ActividadConRelaciones[], fechaActual: Date) {
+  if (!listaActividades || listaActividades.length === 0) {
+      return { diasRegistrados: 0, diasPerfectos: 0 };
+  }
+
+  const actividadesPorDia: Record<string, ActividadConRelaciones[]> = {};
+  
+  listaActividades.forEach(act => {
+    const fechaRef = act.fecha_limite || act.created_at;
+    if(!fechaRef) return;
+
+    const fecha = parseISO(fechaRef as string);
+    if (!isValid(fecha)) return; // Protección contra fechas inválidas
+
+    const diaKey = startOfDay(fecha).toISOString();
+    if (!actividadesPorDia[diaKey]) actividadesPorDia[diaKey] = [];
+    actividadesPorDia[diaKey].push(act);
+  });
+
+  let rachaDias = 0;
+  let rachaPerfecta = 0;
+  let checkDate = startOfDay(fechaActual);
+
+  // Límite de seguridad para el while (evita bucles infinitos y crashes del navegador)
+  let safetyCounter = 0; 
+
+  while (safetyCounter < 365) { 
+    safetyCounter++;
+    const key = checkDate.toISOString();
+    const actsDelDia = actividadesPorDia[key] || [];
+    
+    if (actsDelDia.length > 0) {
+       const algunaCompletada = actsDelDia.some(a => a.estado === 'completada');
+       
+       if (algunaCompletada) {
+         rachaDias++;
+         const todoExito = actsDelDia.every(a => a.estado === 'completada');
+         if (todoExito) rachaPerfecta++;
+         checkDate = subDays(checkDate, 1);
+       } else {
+         // Si es hoy y no he terminado, permito seguir buscando atrás
+         if (isSameDay(checkDate, fechaActual)) {
+            checkDate = subDays(checkDate, 1);
+            continue;
+         }
+         break; // Rompe la racha
+       }
+    } else {
+       // Si no hubo tareas ese día, saltamos
+       checkDate = subDays(checkDate, 1);
+    }
+  }
+
+  return { diasRegistrados: rachaDias, diasPerfectos: rachaPerfecta };
+}
 
 export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const [supabase] = useState(() => createClient())
@@ -17,7 +75,8 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const { session, loading: sessionLoading } = useSession() as any
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30000)
+    // Actualiza 'now' cada minuto para mantener las fechas frescas
+    const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
 
@@ -54,11 +113,13 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       const currentUserId = session?.user?.id;
       const googleAvatar = session?.user?.user_metadata?.avatar_url;
 
+      // Tu lógica original de mapeo de avatares (Intacta)
       datosProcesados = datosProcesados.map(actividad => ({
         ...actividad,
         asignacion_actividades: actividad.asignacion_actividades?.filter((asig: any) => {
             const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
-            return emp?.estado === 'activo' || emp?.usuario_id === currentUserId;
+            // Filtro de seguridad para no mostrar empleados borrados
+            return emp && (emp.estado === 'activo' || emp.usuario_id === currentUserId);
         }).map((asig: any) => {
             const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
             if (emp && emp.usuario_id === currentUserId && googleAvatar) {
@@ -86,86 +147,52 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     if (!initialData && session) fetchActividades()
   }, [fetchActividades, initialData, session])
 
+  // Realtime
   useEffect(() => {
     if (!supabase || !session?.user?.id) return
-    const channelId = `perf-${session.user.id}-${Date.now()}`
-    const channel = supabase
-      .channel(channelId) 
+    const channel = supabase.channel(`perf-updates-${session.user.id}`) 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'actividades' }, () => fetchActividades())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_actividades' }, () => {
-          setTimeout(() => fetchActividades(), 800) 
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, () => fetchActividades())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_actividades' }, () => setTimeout(() => fetchActividades(), 500))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [supabase, session?.user?.id, fetchActividades])
 
+  // 1. LISTA GLOBAL: Lo que se muestra en la tabla/kanban
+  // Admin ve todo, Empleado ve solo lo suyo.
   const actividadesSeguras = useMemo(() => {
-      let lista = actividades;
+      if (!actividades) return [];
       if (!canManage && session?.user?.id) {
-        lista = actividades.filter(act => 
+        return actividades.filter(act => 
             act.asignacion_actividades?.some((asig: any) => {
-                const emp = asig.empleados || asig.empleado;
-                const empleadoReal = Array.isArray(emp) ? emp[0] : emp;
-                return empleadoReal?.usuario_id === session.user.id
+                const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
+                return emp?.usuario_id === session.user.id
             })
         );
       }
-      return lista;
+      return actividades;
   }, [actividades, canManage, session]);
 
-  // --- NUEVA LÓGICA DE RACHAS (STREAKS) ---
+  // 2. LISTA PERSONAL: Lo que cuenta para MI racha personal
+  // Esta lista SIEMPRE filtra por mi ID, aunque sea Admin.
+  const actividadesSoloMias = useMemo(() => {
+      if (!session?.user?.id || !actividades) return [];
+      return actividades.filter(act => 
+          act.asignacion_actividades?.some((asig: any) => {
+              const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
+              return emp?.usuario_id === session.user.id
+          })
+      );
+  }, [actividades, session]);
+
+  // 3. CÁLCULO DE RACHAS: Usamos el helper dos veces
   const rachaData = useMemo(() => {
-    const source = actividadesSeguras;
-    
-    // 1. Agrupar actividades por día (usando fecha_limite o created_at)
-    const actividadesPorDia: Record<string, ActividadConRelaciones[]> = {};
-    
-    source.forEach(act => {
-      const fecha = act.fecha_limite ? parseISO(act.fecha_limite) : parseISO(act.created_at as string);
-      const diaKey = startOfDay(fecha).toISOString();
-      if (!actividadesPorDia[diaKey]) actividadesPorDia[diaKey] = [];
-      actividadesPorDia[diaKey].push(act);
-    });
+    // Racha del Equipo (Global)
+    const global = calcularRachas(actividadesSeguras, now);
+    // Racha Personal (Estricta)
+    const personal = calcularRachas(actividadesSoloMias, now);
 
-    // 2. Calcular Racha de Días Registrados (Días con al menos 1 tarea completada)
-    let rachaDias = 0;
-    let rachaPerfecta = 0;
-    let checkDate = startOfDay(now);
-
-    // Bucle hacia atrás para contar días seguidos
-    while (true) {
-      const key = checkDate.toISOString();
-      const actsDelDia = actividadesPorDia[key] || [];
-      
-      // ¿Hubo alguna actividad completada este día?
-      const algunaCompletada = actsDelDia.some(a => a.estado === 'completada');
-      
-      if (algunaCompletada) {
-        rachaDias++;
-        // ¿Fue un día perfecto? (Todas las del día completadas)
-        const todoCompletado = actsDelDia.every(a => a.estado === 'completada');
-        if (todoCompletado) rachaPerfecta++;
-        
-        checkDate = subDays(checkDate, 1);
-      } else {
-        // Si no es hoy y no hubo actividad, se rompe la racha
-        if (!isSameDay(checkDate, now)) break;
-        // Si es hoy y no hay completadas aún, no rompemos, solo saltamos al día anterior
-        checkDate = subDays(checkDate, 1);
-        // Pero si el día anterior tampoco tiene nada, ahí sí rompe
-        const prevKey = checkDate.toISOString();
-        if (!(actividadesPorDia[prevKey]?.some(a => a.estado === 'completada'))) break;
-      }
-    }
-
-    return {
-      diasRegistrados: rachaDias,
-      diasPerfectos: rachaPerfecta,
-      mejorRacha: rachaDias, // Aquí podrías comparar contra un valor en la DB en el futuro
-      mejorRachaPerfecta: rachaPerfecta
-    };
-  }, [actividadesSeguras, now]);
+    return { global, personal };
+  }, [actividadesSeguras, actividadesSoloMias, now]);
 
   const stats = useMemo(() => {
     const source = actividadesSeguras;
@@ -175,16 +202,19 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     
     const noRealizadas = source.filter(a => {
       if (!a.fecha_limite || a.estado === 'completada') return false;
-      const limiteMs = new Date(a.fecha_limite).getTime();
-      return limiteMs < ahoraMs;
+      // Validación extra para fecha válida
+      const d = new Date(a.fecha_limite);
+      if (isNaN(d.getTime())) return false;
+      return d.getTime() < ahoraMs;
     }).length;
 
     const pendientes = source.filter(a => {
-      const isEnProceso = ['pendiente', 'en_progreso'].includes(a.estado || '');
+      const isEnProceso = ['pendiente', 'en_progreso', 'revision'].includes(a.estado || '');
       if (!isEnProceso) return false;
       if (!a.fecha_limite) return true;
-      const limiteMs = new Date(a.fecha_limite).getTime();
-      return limiteMs >= ahoraMs;
+      const d = new Date(a.fecha_limite);
+      if (isNaN(d.getTime())) return false;
+      return d.getTime() >= ahoraMs;
     }).length;
 
     const evaluadas = source.filter(a => (a.calificacion || 0) > 0);
@@ -198,13 +228,18 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       pendientes, 
       noRealizadas, 
       promedio,
-      ...rachaData // Inyectamos las rachas en las stats
+      // Aquí está la magia: pasamos las dos rachas
+      rachaGlobal: rachaData.global,
+      rachaPersonal: rachaData.personal
     };
   }, [actividadesSeguras, now, rachaData]);
 
   const actividadesFiltradas = useMemo(() => {
+    if (!actividadesSeguras) return [];
     if (filtro === 'todas') return actividadesSeguras;
+    
     const ahoraMs = now.getTime();
+    
     if (filtro === 'no_realizadas') {
       return actividadesSeguras.filter(a => 
         a.estado !== 'completada' && 

@@ -12,12 +12,11 @@ import {
   addMonths, 
   isSameDay, 
   isSameMonth, 
-  isToday,
   parseISO,
   startOfDay
 } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Flame, Users, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Flame } from 'lucide-react'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
 
@@ -38,31 +37,50 @@ export default function CalendarModal({
   onDateSelect,
   actividades,
   canManage,
-  stats: globalStats
+  stats
 }: CalendarModalProps) {
   const { session } = useSession() as any
   const [viewDate, setViewDate] = useState(selectedDate)
   const [render, setRender] = useState(isOpen)
-  const [viewMode, setViewMode] = useState<'global' | 'personal'>(canManage ? 'global' : 'personal')
+  
+  // Si no puede gestionar, forzamos vista personal
+  const [viewMode, setViewMode] = useState<'global' | 'personal'>('personal')
   const [isChanging, setIsChanging] = useState(false)
 
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const startY = useRef(0)
 
-  // 🛠️ FIX DE APERTURA: Resetear dragY cuando el modal se cierra o abre
+  // Efecto para reiniciar el modo de vista al abrir si es manager
   useEffect(() => {
     if (isOpen) {
-      setDragY(0) // Asegura que empiece desde arriba
+      setDragY(0)
       setRender(true)
+      // Si es admin, puede empezar en global o personal (opcional, aquí lo dejo en personal por defecto)
+      if (canManage) setViewMode('global')
     } else {
       const timer = setTimeout(() => {
         setRender(false)
-        setDragY(0) // Resetear después de la animación de salida
+        setDragY(0)
       }, 800)
       return () => clearTimeout(timer)
     }
-  }, [isOpen])
+  }, [isOpen, canManage])
+
+  // --- SELECCIÓN DINÁMICA DE RACHAS ---
+  // Aquí está la magia: Elegimos qué datos mostrar según el toggle
+  const currentRacha = useMemo(() => {
+      if (!stats) return { diasRegistrados: 0, diasPerfectos: 0 };
+      
+      // Si estamos en modo global, mostramos rachaGlobal (si existe)
+      if (viewMode === 'global' && stats.rachaGlobal) {
+          return stats.rachaGlobal;
+      }
+      
+      // Si estamos en modo personal (o fallback), mostramos rachaPersonal
+      return stats.rachaPersonal || { diasRegistrados: 0, diasPerfectos: 0 };
+  }, [stats, viewMode]);
+
 
   const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
@@ -95,27 +113,39 @@ export default function CalendarModal({
     }, 200)
   }
 
+  // Cálculo de puntos en el calendario (Global vs Personal)
   const dailyData = useMemo(() => {
-    const source = viewMode === 'global' ? actividades : actividades.filter(act => 
-      act.asignacion_actividades?.some((asig: any) => {
-        const emp = asig.empleados || asig.empleado;
-        const empReal = Array.isArray(emp) ? emp[0] : emp;
-        return empReal?.usuario_id === session?.user?.id;
-      })
-    );
+    // 1. Filtramos la fuente de datos
+    const source = viewMode === 'global' 
+        ? actividades // Todas
+        : actividades.filter(act => 
+            act.asignacion_actividades?.some((asig: any) => {
+                const emp = asig.empleados || asig.empleado; // Soporte híbrido
+                const empReal = Array.isArray(emp) ? emp[0] : emp;
+                return empReal?.usuario_id === session?.user?.id;
+            })
+          ); // Solo mías
+
     const map: Record<string, { isPerfect: boolean, count: number }> = {};
     const grouped: Record<string, ActividadConRelaciones[]> = {};
+    
     source.forEach(act => {
-      const fecha = act.fecha_limite ? parseISO(act.fecha_limite) : parseISO(act.created_at as string);
+      const fechaRef = act.fecha_limite || act.created_at;
+      if (!fechaRef) return;
+      const fecha = parseISO(fechaRef as string);
       const key = startOfDay(fecha).toISOString();
+      
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(act);
     });
+
     Object.keys(grouped).forEach(key => {
       const dayActs = grouped[key];
+      // Día perfecto = Hay tareas Y todas están completadas
       const allDone = dayActs.length > 0 && dayActs.every(a => a.estado === 'completada');
       map[key] = { isPerfect: allDone, count: dayActs.length };
     });
+    
     return map;
   }, [actividades, viewMode, session]);
 
@@ -180,15 +210,15 @@ export default function CalendarModal({
 
           <div className={`grid grid-cols-2 gap-4 mb-12 transition-all duration-500 ${isChanging ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
              <div className="flex flex-col items-center relative py-4">
-              <div className={`absolute top-4 w-24 h-24 bg-yellow-500/10 blur-[40px] rounded-full -z-10 ${globalStats?.diasRegistrados > 0 ? 'animate-pulse-glow' : ''}`} />
-              <Flame size={60} className={`transition-all duration-700 ${globalStats?.diasRegistrados > 0 ? 'text-yellow-500 fill-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] animate-bounce-subtle' : 'text-neutral-300 dark:text-neutral-800'}`} />
-              <span className={`text-4xl font-black mt-2 ${globalStats?.diasRegistrados > 0 ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>{globalStats?.diasRegistrados || 0}</span>
+              <div className={`absolute top-4 w-24 h-24 bg-yellow-500/10 blur-[40px] rounded-full -z-10 ${currentRacha.diasRegistrados > 0 ? 'animate-pulse-glow' : ''}`} />
+              <Flame size={60} className={`transition-all duration-700 ${currentRacha.diasRegistrados > 0 ? 'text-yellow-500 fill-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] animate-bounce-subtle' : 'text-neutral-300 dark:text-neutral-800'}`} />
+              <span className={`text-4xl font-black mt-2 ${currentRacha.diasRegistrados > 0 ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>{currentRacha.diasRegistrados || 0}</span>
               <p className="text-[9px] uppercase tracking-widest font-bold text-neutral-400">Días con Éxito</p>
             </div>
             <div className="flex flex-col items-center relative py-4">
-              <div className={`absolute top-4 w-24 h-24 bg-emerald-500/10 blur-[40px] rounded-full -z-10 ${globalStats?.diasPerfectos > 0 ? 'animate-pulse-glow' : ''}`} />
-              <Flame size={60} className={`transition-all duration-700 ${globalStats?.diasPerfectos > 0 ? 'text-emerald-500 fill-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)] animate-bounce-subtle' : 'text-neutral-300 dark:text-neutral-800'}`} />
-              <span className={`text-4xl font-black mt-2 ${globalStats?.diasPerfectos > 0 ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>{globalStats?.diasPerfectos || 0}</span>
+              <div className={`absolute top-4 w-24 h-24 bg-emerald-500/10 blur-[40px] rounded-full -z-10 ${currentRacha.diasPerfectos > 0 ? 'animate-pulse-glow' : ''}`} />
+              <Flame size={60} className={`transition-all duration-700 ${currentRacha.diasPerfectos > 0 ? 'text-emerald-500 fill-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)] animate-bounce-subtle' : 'text-neutral-300 dark:text-neutral-800'}`} />
+              <span className={`text-4xl font-black mt-2 ${currentRacha.diasPerfectos > 0 ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>{currentRacha.diasPerfectos || 0}</span>
               <p className="text-[9px] uppercase tracking-widest font-bold text-neutral-400">Días Perfectos</p>
             </div>
           </div>

@@ -1,8 +1,8 @@
-// src/hooks/useNuevaActividad.ts
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
-import { crearNuevaActividad } from '@/src/services/performanceService'
+// Importamos AMBAS funciones del servicio
+import { crearNuevaActividad, getEmpleadosParaAsignacion } from '@/src/services/performanceService'
 import { PrioridadActividad } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
@@ -17,7 +17,7 @@ export function useNuevaActividad() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [userPerms, setUserPerms] = useState<string[]>([]) 
-  const [userEstado, setUserEstado] = useState<string>('activo') //
+  const [userEstado, setUserEstado] = useState<string>('activo')
 
   const [form, setForm] = useState({
     titulo: '',
@@ -27,16 +27,14 @@ export function useNuevaActividad() {
     asignados: [] as string[]
   })
 
-  // 1. CARGA DE PERMISOS Y ESTADO REAL (Blindaje)
+  // 1. CARGA DE PERMISOS Y ESTADO REAL
   useEffect(() => {
     const loadUserData = async () => {
-      // Cargamos permisos
       const data = await getSessionUserWithPermissions()
       if (data) {
         setUserPerms(data.permissions)
       }
 
-      // Verificamos estado de salud de la cuenta (activo/baja)
       if (session?.user?.id) {
         const { data: emp } = await supabase
           .from('empleados')
@@ -52,37 +50,24 @@ export function useNuevaActividad() {
   }, [session, supabase])
 
   const canCreate = useMemo(() => {
-    if (!session || userEstado === 'baja') return false; // Bloqueo preventivo si es baja
+    if (!session || userEstado === 'baja') return false; 
     return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
   }, [userPerms, session, userEstado]);
 
-  // 2. CARGAR EMPLEADOS E INYECTAR FOTO DE GOOGLE
+  // 2. CARGAR EMPLEADOS USANDO EL SERVICIO (CORRECCIÓN CLAVE)
   useEffect(() => {
     let isMounted = true;
     
     const fetchEmpleados = async () => {
         try {
-            const { data, error } = await supabase
-                .from('empleados')
-                .select(`
-                    id, 
-                    usuario_id, 
-                    nombre, 
-                    apellidos, 
-                    foto_perfil_url, 
-                    roles ( nombre )
-                `)
-                .eq('estado', 'activo') // Solo personal vigente
-                .is('deleted_at', null)
-                .order('nombre', { ascending: true })
-
-            if (error) throw error
+            // USAMOS LA FUNCIÓN DEL SERVICIO QUE YA TIENE EL SELECT COMPLETO CON ÁREAS
+            const data = await getEmpleadosParaAsignacion();
 
             if (isMounted && data) {
                 const currentUserId = session?.user?.id;
                 const googleAvatar = session?.user?.user_metadata?.avatar_url;
 
-                const empleadosProcesados = data.map((emp) => {
+                const empleadosProcesados = data.map((emp: any) => {
                     const esElUsuarioActual = emp.usuario_id === currentUserId;
                     const noTieneFotoBD = !emp.foto_perfil_url || emp.foto_perfil_url.trim() === '';
 
@@ -104,7 +89,7 @@ export function useNuevaActividad() {
     }
 
     return () => { isMounted = false; };
-  }, [canCreate, supabase, session]);
+  }, [canCreate, session]); // Quitamos 'supabase' de las dependencias porque el servicio ya instancia su cliente
 
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
@@ -121,7 +106,6 @@ export function useNuevaActividad() {
 
   // 3. ENVÍO SEGURO
   const handleSubmit = async () => {
-    // Verificación final de estado antes de disparar el servicio
     if (userEstado === 'baja') {
       return alert('Acceso denegado. Tu cuenta no está activa.')
     }

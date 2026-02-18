@@ -31,14 +31,7 @@ export const getEmpleadosActivos = async () => {
   return data || [];
 }
 
-export const crearArea = async (nombre: string, descripcion: string, encargado_id?: number) => {
-  const { error } = await supabase
-    .from('areas')
-    .insert([{ nombre, descripcion, encargado_id }]);
-  
-  if (error) throw error;
-}
-
+// 🟢 FUNCIÓN AUXILIAR PARA MOVER EMPLEADO
 export const asignarEmpleadoAArea = async (empleadoId: number, areaId: number | null) => {
   const { error } = await supabase
     .from('empleados')
@@ -48,8 +41,24 @@ export const asignarEmpleadoAArea = async (empleadoId: number, areaId: number | 
   if (error) throw error;
 }
 
-// --- NUEVAS FUNCIONES PARA EDITAR Y BORRAR ---
+// 🟢 MODIFICADA: Crea el área Y asigna al encargado a esa área
+export const crearArea = async (nombre: string, descripcion: string, encargado_id?: number) => {
+  // 1. Insertamos y usamos .select().single() para obtener el ID generado
+  const { data: nuevaArea, error } = await supabase
+    .from('areas')
+    .insert([{ nombre, descripcion, encargado_id }])
+    .select()
+    .single();
+  
+  if (error) throw error;
 
+  // 2. Si se definió un encargado, lo movemos automáticamente a esta nueva área
+  if (encargado_id && nuevaArea) {
+    await asignarEmpleadoAArea(encargado_id, nuevaArea.id);
+  }
+}
+
+// 🟢 MODIFICADA: Al editar, si cambia el encargado, también lo movemos
 export const actualizarArea = async (id: number, updates: { nombre?: string, descripcion?: string, encargado_id?: number | null }) => {
   const { error } = await supabase
     .from('areas')
@@ -57,10 +66,15 @@ export const actualizarArea = async (id: number, updates: { nombre?: string, des
     .eq('id', id);
 
   if (error) throw error;
+
+  // Si la actualización incluye un nuevo encargado (y no es null), lo movemos al área
+  if (updates.encargado_id) {
+    await asignarEmpleadoAArea(updates.encargado_id, id);
+  }
 }
 
 export const eliminarArea = async (id: number) => {
-  // Soft delete: solo marcamos la fecha de borrado
+  // Soft delete
   const { error } = await supabase
     .from('areas')
     .update({ deleted_at: new Date().toISOString() })
