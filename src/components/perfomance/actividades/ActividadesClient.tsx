@@ -11,8 +11,8 @@ import { isSameDay, parseISO, isValid, startOfDay, endOfDay } from 'date-fns'
 
 import ActividadesHeader from './ActividadesHeader'
 import CardActividad from './CardActividad'
-import ModalEvaluacion from '../shared/ModalEvaluacion'
-import ModalConfirmacion from '../shared/ModalConfirmacion'
+import ModalEvaluacion from '../../shared/ModalEvaluacion'
+import ModalConfirmacion from '../../shared/ModalConfirmacion'
 import DateHeader from '@/src/components/shared/DateHeader'
 import CalendarModal from '@/src/components/shared/CalendarModal'
 

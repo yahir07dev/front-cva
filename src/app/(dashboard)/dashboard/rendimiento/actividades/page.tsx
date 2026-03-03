@@ -1,5 +1,5 @@
 import { createClient } from '@/src/lib/supabase/server'
-import ActividadesClient from '@/src/components/perfomance/ActividadesClient'
+import ActividadesClient from '@/src/components/perfomance/actividades/ActividadesClient'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { redirect } from 'next/navigation'
 

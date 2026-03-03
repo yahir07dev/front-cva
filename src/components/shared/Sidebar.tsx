@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, JSX, useMemo, useEffect } from "react";
+import { useState, JSX, useMemo, useEffect, useTransition, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "@/src/context/ThemeContext";
@@ -23,9 +23,13 @@ import {
   UserRound,
   UserPen,
   UserCog,
-  // IMPORTAMOS LOS NUEVOS ICONOS AQUÍ
-  Building2, 
-  MapPin
+  Building2,
+  MapPin,
+  Loader2,
+  Settings,
+  HandCoins,
+  Calculator,
+  History,
 } from "lucide-react";
 
 /* ================= TIPOS ================= */
@@ -60,15 +64,58 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  // Ruta "optimista": la que el usuario eligió, aunque la página aún no cargó
+  const [optimisticPath, setOptimisticPath] = useState<string>(pathname);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setMobileOpen(false);
+    // Cuando la navegación real termina, sincronizamos
+    setOptimisticPath(pathname);
   }, [pathname]);
+
+  // Pre-fetch de todas las rutas al montar el componente para eliminar el lag
+  const allPaths = useMemo(() => {
+    const paths: string[] = [];
+    const known = [
+      "/dashboard",
+      "/dashboard/personal/empleados",
+      "/dashboard/personal/roles",
+      "/dashboard/organizacion/areas",
+      "/dashboard/rendimiento/actividades",
+      "/dashboard/rendimiento/comentarios",
+      "/dashboard/rendimiento/reportes",
+      "/dashboard/nomina/configuracion",
+      "/dashboard/nomina/prestamos",
+      "/dashboard/nomina/generar",
+      "/dashboard/nomina/historial",
+      "/dashboard/asistencia",
+    ];
+    return known;
+  }, []);
+
+  useEffect(() => {
+    // Prefetch de todas las rutas en cuanto el sidebar monta
+    allPaths.forEach((path) => router.prefetch(path));
+  }, [allPaths, router]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  // Navegación optimista: actualiza la UI de inmediato sin esperar a la BD
+  const handleNavigate = useCallback(
+    (path: string, e: React.MouseEvent) => {
+      e.preventDefault();
+      if (path === optimisticPath) return; // ya estamos aquí
+      setOptimisticPath(path); // actualiza la UI instantáneamente
+      startTransition(() => {
+        router.push(path);
+      });
+    },
+    [optimisticPath, router]
+  );
 
   const toggleSubmenu = (id: string) => {
     setOpenMenus((prev) =>
@@ -81,13 +128,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     if (id === "rendimiento") {
       return "bg-orange-500/15 text-orange-600 dark:bg-orange-600/25 dark:text-orange-400";
     }
-    // AGREGAMOS EL COLOR AZUL PARA ORGANIZACIÓN
     if (id === "organizacion") {
       return "bg-blue-500/15 text-blue-600 dark:bg-blue-600/25 dark:text-blue-400";
     }
-    // Si quisieras agregar el morado para personal, sería aquí:
-    // if (id === "personal") return "bg-purple-500/15 text-purple-600...";
-    
+    if (id === "nomina") {
+      // Color Esmeralda (Verde) recomendado para finanzas/nómina
+      return "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-600/25 dark:text-emerald-400";
+    }
     return "bg-neutral-200/50 dark:bg-neutral-800/40 text-neutral-900 dark:text-neutral-100";
   };
 
@@ -122,24 +169,21 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         },
       ],
     },
-    // --- NUEVA SECCIÓN DE ORGANIZACIÓN ---
     {
       id: "organizacion",
-      icon: <Building2 size={20} />, // Icono de Edificio/Estructura
+      icon: <Building2 size={20} />,
       label: "Organización",
       hasSubmenu: true,
-      // Permisos para Admin (acceso_total) y Supervisor (areas.read)
-      permission: ["areas.read", "acceso_total"], 
+      permission: ["areas.read", "acceso_total"],
       submenu: [
         {
-          icon: <MapPin size={18} />, // Icono de ubicación/área
+          icon: <MapPin size={18} />,
           label: "Áreas",
           path: "/dashboard/organizacion/areas",
           permission: ["areas.read", "acceso_total"],
         },
       ],
     },
-    // -------------------------------------
     {
       id: "rendimiento",
       icon: <TrendingUp size={20} />,
@@ -176,7 +220,40 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       id: "nomina",
       icon: <Banknote size={20} />,
       label: "Nómina",
-      path: "/dashboard/nomina",
+      hasSubmenu: true,
+      permission: [
+        "nomina.read", 
+        "nomina.create", 
+        "nomina.update", 
+        "prestamos.read", 
+        "acceso_total"
+      ],
+      submenu: [
+        {
+          icon: <Settings size={18} />,
+          label: "Configuración",
+          path: "/dashboard/nomina/configuracion",
+          permission: ["nomina.update", "acceso_total"],
+        },
+        {
+          icon: <HandCoins size={18} />,
+          label: "Préstamos",
+          path: "/dashboard/nomina/prestamos",
+          permission: ["prestamos.read", "acceso_total"],
+        },
+        {
+          icon: <Calculator size={18} />,
+          label: "Generar Nómina",
+          path: "/dashboard/nomina/generar",
+          permission: ["nomina.create", "acceso_total"],
+        },
+        {
+          icon: <History size={18} />,
+          label: "Historial",
+          path: "/dashboard/nomina/historial",
+          permission: ["nomina.read", "acceso_total"],
+        },
+      ],
     },
     {
       id: "asistencia",
@@ -202,7 +279,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       let finalSubmenu = item.submenu;
       if (item.submenu) {
         finalSubmenu = item.submenu.filter((sub) =>
-          checkAccess(sub.permission),
+          checkAccess(sub.permission)
         );
         if (finalSubmenu.length === 0 && !item.path) return acc;
       }
@@ -212,14 +289,15 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     }, [] as MenuItem[]);
   }, [permissions]);
 
-  const isActive = (path?: string) => path && pathname === path;
+  // Usa optimisticPath en lugar de pathname para feedback instantáneo
+  const isActive = (path?: string) => path && optimisticPath === path;
 
   const isSectionActive = (
     hasSubmenu?: boolean,
     id?: string,
-    itemPath?: string,
+    itemPath?: string
   ) => {
-    if (hasSubmenu) return pathname.includes(`/dashboard/${id}`);
+    if (hasSubmenu) return optimisticPath.includes(`/dashboard/${id}`);
     return isActive(itemPath);
   };
 
@@ -249,12 +327,14 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       {/* OVERLAY MOBILE */}
       <div
         className={`fixed inset-0 z-[65] bg-black/50 dark:bg-black/70 backdrop-blur-sm md:hidden transition-opacity duration-300 ${
-          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          mobileOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setMobileOpen(false)}
       />
 
-      {/* SIDEBAR PRINCIPAL - SIN BORDES VISIBLES */}
+      {/* SIDEBAR PRINCIPAL */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-[70] flex flex-col h-[100dvh]
@@ -265,7 +345,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
           ${collapsed ? "md:w-20" : "md:w-64"}
         `}
       >
-        {/* HEADER - sin borde inferior */}
+        {/* HEADER */}
         <div
           className={`h-20 flex items-center px-5 shrink-0 ${
             collapsed ? "justify-center" : "justify-between"
@@ -298,13 +378,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
           </button>
         </div>
 
-        {/* NAVEGACIÓN - sin borde */}
-        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto bg-white dark:bg-neutral-950">
+        {/* NAVEGACIÓN */}
+        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800 bg-white dark:bg-neutral-950">
           {filteredMenuItems.map((item) => {
             const isItemActive = !!isSectionActive(
               item.hasSubmenu,
               item.id,
-              item.path,
+              item.path
             );
             const isMenuOpen = openMenus.includes(item.id);
 
@@ -332,34 +412,42 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
                     )}
                   </button>
                 ) : (
-                  <Link
+                  <a
                     href={item.path || "#"}
+                    onClick={(e) => item.path && handleNavigate(item.path, e)}
                     className={getItemClasses(isItemActive, item.id)}
                   >
                     <div className="flex items-center gap-3">
                       {item.icon}
                       {!collapsed && <span>{item.label}</span>}
                     </div>
-                  </Link>
+                  </a>
                 )}
 
                 {item.hasSubmenu && isMenuOpen && !collapsed && (
                   <div className="ml-6 mt-1 space-y-1">
                     {item.submenu?.map((sub, idx) => {
                       const isSubActive = !!isActive(sub.path);
+                      const isLoadingThis =
+                        isPending && optimisticPath === sub.path;
                       return (
-                        <Link
+                        <a
                           key={idx}
                           href={sub.path}
+                          onClick={(e) => handleNavigate(sub.path, e)}
                           className={`flex items-center gap-3 px-4 py-2 rounded-xl text-sm transition-colors duration-200 ${
                             isSubActive
                               ? getActiveStyles(item.id)
                               : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/80 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-neutral-100"
                           }`}
                         >
-                          {sub.icon}
+                          {isLoadingThis ? (
+                            <Loader2 size={18} className="animate-spin opacity-60" />
+                          ) : (
+                            sub.icon
+                          )}
                           <span>{sub.label}</span>
-                        </Link>
+                        </a>
                       );
                     })}
                   </div>
@@ -369,11 +457,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
           })}
         </nav>
 
-        {/* FOOTER - sin borde superior */}
+        {/* FOOTER */}
         <div className="p-4 space-y-2 mt-auto">
           <button
             onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100/80 dark:hover:bg-neutral-800/50 transition-colors ${collapsed ? "justify-center" : ""}`}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100/80 dark:hover:bg-neutral-800/50 transition-colors ${
+              collapsed ? "justify-center" : ""
+            }`}
           >
             <Sun size={20} className="block dark:hidden" />
             <Moon size={20} className="hidden dark:block" />
@@ -382,7 +472,9 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
 
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/70 dark:hover:bg-neutral-800/50 transition-colors ${collapsed ? "justify-center" : ""}`}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/70 dark:hover:bg-neutral-800/50 transition-colors ${
+              collapsed ? "justify-center" : ""
+            }`}
           >
             <LogOut size={20} />
             {!collapsed && <span>Salir</span>}

@@ -5,7 +5,6 @@ const supabase = createClient()
 
 /**
  * Obtiene empleados activos para asignarles tareas.
- * CORRECCIÓN: Se especifica la FK exacta para 'areas' (!empleados_area_id_fkey)
  */
 export const getEmpleadosParaAsignacion = async () => {
   const { data, error } = await supabase
@@ -18,7 +17,7 @@ export const getEmpleadosParaAsignacion = async () => {
       foto_perfil_url,
       roles ( nombre ),
       areas!empleados_area_id_fkey ( nombre )  
-    `) // ^^^ AQUÍ ESTÁ EL CAMBIO IMPORTANTE
+    `) 
     .eq('estado', 'activo') 
     .is('deleted_at', null) 
     .order('nombre', { ascending: true });

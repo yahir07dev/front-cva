@@ -69,7 +69,7 @@ export default function EstadisticasRendimiento({ stats }: EstadisticasProps) {
             <span className="text-[10px] uppercase tracking-[0.15em] font-black text-neutral-400 dark:text-neutral-500 truncate">
               {item.label}
             </span>
-            <span className="text-xl font-black text-neutral-900 dark:text-white tracking-tight">
+            <span className="text-xl font-black text-neutral-900  dark:text-neutral-500 tracking-tight">
               {item.value}
             </span>
           </div>

@@ -1,7 +1,7 @@
 import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
-import NuevaActividadClient from '@/src/components/perfomance/NuevaActividadClient'
+import NuevaActividadClient from '@/src/components/perfomance/actividades/NuevaActividadClient'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0

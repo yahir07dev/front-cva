@@ -42,10 +42,8 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     return hasPermission(userPerms, ['comentarios.create', 'acceso_total'])
   }, [userPerms, userEstado])
 
-  // NUEVO: canManage define si ve la lista lateral (Admin/Supervisor)
   const canManage = useMemo(() => {
      if (userEstado === 'baja') return false
-     // Ajusta estos permisos según tu lógica de "Gestor"
      return hasPermission(userPerms, ['acceso_total', 'comentarios.read_all', 'roles.read'])
   }, [userPerms, userEstado])
 
@@ -68,18 +66,11 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const [selectedEmp, setSelectedEmp] = useState<any>(null)
   const [comentarios, setComentarios] = useState<any[]>([])
 
-  // 3. AUTO-SELECCIÓN CORREGIDA (El parche clave)
+  // 3. AUTO-SELECCIÓN
   useEffect(() => {
-    // Si NO puede gestionar (es empleado normal) y no hay nadie seleccionado...
     if (!canManage && initialUser && empleadosProcesados.length > 0 && !selectedEmp) {
-      
-      // Buscamos el objeto empleado que coincide con el usuario logueado
       const me = empleadosProcesados.find(e => e.usuario_id === initialUser.id)
-      
-      if (me) {
-        // Seleccionamos el perfil CORRECTO (el que tiene id numérico)
-        setSelectedEmp(me)
-      }
+      if (me) setSelectedEmp(me)
     }
   }, [canManage, initialUser, empleadosProcesados, selectedEmp])
 
@@ -91,7 +82,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     tipo: 'positivo'
   })
 
-  // 5. FETCHING Y REALTIME
+  // 5. FETCHING Y REALTIME 
   useEffect(() => {
     if (!selectedEmp) {
       setComentarios([])
@@ -101,7 +92,6 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     const fetchComments = async () => {
       setLoading(true)
       try {
-        // Ahora selectedEmp.id siempre será un número gracias al useEffect de arriba
         const data = await getComentarios(selectedEmp.id) 
         
         const comentariosConFoto = data.map((comentario: any) => {
@@ -128,12 +118,38 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
 
     fetchComments()
 
-    // Suscripción Realtime
+    // --- SUSCRIPCIÓN REALTIME MEJORADA ---
     const channel = supabase.channel(`chat-${selectedEmp.id}`)
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'comentarios_rendimiento', filter: `empleado_id=eq.${selectedEmp.id}` }, 
-        () => fetchComments()
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'comentarios_rendimiento'
+          // Quitamos el filtro aquí para poder recibir los DELETE
+          // ya que Supabase a veces no envía el 'empleado_id' en el evento de borrado.
+        }, 
+        (payload) => {
+           // 1. Manejo de INSERT y UPDATE (Aquí sí filtramos por empleado_id)
+           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              if (payload.new.empleado_id === selectedEmp.id) {
+                 fetchComments()
+              }
+           }
+
+           // 2. Manejo de DELETE (Filtramos buscando si el ID existe en nuestra lista actual)
+           if (payload.eventType === 'DELETE') {
+              setComentarios((prevComentarios) => {
+                 const existe = prevComentarios.find(c => c.id === payload.old.id)
+                 if (existe) {
+                    // Si existe, lo borramos del estado local
+                    return prevComentarios.filter(c => c.id !== payload.old.id)
+                 }
+                 return prevComentarios
+              })
+           }
+        }
       )
+      // Listener para cambios en el empleado (si lo dan de baja)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, (payload) => {
           if (selectedEmp && payload.new.id === selectedEmp.id && payload.new.estado === 'baja') {
               setSelectedEmp(null);
@@ -175,6 +191,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     if (userEstado === 'baja') return alert('Acceso denegado.')
     try {
       await eliminarComentario(id)
+      // Mantenemos la actualización optimista local para que se sienta instantáneo para quien borra
       setComentarios(prev => prev.filter(c => c.id !== id))
     } catch (error: any) {
       alert('Error al eliminar: ' + error.message)
@@ -193,7 +210,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   return {
     loading,
     canCreate,
-    canManage, // <--- EXPORTADO PARA QUE EL CLIENTE LO USE
+    canManage,
     userEstado,
     selectedEmp,
     setSelectedEmp,
