@@ -57,9 +57,30 @@ export async function updateSession(request: NextRequest) {
       .from("empleados")
       .select("id")
       .eq("usuario_id", user.id) // nmombre_columna, valor_buscado
+      .is("deleted_at", null)
       .single();
 
     hasProfile = !!data;
+  }
+
+  // con esta variable validamos si ha sido eliminado del sistema
+  let removed = false;
+  if (user) {
+    const { data: baja } = await supabase
+      .from("empleados")
+      .select("id")
+      .eq("usuario_id", user.id) // nmombre_columna, valor_buscado
+      .eq("estado", "baja")
+      .single();
+
+    removed = !!baja;
+  }
+
+  // si el usuario fue dado de baja, siempre enviarlo a account-denied
+  if (user && removed && !path.startsWith("/account-denied")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/account-denied";
+    return NextResponse.redirect(url);
   }
 
   // validacion de la ruta raiz

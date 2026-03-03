@@ -22,6 +22,7 @@ import {
   UserRound,
   UserPen,
   UserCog,
+  Newspaper,
 } from "lucide-react";
 
 // Definimos interfaces
@@ -151,13 +152,25 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
           permission: "empleados.update",
           path: "/dashboard/personal/empleados",
         },
+      ],
+    },
+    {
+      id: "documentos",
+      icon: <Newspaper size={20} />,
+      label: "Documentos",
+      hasSubmenu: true,
+      // Si tiene cualquiera de estos, se muestra el padre.
+      // Luego filtramos los hijos individualmente.
+      permission: ["documentos.update", "documentos.read"],
+      submenu: [
         {
-          icon: <UserCog size={18} />,
-          label: "Roles",
-          permission: "roles.update",
-          path: "/dashboard/personal/roles",
+          icon: <UserPen size={18} />,
+          label: "Empleados",
+          permission: "empleados.update",
+          path: "/dashboard/documentos/empleados",
         },
       ],
+      //path: "/dashboard/documentos",
     },
     {
       id: "rendimiento",
