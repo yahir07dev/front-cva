@@ -119,6 +119,17 @@ const handleAbonar = async (prestamoId: number, monto: number, omitir: boolean, 
   await fetchData(); // Recargamos para ver el progreso moverse
 }
 
+// NUEVO 7. ACCIÓN: PAUSAR COBRO (OMITIR SEMANA)
+  const handleTogglePausa = async (prestamoId: number, estadoActual: boolean) => {
+    if (!canManage) throw new Error("No tienes permisos para modificar préstamos.");
+    
+    // Importamos la función sobre la marcha para no tener que subir hasta arriba de tu archivo
+    const { togglePausarCobro } = await import('@/src/services/prestamosService');
+    
+    await togglePausarCobro(prestamoId, estadoActual);
+    await fetchData();
+  }
+
   // Estadísticas rápidas para el Header
   const stats = useMemo(() => {
     const activos = prestamos.filter(p => p.estado === 'activo');
@@ -141,6 +152,7 @@ const handleAbonar = async (prestamoId: number, monto: number, omitir: boolean, 
     canRead,
     handleCrearPrestamo,
     handleAbonar,
+    handleTogglePausa,
     refreshData: fetchData
   }
 }

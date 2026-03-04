@@ -1,6 +1,7 @@
 import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FeedbackClient from '@/src/components/perfomance/feedback/FeedbackClient' 
+import AccessDenied from '@/src/components/shared/AccessDenied' // <-- 1. Importar pantalla de bloqueo
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -26,7 +27,22 @@ export default async function ComentariosPage() {
     redirect('/login?error=cuenta_desactivada')
   }
 
-  // 2. OBTENER LISTA DE EMPLEADOS ACTIVOS
+  // 2. 🛡️ BLINDAJE DE PERMISOS (EL CANDADO REAL)
+  const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
+  const permisos = perms || []
+
+  // Validamos si tiene el permiso específico o es admin
+  const canAccess = permisos.includes('comentarios.read') || permisos.includes('acceso_total')
+
+  if (!canAccess) {
+    return (
+      <AccessDenied 
+        message="No tienes los permisos necesarios para acceder al módulo de Feedback y Comentarios." 
+      />
+    )
+  }
+
+  // 3. OBTENER LISTA DE EMPLEADOS ACTIVOS (Solo se ejecuta si pasó el candado)
   const { data: empleados, error } = await supabase
     .from('empleados')
     .select('id, usuario_id, nombre, apellidos, foto_perfil_url, estado, roles(nombre)') 

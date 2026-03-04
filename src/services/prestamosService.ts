@@ -154,3 +154,22 @@ export const registrarAbonoPrestamo = async (
 
   if (updateError) throw new Error('Error al actualizar el saldo del préstamo.');
 }
+
+/**
+ * Alterna el estado de "Pausar cobro" para la siguiente nómina.
+ */
+export const togglePausarCobro = async (prestamoId: number, estadoActual: boolean) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión no válida.');
+
+  const { error } = await supabase
+    .from('prestamos')
+    .update({ 
+      omitir_siguiente_nomina: !estadoActual,
+      updated_by: user.id,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', prestamoId);
+
+  if (error) throw new Error('Error al pausar/reanudar el cobro del préstamo.');
+}

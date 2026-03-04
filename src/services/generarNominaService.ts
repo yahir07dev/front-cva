@@ -5,8 +5,9 @@ const supabase = createClient();
 export interface RenglonNomina {
   empleado_id: number;
   nombre_completo: string;
+  foto_perfil_url?: string | null;
   sueldo_base: number;
-  sueldo_calculado: number; // Sueldo después de faltas/medios turnos (Calculadora)
+  sueldo_calculado: number;
   recibe_pago_tarjeta: boolean;
   monto_tarjeta_defecto: number;
   prestamo_activo_id: number | null;
@@ -20,9 +21,9 @@ export interface RenglonNomina {
 export const getDatosPorDiaDePago = async (diaPago: string, fechaPago: string) => {
   const { data: empleados, error: empError } = await supabase
     .from('empleados')
-    .select('id, nombre, apellidos, sueldo_base, recibe_pago_tarjeta, monto_tarjeta_defecto')
+    .select('id, nombre, apellidos, foto_perfil_url, sueldo_base, recibe_pago_tarjeta, monto_tarjeta_defecto')
     .eq('estado', 'activo')
-    .ilike('dia_pago', `%${diaPago}%`) // <-- Búsqueda flexible (ignora mayúsculas o espacios)
+    .ilike('dia_pago', `%${diaPago}%`) 
     .is('deleted_at', null);
 
   if (empError) throw new Error(empError.message);
@@ -53,14 +54,17 @@ export const getDatosPorDiaDePago = async (diaPago: string, fechaPago: string) =
 
   const { data: prestamos } = await supabase
     .from('prestamos')
-    .select('id, empleado_id, cuota_semanal, saldo_restante')
+    // AÑADIDO: omitir_siguiente_nomina
+    .select('id, empleado_id, cuota_semanal, saldo_restante, omitir_siguiente_nomina')
     .eq('estado', 'activo')
     .in('empleado_id', idsFiltrados);
 
   const renglones: RenglonNomina[] = empleadosFiltrados.map(emp => {
     const prestamo = prestamos?.find(p => p.empleado_id === emp.id);
     let cuotaPrestamo = 0;
-    if (prestamo) {
+    
+    // LÓGICA DE PAUSA APLICADA AQUÍ: Si el préstamo existe y NO está pausado, se cobra.
+    if (prestamo && !prestamo.omitir_siguiente_nomina) {
       cuotaPrestamo = prestamo.cuota_semanal > prestamo.saldo_restante ? prestamo.saldo_restante : prestamo.cuota_semanal;
     }
 
@@ -70,6 +74,7 @@ export const getDatosPorDiaDePago = async (diaPago: string, fechaPago: string) =
     return {
       empleado_id: emp.id,
       nombre_completo: `${emp.nombre} ${emp.apellidos}`,
+      foto_perfil_url: emp.foto_perfil_url,
       sueldo_base: sueldo,
       sueldo_calculado: sueldo,
       recibe_pago_tarjeta: emp.recibe_pago_tarjeta || false,
@@ -89,7 +94,7 @@ export const getDatosPorDiaDePago = async (diaPago: string, fechaPago: string) =
 export const getEmpleadoParaAgregar = async (empleadoId: number) => {
   const { data: emp, error } = await supabase
     .from('empleados')
-    .select('id, nombre, apellidos, sueldo_base, recibe_pago_tarjeta, monto_tarjeta_defecto')
+    .select('id, nombre, apellidos, foto_perfil_url, sueldo_base, recibe_pago_tarjeta, monto_tarjeta_defecto')
     .eq('id', empleadoId)
     .single();
 
@@ -97,13 +102,15 @@ export const getEmpleadoParaAgregar = async (empleadoId: number) => {
 
   const { data: prestamo } = await supabase
     .from('prestamos')
-    .select('id, cuota_semanal, saldo_restante')
+    // AÑADIDO: omitir_siguiente_nomina
+    .select('id, cuota_semanal, saldo_restante, omitir_siguiente_nomina')
     .eq('empleado_id', emp.id)
     .eq('estado', 'activo')
     .single();
 
   let cuota = 0;
-  if (prestamo) {
+  // LÓGICA DE PAUSA APLICADA AQUÍ TAMBIÉN
+  if (prestamo && !prestamo.omitir_siguiente_nomina) {
     cuota = prestamo.cuota_semanal > prestamo.saldo_restante ? prestamo.saldo_restante : prestamo.cuota_semanal;
   }
 
@@ -113,6 +120,7 @@ export const getEmpleadoParaAgregar = async (empleadoId: number) => {
   return {
     empleado_id: emp.id,
     nombre_completo: `${emp.nombre} ${emp.apellidos} (Extra)`,
+    foto_perfil_url: emp.foto_perfil_url,
     sueldo_base: sueldo,
     sueldo_calculado: sueldo,
     recibe_pago_tarjeta: emp.recibe_pago_tarjeta || false,
@@ -161,7 +169,6 @@ export const getTodosEmpleadosExtras = async (fechaPago: string) => {
 
   const idsYaPagados = nominasPrevias?.map(n => n.empleado_id) || [];
 
-  // Retornamos SOLO a los que NO han cobrado esta semana
   return data.filter(emp => !idsYaPagados.includes(emp.id));
 }
 
@@ -176,7 +183,6 @@ export const guardarNominaMasiva = async (
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sesión no válida.');
 
-  // Preparar los registros
   const registrosAGuardar = renglones.map(r => ({
     empleado_id: r.empleado_id,
     plantilla_id: null, 
@@ -184,7 +190,7 @@ export const guardarNominaMasiva = async (
     periodo_fin: periodoFin,
     fecha_pago: fechaPago,
     sueldo_base: r.sueldo_base,
-    total_percepciones: r.sueldo_calculado, // USAMOS EL SUELDO DE LA CALCULADORA AQUÍ
+    total_percepciones: r.sueldo_calculado, 
     descuento_prestamo: r.descuento_prestamo,
     descuento_anticipo: r.descuento_anticipo,
     descuento_tarjeta: r.descuento_tarjeta,
@@ -198,7 +204,6 @@ export const guardarNominaMasiva = async (
     created_by: user.id
   }));
 
-  // Insertar la nómina
   const { data: nominasInsertadas, error: nominaError } = await supabase
     .from('registros_nomina')
     .insert(registrosAGuardar)
@@ -206,37 +211,46 @@ export const guardarNominaMasiva = async (
 
   if (nominaError) throw new Error('Error al guardar la nómina: ' + nominaError.message);
 
-  // Descontar préstamos si hubo cobros
   for (const renglon of renglones) {
-    if (renglon.prestamo_activo_id && renglon.descuento_prestamo > 0) {
+    if (renglon.prestamo_activo_id) {
       
       const nominaGenerada = nominasInsertadas?.find(n => n.empleado_id === renglon.empleado_id);
       
       const { data: prestamo } = await supabase
         .from('prestamos')
-        .select('saldo_restante, pagos_realizados')
+        .select('saldo_restante, pagos_realizados, omitir_siguiente_nomina')
         .eq('id', renglon.prestamo_activo_id)
         .single();
 
       if (prestamo) {
-        const nuevoSaldo = prestamo.saldo_restante - renglon.descuento_prestamo;
+        let nuevoSaldo = prestamo.saldo_restante;
+        let pagoRealizadoExitoso = false;
 
-        await supabase.from('pagos_prestamo').insert([{
-          prestamo_id: renglon.prestamo_activo_id,
-          nomina_id: nominaGenerada?.id,
-          monto_pagado: renglon.descuento_prestamo,
-          saldo_anterior: prestamo.saldo_restante,
-          saldo_nuevo: nuevoSaldo,
-          fecha_pago: fechaPago,
-          created_by: user.id
-        }]);
+        // Solo restamos el saldo y creamos el recibo si realmente se cobró dinero (> 0)
+        if (renglon.descuento_prestamo > 0) {
+          nuevoSaldo = prestamo.saldo_restante - renglon.descuento_prestamo;
+          pagoRealizadoExitoso = true;
 
+          await supabase.from('pagos_prestamo').insert([{
+            prestamo_id: renglon.prestamo_activo_id,
+            nomina_id: nominaGenerada?.id,
+            monto_pagado: renglon.descuento_prestamo,
+            saldo_anterior: prestamo.saldo_restante,
+            saldo_nuevo: nuevoSaldo,
+            fecha_pago: fechaPago,
+            created_by: user.id
+          }]);
+        }
+
+        // Se haya cobrado o no (por si estaba pausado), actualizamos el préstamo
+        // para DES-PAUSARLO (omitir_siguiente_nomina: false) y dejarlo listo para la otra semana.
         await supabase.from('prestamos')
           .update({
             saldo_restante: nuevoSaldo,
-            pagos_realizados: prestamo.pagos_realizados + 1,
+            pagos_realizados: prestamo.pagos_realizados + (pagoRealizadoExitoso ? 1 : 0),
             estado: nuevoSaldo <= 0 ? 'completado' : 'activo',
-            fecha_finalizacion_real: nuevoSaldo <= 0 ? new Date().toISOString().split('T')[0] : null
+            fecha_finalizacion_real: nuevoSaldo <= 0 ? new Date().toISOString().split('T')[0] : null,
+            omitir_siguiente_nomina: false // <-- DES-PAUSADO AUTOMÁTICO MAGISTRAL
           })
           .eq('id', renglon.prestamo_activo_id);
       }
@@ -256,7 +270,6 @@ export const getHistorialResumen = async () => {
 
   if (error) throw error;
 
-  // Agrupamos por fecha en el frontend para obtener totales por día
   const grupos = data.reduce((acc: any, curr) => {
     const fecha = curr.fecha_pago;
     if (!acc[fecha]) {
@@ -293,7 +306,7 @@ export const getNominaGuardada = async (diaPago: string, fechaPago: string) => {
     .from('registros_nomina')
     .select(`
       *,
-      empleados!inner (id, nombre, apellidos, dia_pago, recibe_pago_tarjeta, monto_tarjeta_defecto)
+      empleados!inner (id, nombre, apellidos, foto_perfil_url, dia_pago, recibe_pago_tarjeta, monto_tarjeta_defecto) 
     `)
     .eq('fecha_pago', fechaPago)
     .ilike('empleados.dia_pago', `%${diaPago}%`)
@@ -305,11 +318,12 @@ export const getNominaGuardada = async (diaPago: string, fechaPago: string) => {
   return data.map(r => ({
     empleado_id: r.empleado_id,
     nombre_completo: `${r.empleados.nombre} ${r.empleados.apellidos}`,
+    foto_perfil_url: r.empleados.foto_perfil_url, 
     sueldo_base: Number(r.sueldo_base),
     sueldo_calculado: Number(r.total_percepciones),
     recibe_pago_tarjeta: r.empleados.recibe_pago_tarjeta,
     monto_tarjeta_defecto: Number(r.empleados.monto_tarjeta_defecto),
-    prestamo_activo_id: null, // No importa en modo lectura
+    prestamo_activo_id: null,
     descuento_prestamo: Number(r.descuento_prestamo),
     descuento_anticipo: Number(r.descuento_anticipo),
     descuento_tarjeta: Number(r.descuento_tarjeta),

@@ -2,6 +2,7 @@ import { createClient } from '@/src/lib/supabase/server'
 import ActividadesClient from '@/src/components/perfomance/actividades/ActividadesClient'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { redirect } from 'next/navigation'
+import AccessDenied from '@/src/components/shared/AccessDenied' // <-- IMPORTANTE AGREGAR ESTO
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0 
@@ -9,23 +10,39 @@ export const revalidate = 0
 export default async function ActividadesPage() { 
   const supabase = await createClient() 
 
-  // 1. BLINDAJE: Verificar si el usuario que accede está ACTIVO
+  // 1. BLINDAJE DE SESIÓN Y ESTADO ACTIVO
   const { data: { user } } = await supabase.auth.getUser()
   
-  if (user) {
-    const { data: perfil } = await supabase
-      .from('empleados')
-      .select('estado')
-      .eq('usuario_id', user.id)
-      .single()
-
-    // Si el usuario es "baja", lo sacamos de aquí inmediatamente
-    if (perfil?.estado === 'baja') { //
-      redirect('/login?error=cuenta_desactivada')
-    }
+  if (!user) {
+    redirect('/login')
   }
 
-  // 2. FETCH: Cargamos datos, pero aseguramos filtrar lo eliminado lógicamente
+  const { data: perfil } = await supabase
+    .from('empleados')
+    .select('estado')
+    .eq('usuario_id', user.id)
+    .single()
+
+  // Si el usuario es "baja", lo sacamos de aquí inmediatamente
+  if (perfil?.estado === 'baja') { 
+    redirect('/login?error=cuenta_desactivada')
+  }
+  
+  // 2. 🛡️ NUEVO BLINDAJE: VERIFICACIÓN DE PERMISOS (EL CANDADO REAL)
+  const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
+  const permisos = perms || []
+
+  const canAccess = permisos.includes('actividades.read') || permisos.includes('acceso_total')
+
+  if (!canAccess) {
+    return (
+      <AccessDenied 
+        message="No tienes los permisos necesarios para ver el módulo de actividades." 
+      />
+    )
+  }
+
+  // 3. FETCH: Cargamos datos solo si pasó el candado de arriba
   const { data, error } = await supabase 
     .from('actividades') 
     .select(`
@@ -43,7 +60,7 @@ export default async function ActividadesPage() {
         )
       )
     `)
-    .is('deleted_at', null) //
+    .is('deleted_at', null) 
     .order('created_at', { ascending: false })
 
   if (error) {

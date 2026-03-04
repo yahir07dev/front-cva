@@ -9,12 +9,23 @@ import {
   RenglonNomina 
 } from '@/src/services/generarNominaService'
 
+// NUEVA INTERFAZ PARA LA CALCULADORA (Casos Especiales)
+export interface ValoresCalculadora {
+  diasNormales: number;
+  descanso: number;
+  diasExtra: number;
+  mediosTurnos: number;
+  horas: number;
+  diasEspeciales: number;
+  precioEspecial: number;
+}
+
 export function useGenerarNomina() {
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [renglones, setRenglones] = useState<RenglonNomina[]>([])
   
-  // NUEVO ESTADO: Candado de solo lectura
+  // ESTADO: Candado de solo lectura
   const [isReadOnly, setIsReadOnly] = useState(false)
   
   // Listas para los selectores
@@ -89,23 +100,29 @@ export function useGenerarNomina() {
     }
   }
 
-  // 4. Calculadora
-  const calcularSueldoAsistencia = (sueldoBase: number, diasCompletos: number, mediosTurnos: number, horasSueltas: number, pagoDescansoMode: number) => {
+  // 4. NUEVA CALCULADORA MATEMÁTICA (Soporta tarifas fijas y días extra de descanso)
+  const calcularSueldoAsistencia = (sueldoBase: number, vals: ValoresCalculadora) => {
     const pagoDia = sueldoBase / 7;
     const pagoHora = pagoDia / 8;
-    const pagoDias = diasCompletos * pagoDia;
-    const pagoMedios = mediosTurnos * (5 * pagoHora); 
-    const pagoHoras = horasSueltas * pagoHora; 
-    const pagoDescanso = pagoDescansoMode * pagoDia; 
 
-    const totalBruto = pagoDias + pagoMedios + pagoHoras + pagoDescanso;
-    return Math.round(totalBruto / 50) * 50;
+    const totalNormales = vals.diasNormales * pagoDia;
+    const totalDescanso = vals.descanso * pagoDia;
+    const totalDiasExtra = vals.diasExtra * pagoDia; // Días de descanso trabajados (Pedrito)
+    const totalMedios = vals.mediosTurnos * (5 * pagoHora); // Medio turno = 5 horas (Juanito/Yahir)
+    const totalHoras = vals.horas * pagoHora; 
+    const totalEspeciales = vals.diasEspeciales * vals.precioEspecial; // Días pagados a tarifa fija (Yahir)
+
+    const totalBruto = totalNormales + totalDescanso + totalDiasExtra + totalMedios + totalHoras + totalEspeciales;
+    
+    // Regla de redondeo de 50 en 50
+    return Math.round(totalBruto / 50) * 50; 
   }
 
-  const aplicarCalculadora = (empleadoId: number, dias: number, medios: number, horas: number, descansoMode: number) => {
+  // Función actualizada para recibir el objeto ValoresCalculadora
+  const aplicarCalculadora = (empleadoId: number, valores: ValoresCalculadora) => {
     setRenglones(prev => prev.map(renglon => {
       if (renglon.empleado_id === empleadoId) {
-        const nuevoSueldo = calcularSueldoAsistencia(renglon.sueldo_base, dias, medios, horas, descansoMode);
+        const nuevoSueldo = calcularSueldoAsistencia(renglon.sueldo_base, valores);
         return recalcularRenglon({ ...renglon, sueldo_calculado: nuevoSueldo });
       }
       return renglon;
