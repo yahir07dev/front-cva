@@ -27,11 +27,22 @@ export default function ListaEmpleados({
   })
 
   return (
-    <div className="flex flex-col h-full w-full bg-white dark:bg-neutral-950 md:w-80 lg:w-96 shrink-0 transition-all duration-300 md:border-r border-neutral-100 dark:border-neutral-800/50">
+    <div className="
+      flex flex-col h-full w-full bg-white dark:bg-neutral-950 
+      md:w-80 lg:w-96 shrink-0 transition-all duration-300 
+      md:border-r border-neutral-100 dark:border-neutral-800/50
+      rounded-l-3xl md:rounded-none overflow-hidden
+    ">
       
-      {/* Header Buscador (Compacto y Sticky) */}
-      <div className="flex-none px-4 py-4 md:p-5 sticky top-0 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-xl z-10 border-b border-neutral-50 dark:border-white/5">
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-4 tracking-tight">Feedback</h2>
+      {/* Header fijo con buscador (sticky) */}
+      <div className="
+        flex-none px-4 py-4 md:p-5 sticky top-0 
+        bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl z-10 
+        border-b border-neutral-50 dark:border-white/5
+      ">
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-4 tracking-tight">
+          Feedback
+        </h2>
         
         <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -57,10 +68,15 @@ export default function ListaEmpleados({
         </div>
       </div>
 
-      {/* Lista de Empleados */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 scrollbar-hide">
+      {/* Lista scrollable - ocupa todo el espacio restante */}
+      <div className="
+        flex-1 overflow-y-auto px-2 py-2 space-y-1 
+        scrollbar-thin scrollbar-thumb-orange-300/50 dark:scrollbar-thumb-orange-700/50
+        scrollbar-track-transparent hover:scrollbar-thumb-orange-400/70
+      ">
         {loading ? (
-          [1, 2, 3, 4, 5].map(i => (
+          // Skeleton loading (mismo que tenías)
+          [1, 2, 3, 4, 5, 6, 7].map(i => (
             <div key={i} className="flex items-center gap-3 p-2 rounded-xl animate-pulse">
               <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-neutral-800" />
               <div className="flex-1 space-y-2">
@@ -70,8 +86,10 @@ export default function ListaEmpleados({
             </div>
           ))
         ) : empleadosFiltrados.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-            <UserX size={24} className="mb-2 opacity-50" />
+          <div className="flex flex-col items-center justify-center h-full text-neutral-400 py-12">
+            <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-neutral-800/50 flex items-center justify-center mb-3">
+              <UserX size={20} />
+            </div>
             <p className="text-xs font-medium">Sin resultados</p>
           </div>
         ) : (
@@ -85,59 +103,54 @@ export default function ListaEmpleados({
                 key={emp.id}
                 onClick={() => onSelect(emp)}
                 className={`
-                  w-full flex items-center gap-3 p-2 rounded-xl transition-all duration-200 text-left group
+                  w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left group
                   ${isSelected 
-                    ? 'bg-neutral-900 dark:bg-white shadow-md transform scale-[1.02]' 
-                    : 'hover:bg-neutral-50 dark:hover:bg-white/5 active:scale-[0.98]'
-                  }
+                    ? 'bg-orange-600/10 border border-orange-500/30 shadow-sm transform scale-[1.01]' 
+                    : 'hover:bg-orange-50 dark:hover:bg-orange-950/20 active:scale-[0.98]'}
                 `}
               >
                 {/* Avatar */}
-                <div className="relative h-10 w-10 flex-shrink-0">
-                  <div className={`
-                    absolute inset-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold transition-all
-                    ${isSelected 
-                      ? 'bg-neutral-800 text-white ring-2 ring-neutral-700 dark:bg-neutral-200 dark:text-black dark:ring-white' 
-                      : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
-                    }
-                  `}>
-                    {fotoUrl ? (
-                      <Image 
-                        src={fotoUrl} 
-                        alt={emp.nombre} 
-                        fill
-                        className="object-cover"
-                        sizes="40px"
-                      />
-                    ) : (
-                      <span>{emp.nombre?.[0]}{emp.apellidos?.[0]}</span>
-                    )}
-                  </div>
-                  
-                  {/* Indicador de Selección (Punto) */}
-                  {isSelected && (
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500 border-2 border-white dark:border-black"></span>
-                    </span>
+                <div className={`
+                  relative h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden transition-all
+                  ${isSelected 
+                    ? 'ring-2 ring-orange-500/50 scale-105' 
+                    : 'ring-1 ring-neutral-200/50 dark:ring-neutral-800/50 group-hover:ring-orange-400/40'}
+                `}>
+                  {fotoUrl ? (
+                    <Image 
+                      src={fotoUrl} 
+                      alt={emp.nombre} 
+                      fill
+                      className="object-cover transition-transform group-hover:scale-110"
+                      sizes="40px"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xs font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 uppercase">
+                      {emp.nombre?.[0]}{emp.apellidos?.[0]}
+                    </div>
                   )}
                 </div>
 
-                {/* Texto */}
-                <div className="flex-1 min-w-0">
+                {/* Info */}
+                <div className="min-w-0 flex-1">
                   <span className={`
-                    block text-sm font-bold truncate transition-colors
-                    ${isSelected ? 'text-white dark:text-black' : 'text-neutral-900 dark:text-neutral-200'}
+                    block text-sm font-semibold truncate transition-colors
+                    ${isSelected ? 'text-orange-700 dark:text-orange-300' : 'text-neutral-900 dark:text-neutral-100'}
                   `}>
                     {emp.nombre} {emp.apellidos}
                   </span>
                   <p className={`
                     text-[11px] truncate mt-0.5 font-medium transition-colors
-                    ${isSelected ? 'text-neutral-400 dark:text-neutral-500' : 'text-neutral-500 dark:text-neutral-500'}
+                    ${isSelected ? 'text-neutral-500 dark:text-neutral-400' : 'text-neutral-500 dark:text-neutral-500'}
                   `}>
                     {rolNombre || 'Sin rol'}
                   </p>
                 </div>
+
+                {/* Indicador selección (punto naranja) */}
+                {isSelected && (
+                  <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                )}
               </button>
             )
           })

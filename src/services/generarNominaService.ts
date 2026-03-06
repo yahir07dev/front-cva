@@ -11,6 +11,9 @@ export interface RenglonNomina {
   recibe_pago_tarjeta: boolean;
   monto_tarjeta_defecto: number;
   prestamo_activo_id: number | null;
+  // NUEVO: Agregamos esto para el PDF
+  prestamo_pagos_realizados?: number; 
+  prestamo_numero_pagos?: number;     
   descuento_prestamo: number;
   descuento_anticipo: number;
   descuento_tarjeta: number;
@@ -54,8 +57,8 @@ export const getDatosPorDiaDePago = async (diaPago: string, fechaPago: string) =
 
   const { data: prestamos } = await supabase
     .from('prestamos')
-    // AÑADIDO: omitir_siguiente_nomina
-    .select('id, empleado_id, cuota_semanal, saldo_restante, omitir_siguiente_nomina')
+    // AÑADIDO: pagos_realizados y numero_pagos
+    .select('id, empleado_id, cuota_semanal, saldo_restante, omitir_siguiente_nomina, pagos_realizados, numero_pagos')
     .eq('estado', 'activo')
     .in('empleado_id', idsFiltrados);
 
@@ -80,6 +83,9 @@ export const getDatosPorDiaDePago = async (diaPago: string, fechaPago: string) =
       recibe_pago_tarjeta: emp.recibe_pago_tarjeta || false,
       monto_tarjeta_defecto: tarjetaDefecto,
       prestamo_activo_id: prestamo ? prestamo.id : null,
+      // NUEVO: Pasamos la fracción al renglón
+      prestamo_pagos_realizados: prestamo ? prestamo.pagos_realizados : 0,
+      prestamo_numero_pagos: prestamo ? prestamo.numero_pagos : 0,
       descuento_prestamo: cuotaPrestamo,
       descuento_anticipo: 0,
       descuento_tarjeta: emp.recibe_pago_tarjeta ? tarjetaDefecto : 0,
@@ -102,8 +108,8 @@ export const getEmpleadoParaAgregar = async (empleadoId: number) => {
 
   const { data: prestamo } = await supabase
     .from('prestamos')
-    // AÑADIDO: omitir_siguiente_nomina
-    .select('id, cuota_semanal, saldo_restante, omitir_siguiente_nomina')
+    // AÑADIDO: pagos_realizados y numero_pagos
+    .select('id, cuota_semanal, saldo_restante, omitir_siguiente_nomina, pagos_realizados, numero_pagos')
     .eq('empleado_id', emp.id)
     .eq('estado', 'activo')
     .single();
@@ -126,6 +132,9 @@ export const getEmpleadoParaAgregar = async (empleadoId: number) => {
     recibe_pago_tarjeta: emp.recibe_pago_tarjeta || false,
     monto_tarjeta_defecto: tj,
     prestamo_activo_id: prestamo ? prestamo.id : null,
+    // NUEVO: Pasamos la fracción al renglón extra
+    prestamo_pagos_realizados: prestamo ? prestamo.pagos_realizados : 0,
+    prestamo_numero_pagos: prestamo ? prestamo.numero_pagos : 0,
     descuento_prestamo: cuota,
     descuento_anticipo: 0,
     descuento_tarjeta: emp.recibe_pago_tarjeta ? tj : 0,

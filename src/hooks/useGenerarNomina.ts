@@ -9,7 +9,6 @@ import {
   RenglonNomina 
 } from '@/src/services/generarNominaService'
 
-// NUEVA INTERFAZ PARA LA CALCULADORA (Casos Especiales)
 export interface ValoresCalculadora {
   diasNormales: number;
   descanso: number;
@@ -25,16 +24,13 @@ export function useGenerarNomina() {
   const [guardando, setGuardando] = useState(false)
   const [renglones, setRenglones] = useState<RenglonNomina[]>([])
   
-  // ESTADO: Candado de solo lectura
   const [isReadOnly, setIsReadOnly] = useState(false)
   
-  // Listas para los selectores
   const [empleadosDisponibles, setEmpleadosDisponibles] = useState<any[]>([])
   const [fechasDisponibles, setFechasDisponibles] = useState<{ fecha: string, diaSemana: string, etiqueta: string }[]>([])
   
   const [fechaActual, setFechaActual] = useState<string>('')
 
-  // 1. Generar Sábados y Domingos
   useEffect(() => {
     const fechas = [];
     const hoy = new Date();
@@ -55,7 +51,6 @@ export function useGenerarNomina() {
     setFechasDisponibles(fechas.reverse());
   }, []);
   
-  // 2. Cargar el grupo de empleados y activar/desactivar el candado
   const cargarGrupo = async (fechaPago: string) => {
     if (!fechaPago) return;
     setLoading(true);
@@ -64,16 +59,13 @@ export function useGenerarNomina() {
       const fechaObj = new Date(fechaPago + 'T12:00:00'); 
       const diaString = fechaObj.getDay() === 6 ? 'Sábado' : 'Domingo';
 
-      // Verificar si ya existe una nómina guardada para esta fecha y grupo
       const guardados = await getNominaGuardada(diaString, fechaPago);
 
       if (guardados && guardados.length > 0) {
-        // MODO LECTURA
         setRenglones(guardados);
         setIsReadOnly(true);
         setEmpleadosDisponibles([]);
       } else {
-        // MODO EDICIÓN
         const [datos, extras] = await Promise.all([
           getDatosPorDiaDePago(diaString, fechaPago),
           getTodosEmpleadosExtras(fechaPago)
@@ -89,7 +81,6 @@ export function useGenerarNomina() {
     }
   }
 
-  // 3. Agregar Extra
   const agregarEmpleadoExtra = async (empleadoId: number) => {
     if (renglones.find(r => r.empleado_id === empleadoId)) return alert("Ya está en la lista.");
     try {
@@ -100,17 +91,25 @@ export function useGenerarNomina() {
     }
   }
 
-  // 4. NUEVA CALCULADORA MATEMÁTICA (Soporta tarifas fijas y días extra de descanso)
+  // LÓGICA MATEMÁTICA CORREGIDA PARA EL MEDIO DESCANSO
   const calcularSueldoAsistencia = (sueldoBase: number, vals: ValoresCalculadora) => {
     const pagoDia = sueldoBase / 7;
     const pagoHora = pagoDia / 8;
 
     const totalNormales = vals.diasNormales * pagoDia;
-    const totalDescanso = vals.descanso * pagoDia;
-    const totalDiasExtra = vals.diasExtra * pagoDia; // Días de descanso trabajados (Pedrito)
-    const totalMedios = vals.mediosTurnos * (5 * pagoHora); // Medio turno = 5 horas (Juanito/Yahir)
+    
+    // CORRECCIÓN: Si el descanso es Medio (0.5), se le pagan 5 horas (igual que un medio turno) en lugar de 4.
+    let totalDescanso = 0;
+    if (vals.descanso === 1) {
+      totalDescanso = pagoDia;
+    } else if (vals.descanso === 0.5) {
+      totalDescanso = 5 * pagoHora; 
+    }
+
+    const totalDiasExtra = vals.diasExtra * pagoDia; 
+    const totalMedios = vals.mediosTurnos * (5 * pagoHora); 
     const totalHoras = vals.horas * pagoHora; 
-    const totalEspeciales = vals.diasEspeciales * vals.precioEspecial; // Días pagados a tarifa fija (Yahir)
+    const totalEspeciales = vals.diasEspeciales * vals.precioEspecial; 
 
     const totalBruto = totalNormales + totalDescanso + totalDiasExtra + totalMedios + totalHoras + totalEspeciales;
     
@@ -118,7 +117,6 @@ export function useGenerarNomina() {
     return Math.round(totalBruto / 50) * 50; 
   }
 
-  // Función actualizada para recibir el objeto ValoresCalculadora
   const aplicarCalculadora = (empleadoId: number, valores: ValoresCalculadora) => {
     setRenglones(prev => prev.map(renglon => {
       if (renglon.empleado_id === empleadoId) {
@@ -129,7 +127,6 @@ export function useGenerarNomina() {
     }))
   }
 
-  // 5. Edición manual
   const handleChangeCelda = (empleadoId: number, campo: keyof RenglonNomina, valor: number) => {
     setRenglones(prev => prev.map(renglon => {
       if (renglon.empleado_id === empleadoId) {
@@ -144,7 +141,6 @@ export function useGenerarNomina() {
     return renglon;
   }
 
-  // 6. Tarjeta
   const guardarTarjeta = async (empleadoId: number, monto: number) => {
     try {
       await guardarTarjetaDefecto(empleadoId, monto);
@@ -154,7 +150,6 @@ export function useGenerarNomina() {
     }
   }
 
-  // 7. Guardar Definitivo
   const handleGuardarNomina = async () => {
     if (!fechaActual || renglones.length === 0) return alert("No hay datos para guardar.");
     
@@ -175,7 +170,6 @@ export function useGenerarNomina() {
         renglones
       );
 
-      // ACTIVAR CANDADO EN LUGAR DE BORRAR LA TABLA
       setIsReadOnly(true);
 
     } catch (error: any) {

@@ -30,13 +30,10 @@ export default function DateHeader({ selectedDate, onDateChange, onCalendarClick
   }
 
   return (
-    /* bg-transparent: Se une al fondo de la página.
-       Sin sombras ni bordes para eliminar el efecto de "cuadro".
-    */
-    <div className="w-full bg-transparent text-neutral-900 dark:text-white py-6 px-4 transition-all duration-300">
+    <div className="w-full bg-transparent text-neutral-900 dark:text-white py-3 px-4 transition-all duration-300">  {/* ← py-3 en lugar de py-6 */}
       
-      {/* Selector de fecha: Ya no parece un botón, solo icono y texto interactivo */}
-      <div className="flex items-center justify-center mb-10">
+      {/* Selector de fecha */}
+      <div className="flex items-center justify-center mb-4">  {/* ← mb-4 en lugar de mb-10 */}
         <button 
           onClick={onCalendarClick}
           className="flex items-center gap-2 group transition-opacity hover:opacity-70 active:scale-95"
@@ -48,7 +45,7 @@ export default function DateHeader({ selectedDate, onDateChange, onCalendarClick
         </button>
       </div>
 
-      {/* Tira de Días: Diseño "Seamless" */}
+      {/* Tira de Días */}
       <div className="flex justify-between items-center max-w-4xl mx-auto px-2">
         {weekDays.map((day) => {
           const isSelected = isSameDay(day, selectedDate)
@@ -59,11 +56,10 @@ export default function DateHeader({ selectedDate, onDateChange, onCalendarClick
               key={day.toString()}
               onClick={() => onDateChange(day)}
               className={`
-                flex flex-col items-center gap-4 group transition-all duration-500
+                flex flex-col items-center gap-3 group transition-all duration-500  {/* ← gap-3 en lugar de gap-4 */}
                 ${isSelected ? 'scale-110' : 'hover:scale-105 opacity-40 hover:opacity-100'}
               `}
             >
-              {/* Círculo de día: En blanco es negro plano, en dark es blanco puro */}
               <div className={`
                 w-11 h-11 rounded-2xl flex items-center justify-center text-xs font-black transition-all duration-500
                 ${isSelected 
@@ -73,7 +69,7 @@ export default function DateHeader({ selectedDate, onDateChange, onCalendarClick
                 {format(day, 'EEEEE', { locale: es }).charAt(0).toUpperCase()}
               </div>
               
-              <div className="flex flex-col items-center gap-1.5">
+              <div className="flex flex-col items-center gap-1">
                 <span className={`
                   text-lg transition-colors duration-300
                   ${isSelected 
@@ -82,10 +78,9 @@ export default function DateHeader({ selectedDate, onDateChange, onCalendarClick
                       ? 'text-neutral-900 dark:text-white font-bold' 
                       : 'text-neutral-500 dark:text-neutral-500 font-medium'}
                 `}>
-                   {format(day, 'd')}
+                  {format(day, 'd')}
                 </span>
 
-                {/* Puntito indicador naranja */}
                 <div className={`
                   w-1.5 h-1.5 rounded-full transition-all duration-700
                   ${isSelected 
