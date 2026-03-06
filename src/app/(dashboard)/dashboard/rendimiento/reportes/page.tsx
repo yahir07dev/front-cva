@@ -24,15 +24,20 @@ export default async function ReportesPage() {
     redirect('/login?error=cuenta_desactivada')
   }
 
-  // 3. Validación de Permisos
+  // 3. Validación de Permisos (DIFERENCIANDO ADMINS DE EMPLEADOS)
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
-  const canViewReports = permisos.includes('acceso_total') || permisos.includes('reportes.read_all')
+  
+  // Es admin si tiene acceso total o el permiso explícito de ver todos los reportes
+  const isAdmin = permisos.includes('acceso_total') || permisos.includes('reportes.read_all')
+  
+  // SOLUCIÓN: Puede ver esta página si es Admin O si al menos tiene permiso para ver sus propias actividades
+  const canViewReports = isAdmin || permisos.includes('actividades.read')
 
   if (!canViewReports) {
     return (
       <AccessDenied 
-        message="El módulo de reportes analíticos es exclusivo para el personal administrativo y supervisores." 
+        message="No tienes los permisos necesarios para acceder a tu panel de rendimiento." 
       />
     )
   }
@@ -60,14 +65,21 @@ export default async function ReportesPage() {
     .is('deleted_at', null)
     .eq('asignacion_actividades.empleados.estado', 'activo')
 
+  // 5. Carga de Comentarios (Feedback) para calcular el Score extra
+  const { data: comentarios } = await supabase
+    .from('comentarios_rendimiento')
+    .select('id, empleado_id, valor_puntos, fecha')
+    .is('deleted_at', null)
+
   return (
     // Ajuste de altura dinámica para evitar que el contenido se oculte en móvil
     <div className="h-[100dvh] md:h-full flex flex-col p-0 pb-20 md:p-6 lg:p-8 overflow-hidden animate-in fade-in duration-500">
       <div className="flex-1 min-h-0 bg-white dark:bg-neutral-900 md:rounded-3xl overflow-hidden md:border border-neutral-200 dark:border-0 shadow-sm">
         <ReportesClient 
           actividades={actividades || []} 
+          comentarios={comentarios || []} 
           currentUserId={perfilLogueado?.id}
-          isAdmin={true} 
+          isAdmin={isAdmin} 
         />
       </div>
     </div>

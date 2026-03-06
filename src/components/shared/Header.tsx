@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/src/lib/supabase/client";
 import Image from "next/image";
+import NotificacionesDropdown from "@/src/components/layout/NotificacionesDropdown";
 
 export default function Header() {
   const supabase = createClient();
@@ -89,11 +90,17 @@ export default function Header() {
           <div className="relative max-w-md w-full"></div>
         </div>
 
-        {/* SECCIÓN PERFIL */}
-        <div className="flex items-center gap-4">
-          <div className="w-0.5 h-10 hidden sm:block bg-neutral-300/50 dark:bg-neutral-700/50 rounded-full" />
+        {/* SECCIÓN PERFIL Y NOTIFICACIONES */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          
+          {/* CAMPANITA DE NOTIFICACIONES */}
+          {!loading && <NotificacionesDropdown variant="header" />}
 
-          <div className="flex items-center gap-3">
+          {/* Divisor */}
+          <div className="w-px h-8 bg-neutral-200 dark:bg-neutral-800 mx-1 hidden sm:block" />
+
+          {/* AVATAR E INFO */}
+          <div className="flex items-center gap-3 ml-1 sm:ml-0">
             {/* Avatar Inteligente */}
             <div
               className={`
@@ -121,19 +128,19 @@ export default function Header() {
             {/* Texto de Usuario */}
             <div className="hidden md:block text-right">
               {loading ? (
-                <div className="flex flex-col items-end gap-1.5">
-                  <div className="h-3.5 w-24 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
-                  <div className="h-2.5 w-16 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse"></div>
+                <div className="flex flex-col items-start gap-1.5 ml-1">
+                  <div className="h-3.5 w-24 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse"></div>
+                  <div className="h-2.5 w-16 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse"></div>
                 </div>
               ) : (
-                <>
-                  <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                <div className="text-left ml-1">
+                  <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100 leading-tight">
                     {empleado?.nombre || "Usuario"}
                   </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
                     {rolNombre || empleado?.email || "Cargando..."}
                   </p>
-                </>
+                </div>
               )}
             </div>
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { Star, AlertTriangle, Search, Trophy } from 'lucide-react'
+import { AlertTriangle, Search, Trophy, ArrowDown } from 'lucide-react'
 import Image from 'next/image'
 
 interface RankingListProps {
@@ -22,7 +22,7 @@ export default function RankingList({ empleados, isAdmin, filtroNombre, setFiltr
             <div className="p-1.5 bg-orange-100 dark:bg-orange-500/10 rounded-lg text-orange-600 dark:text-orange-400">
               <Trophy size={18} /> 
             </div>
-            {isAdmin ? 'Top Desempeño' : 'Mi Posición'}
+            {isAdmin ? 'Top Score (Puntos)' : 'Mi Posición'}
           </h3>
         </div>
         
@@ -49,28 +49,28 @@ export default function RankingList({ empleados, isAdmin, filtroNombre, setFiltr
         ) : (
           empleados.map((emp, index) => {
             const rank = isAdmin ? index + 1 : empleados.findIndex(e => e.id === emp.id) + 1;
-            const lowScore = (emp.score || 0) < 20;
-            const isTop3 = rank <= 3;
+            const isTop3 = rank <= 3 && !emp.enRiesgo; // Solo es top 3 si su score es positivo
             
             return (
               <div 
                 key={emp.id} 
                 className={`
                   flex items-center justify-between p-3 rounded-xl transition-all group
-                  hover:bg-neutral-50 dark:hover:bg-white/5
+                  ${emp.enRiesgo ? 'bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30' : 'hover:bg-neutral-50 dark:hover:bg-white/5'}
                   ${isTop3 && isAdmin ? 'bg-orange-50/30 dark:bg-orange-500/5' : ''}
                 `}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* Posición */}
+                  {/* Posición o Alerta */}
                   <div className={`
                     flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold
-                    ${rank === 1 ? 'bg-yellow-400 text-yellow-900' : 
+                    ${emp.enRiesgo ? 'bg-rose-100 text-rose-600' :
+                      rank === 1 ? 'bg-yellow-400 text-yellow-900' : 
                       rank === 2 ? 'bg-neutral-300 text-neutral-800' : 
                       rank === 3 ? 'bg-amber-600 text-amber-100' : 
                       'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}
                   `}>
-                    #{rank}
+                    {emp.enRiesgo ? <ArrowDown size={14} /> : `#${rank}`}
                   </div>
 
                   {/* Avatar */}
@@ -84,29 +84,35 @@ export default function RankingList({ empleados, isAdmin, filtroNombre, setFiltr
                     )}
                   </div>
 
-                  {/* Nombre */}
+                  {/* Nombre y Alerta */}
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-bold text-neutral-900 dark:text-neutral-200 truncate group-hover:text-orange-600 transition-colors">
+                      <p className={`text-sm font-bold truncate transition-colors ${emp.enRiesgo ? 'text-rose-600 dark:text-rose-400' : 'text-neutral-900 dark:text-neutral-200 group-hover:text-orange-600'}`}>
                         {emp.nombre}
                       </p>
-                      {lowScore && (
+                      {emp.enRiesgo && (
                         <AlertTriangle size={12} className="text-rose-500 animate-pulse" />
                       )}
                     </div>
-                    <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wide truncate">
-                      {emp.apellidos}
-                    </p>
+                    {emp.enRiesgo ? (
+                      <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wide truncate">
+                        Sanción por bajo rendimiento
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wide truncate">
+                        {emp.apellidos}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {/* Score */}
+                {/* Score Total */}
                 <div className="text-right">
-                  <div className="flex items-center justify-end gap-1 text-sm font-black text-neutral-900 dark:text-white">
-                    {emp.promedio || '0.0'} <Star size={10} className="fill-orange-400 text-orange-400" />
+                  <div className={`text-lg font-black ${emp.enRiesgo ? 'text-rose-600' : 'text-neutral-900 dark:text-white'}`}>
+                    {emp.score}
                   </div>
-                  <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 inline-block ${lowScore ? 'bg-rose-100 text-rose-600' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
-                    {Math.round(emp.score || 0)} PTS
+                  <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 inline-block ${emp.enRiesgo ? 'bg-rose-100 text-rose-600' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
+                    PUNTOS
                   </div>
                 </div>
               </div>

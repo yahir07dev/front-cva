@@ -79,7 +79,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const [form, setForm] = useState<{titulo: string, descripcion: string, tipo: TipoComentario}>({
     titulo: '',
     descripcion: '', 
-    tipo: 'positivo'
+    tipo: 'positivo' // Por defecto inicia en positivo
   })
 
   // 5. FETCHING Y REALTIME 
@@ -118,30 +118,25 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
 
     fetchComments()
 
-    // --- SUSCRIPCIÓN REALTIME MEJORADA ---
+    // --- SUSCRIPCIÓN REALTIME ---
     const channel = supabase.channel(`chat-${selectedEmp.id}`)
       .on('postgres_changes', 
         { 
           event: '*', 
           schema: 'public', 
           table: 'comentarios_rendimiento'
-          // Quitamos el filtro aquí para poder recibir los DELETE
-          // ya que Supabase a veces no envía el 'empleado_id' en el evento de borrado.
         }, 
         (payload) => {
-           // 1. Manejo de INSERT y UPDATE (Aquí sí filtramos por empleado_id)
            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               if (payload.new.empleado_id === selectedEmp.id) {
                  fetchComments()
               }
            }
 
-           // 2. Manejo de DELETE (Filtramos buscando si el ID existe en nuestra lista actual)
            if (payload.eventType === 'DELETE') {
               setComentarios((prevComentarios) => {
                  const existe = prevComentarios.find(c => c.id === payload.old.id)
                  if (existe) {
-                    // Si existe, lo borramos del estado local
                     return prevComentarios.filter(c => c.id !== payload.old.id)
                  }
                  return prevComentarios
@@ -149,7 +144,6 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
            }
         }
       )
-      // Listener para cambios en el empleado (si lo dan de baja)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, (payload) => {
           if (selectedEmp && payload.new.id === selectedEmp.id && payload.new.estado === 'baja') {
               setSelectedEmp(null);
@@ -191,19 +185,20 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     if (userEstado === 'baja') return alert('Acceso denegado.')
     try {
       await eliminarComentario(id)
-      // Mantenemos la actualización optimista local para que se sienta instantáneo para quien borra
       setComentarios(prev => prev.filter(c => c.id !== id))
     } catch (error: any) {
       alert('Error al eliminar: ' + error.message)
     }
   }
 
+  // AJUSTADO: Ahora reconoce si agregaste 'negativo'
   const stats = useMemo(() => {
-    if (!comentarios.length) return { total: 0, positivos: 0, mejora: 0 }
+    if (!comentarios.length) return { total: 0, positivos: 0, mejora: 0, negativos: 0 }
     return {
       total: comentarios.length,
       positivos: comentarios.filter(c => c.tipo === 'positivo').length,
-      mejora: comentarios.filter(c => c.tipo !== 'positivo').length
+      mejora: comentarios.filter(c => c.tipo === 'mejora').length,
+      negativos: comentarios.filter(c => c.tipo === 'negativo').length
     }
   }, [comentarios])
 

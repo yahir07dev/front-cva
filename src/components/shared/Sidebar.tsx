@@ -68,6 +68,9 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   const [optimisticPath, setOptimisticPath] = useState<string>(pathname);
   const [isPending, startTransition] = useTransition();
 
+  // Validamos si es Admin para cambiar dinámicamente los textos del menú
+  const isAdmin = permissions.includes('acceso_total') || permissions.includes('reportes.read_all');
+
   useEffect(() => {
     setMobileOpen(false);
     // Cuando la navegación real termina, sincronizamos
@@ -204,15 +207,16 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         },
         {
           icon: <Users size={18} />,
-          label: "Feedback",
+          label: "Comentarios",
           path: "/dashboard/rendimiento/comentarios",
           permission: ["comentarios.read", "acceso_total"],
         },
         {
           icon: <BarChart3 size={18} />,
-          label: "Analítica",
+          label: isAdmin ? "Desempeño" : "Mi Rendimiento", // <-- TEXTO DINÁMICO
           path: "/dashboard/rendimiento/reportes",
-          permission: ["reportes.read_all", "acceso_total"],
+          // <-- AGREGAMOS "actividades.read" PARA QUE LOS EMPLEADOS LO VEAN
+          permission: ["reportes.read_all", "acceso_total", "actividades.read"], 
         },
       ],
     },

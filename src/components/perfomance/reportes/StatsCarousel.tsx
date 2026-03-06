@@ -6,7 +6,7 @@ interface StatItem {
   icon: LucideIcon
   label: string
   value: string | number
-  accentColor: 'orange' | 'blue' | 'green' | 'purple' | 'default'
+  accentColor: 'orange' | 'blue' | 'green' | 'purple' | 'red' | 'default' // <-- AGREGADO 'red'
 }
 
 interface StatsCarouselProps {
@@ -21,6 +21,7 @@ export default function StatsCarousel({ stats }: StatsCarouselProps) {
       case 'blue': return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10'
       case 'green': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10'
       case 'purple': return 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/10'
+      case 'red': return 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-500/10' // <-- NUEVO ESTILO ROJO ALERTA
       default: return 'text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-500/10'
     }
   }
@@ -36,15 +37,15 @@ export default function StatsCarousel({ stats }: StatsCarouselProps) {
           return (
             <div 
               key={index}
-              className="
-                /* MÓVIL: Aumentamos min-w a 160px para que quepa el texto */
+              className={`
+                /* MÓVIL */
                 min-w-[160px] snap-center flex flex-col items-start justify-center p-4 gap-2
-                rounded-2xl border border-neutral-100 dark:border-0
-                bg-white dark:bg-white/[0.02] shadow-sm transition-all duration-300
+                rounded-2xl border transition-all duration-300 shadow-sm
+                ${stat.accentColor === 'red' ? 'border-rose-200 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-900/10' : 'border-neutral-100 dark:border-0 bg-white dark:bg-white/[0.02]'}
                 
                 /* PC */
                 md:min-w-0 md:w-full md:p-6 md:gap-4 md:hover:shadow-md md:hover:-translate-y-1
-              "
+              `}
             >
               <div className="flex items-center gap-3 w-full">
                 <div className={`
@@ -55,7 +56,7 @@ export default function StatsCarousel({ stats }: StatsCarouselProps) {
                   <stat.icon strokeWidth={2.5} className="h-5 w-5 md:h-6 md:w-6" />
                 </div>
                 
-                {/* VALOR: Quitamos truncate para que no salga "0..." */}
+                {/* VALOR */}
                 <span className={`
                   text-2xl font-black transition-all whitespace-nowrap
                   md:text-4xl
@@ -65,11 +66,12 @@ export default function StatsCarousel({ stats }: StatsCarouselProps) {
                 </span>
               </div>
               
-              {/* ETIQUETA: Texto más pequeño y sin forzar una línea */}
-              <p className="
-                text-[10px] font-bold text-neutral-400 uppercase tracking-wider
-                md:text-sm md:text-neutral-500
-              ">
+              {/* ETIQUETA */}
+              <p className={`
+                text-[10px] font-bold uppercase tracking-wider
+                md:text-sm
+                ${stat.accentColor === 'red' ? 'text-rose-500' : 'text-neutral-400 md:text-neutral-500'}
+              `}>
                 {stat.label}
               </p>
             </div>

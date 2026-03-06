@@ -31,12 +31,8 @@ export const getEmpleadosParaFeedback = async () => {
 
 /**
  * Obtiene los comentarios.
- * CORRECCIÓN: Valida que empleadoId sea numérico para evitar error de BigInt.
  */
 export const getComentarios = async (empleadoId?: number | string) => {
-  // 1. BLINDAJE CONTRA UUIDs
-  // Si recibimos un ID que no es un número (ej. un UUID de auth), retornamos vacío
-  // para evitar el crash de "invalid input syntax for type bigint".
   if (empleadoId && isNaN(Number(empleadoId))) {
       console.warn("Se intentó buscar comentarios con un ID inválido (posible UUID):", empleadoId);
       return [];
@@ -70,7 +66,23 @@ export const getComentarios = async (empleadoId?: number | string) => {
 }
 
 /**
- * Crea un comentario validando estado del autor.
+ * LÓGICA AUTOMÁTICA DE PUNTOS
+ */
+const calcularValorPuntos = (tipo: TipoComentario): number => {
+  switch (tipo) {
+    case 'positivo':
+      return 20; // Bono fuerte
+    case 'mejora':
+      return -10; // Penalización leve
+    case 'negativo':
+      return -30; // Castigo estricto
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Crea un comentario validando estado del autor y asignando puntos automáticos.
  */
 export const crearComentario = async (
   comentario: {
@@ -94,6 +106,9 @@ export const crearComentario = async (
     throw new Error('Cuenta desactivada. No tienes permitido enviar feedback.')
   }
 
+  // Obtenemos el valor numérico basado en el tipo
+  const puntosAutomaticos = calcularValorPuntos(comentario.tipo);
+
   const { data, error } = await supabase
     .from('comentarios_rendimiento')
     .insert([{
@@ -101,6 +116,7 @@ export const crearComentario = async (
       tipo: comentario.tipo,
       titulo: comentario.titulo,
       descripcion: comentario.descripcion,
+      valor_puntos: puntosAutomaticos, // <-- AQUÍ SE GUARDA AUTOMÁTICAMENTE
       autor_id: user.id,
       created_by: user.id
     }])
