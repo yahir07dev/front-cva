@@ -40,7 +40,7 @@ export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
         {filteredEmpleados.map((empleado) => (
           <Link
             key={empleado.id}
-            href={`/dashboard/documentos/${empleado.id}`}
+            href={`/dashboard/documentos/empleados/${empleado.id}`}
             className="group bg-white dark:bg-[#1a1d29] rounded-[2rem] border-2 border-gray-50 dark:border-[#2d3142] p-6 shadow-sm hover:shadow-xl hover:border-indigo-100 dark:hover:border-indigo-500/30 transition-all duration-300"
           >
             <div className="flex flex-col items-center">

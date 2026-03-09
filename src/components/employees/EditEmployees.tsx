@@ -161,7 +161,7 @@ export default function EditEmpleadoPage() {
             e.preventDefault();
             setShowConfirm(true);
           }}
-          className="p-6 md:p-10 space-y-4"
+          className="p-2 md:p-10 space-y-4"
         >
           {/* SECCIÓN INFORMACIÓN PERSONAL */}
           <section className="max-w-6xl pb-6">

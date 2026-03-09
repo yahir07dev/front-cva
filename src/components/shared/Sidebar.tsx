@@ -23,6 +23,7 @@ import {
   UserPen,
   UserCog,
   Newspaper,
+  Timer,
 } from "lucide-react";
 
 // Definimos interfaces
@@ -108,6 +109,12 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         return {
           active:
             "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
+          logoGradient: "from-indigo-600 to-indigo-800",
+        };
+      case "documentos":
+        return {
+          active:
+            "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
           logoGradient: "from-indigo-600 to-indigo-800",
         };
       default:
@@ -211,7 +218,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     },
     {
       id: "asistencia",
-      icon: <GraduationCap size={20} />,
+      icon: <Timer size={20} />,
       label: "Asistencia",
       path: "/dashboard/asistencia",
     },
