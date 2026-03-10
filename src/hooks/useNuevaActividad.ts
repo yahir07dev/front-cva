@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
-// Importamos AMBAS funciones del servicio
 import { crearNuevaActividad, getEmpleadosParaAsignacion } from '@/src/services/performanceService'
 import { PrioridadActividad } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
@@ -19,6 +18,14 @@ export function useNuevaActividad() {
   const [userPerms, setUserPerms] = useState<string[]>([]) 
   const [userEstado, setUserEstado] = useState<string>('activo')
 
+  // NUEVO: Estado para controlar el modal de alerta
+  const [alerta, setAlerta] = useState({
+    isOpen: false,
+    titulo: '',
+    descripcion: '',
+    variant: 'warning' as 'warning' | 'danger' | 'info' | 'success'
+  })
+
   const [form, setForm] = useState({
     titulo: '',
     descripcion: '',
@@ -27,7 +34,12 @@ export function useNuevaActividad() {
     asignados: [] as string[]
   })
 
-  // 1. CARGA DE PERMISOS Y ESTADO REAL
+  const mostrarAlerta = (titulo: string, descripcion: string, variant: 'warning'|'danger'|'info' = 'warning') => {
+    setAlerta({ isOpen: true, titulo, descripcion, variant })
+  }
+
+  const cerrarAlerta = () => setAlerta(prev => ({ ...prev, isOpen: false }))
+
   useEffect(() => {
     const loadUserData = async () => {
       const data = await getSessionUserWithPermissions()
@@ -54,15 +66,12 @@ export function useNuevaActividad() {
     return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
   }, [userPerms, session, userEstado]);
 
-  // 2. CARGAR EMPLEADOS USANDO EL SERVICIO (CORRECCIÓN CLAVE)
   useEffect(() => {
     let isMounted = true;
     
     const fetchEmpleados = async () => {
         try {
-            // USAMOS LA FUNCIÓN DEL SERVICIO QUE YA TIENE EL SELECT COMPLETO CON ÁREAS
             const data = await getEmpleadosParaAsignacion();
-
             if (isMounted && data) {
                 const currentUserId = session?.user?.id;
                 const googleAvatar = session?.user?.user_metadata?.avatar_url;
@@ -84,12 +93,10 @@ export function useNuevaActividad() {
         }
     }
 
-    if (canCreate && session) {
-      fetchEmpleados()
-    }
+    if (canCreate && session) fetchEmpleados()
 
     return () => { isMounted = false; };
-  }, [canCreate, session]); // Quitamos 'supabase' de las dependencias porque el servicio ya instancia su cliente
+  }, [canCreate, session]); 
 
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
@@ -104,18 +111,23 @@ export function useNuevaActividad() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  // 3. ENVÍO SEGURO
+  // ENVÍO SEGURO CON MODALES
   const handleSubmit = async () => {
     if (userEstado === 'baja') {
-      return alert('Acceso denegado. Tu cuenta no está activa.')
+      return mostrarAlerta('Acceso Denegado', 'Tu cuenta no está activa. Contacta a recursos humanos.', 'danger')
     }
 
     if (!canCreate) {
-      return alert('No tienes permisos para realizar esta acción.')
+      return mostrarAlerta('Sin Permisos', 'No tienes los permisos necesarios para realizar esta acción.', 'danger')
     }
 
-    if (form.asignados.length === 0) return alert('Selecciona al menos un empleado.')
-    if (!form.titulo || !form.fechaLimite) return alert('Completa título y fecha límite.')
+    if (!form.titulo || !form.fechaLimite) {
+      return mostrarAlerta('Campos Incompletos', 'Asegúrate de escribir un título y seleccionar la fecha límite de la tarea.', 'warning')
+    }
+
+    if (form.asignados.length === 0) {
+      return mostrarAlerta('Sin Asignaciones', 'Por favor, selecciona al menos un empleado para esta tarea.', 'warning')
+    }
 
     setLoading(true)
     try {
@@ -133,7 +145,7 @@ export function useNuevaActividad() {
         router.refresh()
       }, 1500)
     } catch (error: any) {
-      alert('Error: ' + error.message)
+      mostrarAlerta('Error del Servidor', error.message, 'danger')
     } finally {
       setLoading(false)
     }
@@ -145,6 +157,8 @@ export function useNuevaActividad() {
     loading,
     success,
     userEstado,
+    alerta,        // <--- Exportamos el estado del modal
+    cerrarAlerta,  // <--- Exportamos la función para cerrarlo
     toggleEmpleado,
     handleChange,
     handleSubmit,

@@ -7,10 +7,12 @@ import {
 import { useNuevaActividad } from '@/src/hooks/useNuevaActividad'
 import SelectorEmpleados from '@/src/components/perfomance/actividades/SelectorEmpleados' // Ajusta la ruta si es necesario
 import DateTimePickerModal from './DateTimePickerModal' 
+import ModalAlerta from '@/src/components/shared/ModalAlerta' // <-- IMPORTACIÓN DEL NUEVO MODAL
 
 export default function NuevaActividadClient() {
   const { 
     form, empleados, loading, success, userEstado,
+    alerta, cerrarAlerta, // <-- EXTRAEMOS EL ESTADO Y LA FUNCIÓN DEL HOOK
     toggleEmpleado, handleChange, handleSubmit, router 
   } = useNuevaActividad()
 
@@ -202,6 +204,18 @@ export default function NuevaActividadClient() {
         currentValue={form.fechaLimite} 
         onSelect={(val: string) => handleChange('fechaLimite', val)} 
       />
+
+      {/* ========================================== */}
+      {/* NUEVO: MODAL DE ALERTA RENDERIZADO AQUÍ      */}
+      {/* ========================================== */}
+      <ModalAlerta 
+        isOpen={alerta.isOpen}
+        onClose={cerrarAlerta}
+        titulo={alerta.titulo}
+        descripcion={alerta.descripcion}
+        variant={alerta.variant}
+      />
+
     </div>
   )
 }

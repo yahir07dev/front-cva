@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer 
 } from 'recharts'
-import { Download, TrendingUp, Trophy, Users, UserCheck, ShieldAlert } from 'lucide-react'
+import { Download, TrendingUp, Trophy, Users, UserCheck, ShieldAlert, User, Building } from 'lucide-react'
 import { useReportesData } from '@/src/hooks/useReportesData'
 import StatsCarousel from './StatsCarousel' 
 import RankingList from './RankingList'     
@@ -18,6 +18,9 @@ interface ReportesClientProps {
 }
 
 export default function ReportesClient({ actividades, comentarios, currentUserId, isAdmin }: ReportesClientProps) {
+  // ESTADO NUEVO: Controla si el Admin ve a la empresa o a sí mismo.
+  // Por defecto, si es admin ve 'empresa', si es empleado normal ve 'personal'
+  const [vistaAdmin, setVistaAdmin] = useState<'empresa' | 'personal'>(isAdmin ? 'empresa' : 'personal')
   
   const { 
     topEmpleados, 
@@ -33,7 +36,7 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
     return topEmpleados.filter(emp => Number(emp.id) === myId)
   }, [topEmpleados, isAdmin, currentUserId])
 
-  // Extraemos los datos personales del usuario logueado para pasárselos a su Dashboard
+  // Extraemos los datos personales del usuario logueado
   const misDatos = useMemo(() => {
     const myId = Number(currentUserId)
     return topEmpleados.find(e => Number(e.id) === myId)
@@ -55,36 +58,68 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       
-      {/* 1. Header Fijo */}
+      {/* 1. Header Fijo con Controles de Vista */}
       <div className="flex-none px-4 py-4 sm:px-8 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 z-10">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              {isAdmin ? 'Analítica de Rendimiento' : 'Mi Panel de Rendimiento'}
+              {vistaAdmin === 'empresa' ? 'Analítica de Rendimiento' : 'Mi Panel de Rendimiento'}
             </h1>
             <p className="text-xs text-neutral-500 font-medium hidden md:block">
-              {isAdmin ? 'Métricas basadas en puntos por tareas y feedback.' : 'Resumen personal de tu efectividad operativa.'}
+              {vistaAdmin === 'empresa' ? 'Métricas basadas en puntos por tareas y feedback.' : 'Resumen personal de tu efectividad operativa.'}
             </p>
           </div>
 
-          {isAdmin && (
-            <button 
-              onClick={exportarPDF}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-black rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-all"
-            >
-              <Download size={16} />
-              <span className="hidden sm:inline">Exportar Score</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            
+            {/* SWITCH DE VISTAS (Solo visible para Admins/Supervisores) */}
+            {isAdmin && (
+              <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl">
+                <button
+                  onClick={() => setVistaAdmin('empresa')}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    vistaAdmin === 'empresa' 
+                      ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm' 
+                      : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  }`}
+                >
+                  <Building size={14} /> <span className="hidden sm:inline">Empresa</span>
+                </button>
+                <button
+                  onClick={() => setVistaAdmin('personal')}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    vistaAdmin === 'personal' 
+                      ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm' 
+                      : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  }`}
+                >
+                  <User size={14} /> <span className="hidden sm:inline">Mi Perfil</span>
+                </button>
+              </div>
+            )}
+
+            {/* BOTÓN EXPORTAR (Solo en vista de empresa) */}
+            {isAdmin && vistaAdmin === 'empresa' && (
+              <button 
+                onClick={exportarPDF}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-black rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-all"
+              >
+                <Download size={16} />
+                <span className="hidden sm:inline">Exportar</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* 2. Cuerpo Scrollable */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 md:space-y-8 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
         
-        {isAdmin ? (
+        {/* Lógica de Renderizado: Mostramos Empresa o Personal según el estado */}
+        {vistaAdmin === 'empresa' ? (
           // ==========================================
-          // VISTA PARA ADMINISTRADORES Y RECURSOS HUMANOS
+          // VISTA DE LA EMPRESA (ADMIN/SUPERVISOR)
           // ==========================================
           <>
             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
@@ -138,20 +173,20 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
           </>
         ) : (
           // ==========================================
-          // NUEVA VISTA EXCLUSIVA PARA EL EMPLEADO
+          // VISTA PERSONAL (EMPLEADO O ADMIN VIENDO SU PERFIL)
           // ==========================================
-          <div className="max-w-4xl mx-auto pb-20">
+          <div className="max-w-4xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
              {misDatos ? (
                <MiRendimientoDashboard 
                  misDatos={misDatos} 
                  totalEmpleados={topEmpleados.length} 
                />
              ) : (
-               <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500">
+               <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-100 dark:border-neutral-800 shadow-sm p-10">
                  <ShieldAlert className="h-16 w-16 text-neutral-300 dark:text-neutral-700 mb-6" />
-                 <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Aún no hay datos</h2>
+                 <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Aún no hay datos de tu rendimiento</h2>
                  <p className="text-neutral-500 font-medium max-w-sm">
-                   El sistema necesita que completes tareas o recibas feedback para calcular tu índice de rendimiento.
+                   El sistema necesita que completes tareas o recibas feedback para calcular tu índice de efectividad personal.
                  </p>
                </div>
              )}

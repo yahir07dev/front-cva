@@ -8,6 +8,7 @@ import AreaModal from './AreaModal'
 import AreaStats from './AreaStats'
 import AreaAssignment from './AreaAssignment'
 import SkeletonLoader from '@/src/components/shared/SkeletonLoader'
+import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion' // <-- NUEVO MODAL IMPORTADO
 
 interface AreasClientProps {
   initialAreas: any[]
@@ -24,12 +25,17 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
   const [areaToEdit, setAreaToEdit] = useState<any>(null)
   const [filter, setFilter] = useState('')
 
+  // ESTADOS PARA EL MODAL DE ELIMINACIÓN
+  const [areaToDelete, setAreaToDelete] = useState<number | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const areasFiltradas = areas.filter(a => 
     a.nombre.toLowerCase().includes(filter.toLowerCase())
   )
 
   if (loading && areas.length === 0) return <SkeletonLoader type="grid" />
 
+  // Al pasarle esto a AreaCard, si no eres Admin, simplemente no renderizará los botones de edición/borrado.
   const permisosParaCard = { canUpdate: canManage, canDelete: canManage }
 
   const handleModalSubmit = async (nombre: string, descripcion: string, encargadoId: number | null) => {
@@ -38,6 +44,20 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
       else await handleCrear(nombre, descripcion, encargadoId)
       setIsModalOpen(false); setAreaToEdit(null)
     } catch (error) { console.error(error) }
+  }
+
+  // FUNCIÓN PARA CONFIRMAR LA ELIMINACIÓN CON EL NUEVO MODAL
+  const confirmDelete = async () => {
+    if (!areaToDelete) return;
+    setIsDeleting(true);
+    try {
+      await handleEliminar(areaToDelete);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+      setAreaToDelete(null);
+    }
   }
 
   return (
@@ -78,7 +98,8 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-6 pb-6">
         
         {/* Asignación - Componente con su propio fondo */}
-        <div className="lg:col-span-4 order-1 lg:order-2">
+        {/* Usamos opacity y pointer-events para ocultar o bloquear la asignación si no es admin */}
+        <div className={`lg:col-span-4 order-1 lg:order-2 transition-opacity ${!canManage ? 'opacity-50 pointer-events-none hidden lg:block' : ''}`}>
           <div className="max-h-[500px] lg:max-h-none flex flex-col h-full">
             <AreaAssignment 
               empleados={empleados} 
@@ -89,16 +110,17 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
         </div>
 
         {/* Catálogo de Áreas - Grid de cards */}
-        <div className="lg:col-span-8 order-2 lg:order-1">
+        {/* Si no es admin, la cuadrícula toma el 100% del ancho para no dejar un hueco en blanco */}
+        <div className={`${canManage ? 'lg:col-span-8' : 'lg:col-span-12'} order-2 lg:order-1`}>
           {areasFiltradas.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 gap-4 ${canManage ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
               {areasFiltradas.map(area => (
                 <AreaCard 
                   key={area.id} 
                   area={area} 
                   permisos={permisosParaCard}
                   onEdit={(a) => { setAreaToEdit(a); setIsModalOpen(true); }}
-                  onDelete={async (id) => { if(confirm('¿Borrar?')) await handleEliminar(id); }}
+                  onDelete={(id) => setAreaToDelete(id)} // <-- AHORA ABRE NUESTRO MODAL EN VEZ DEL BROWSER ALERT
                 />
               ))}
             </div>
@@ -111,6 +133,7 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
         </div>
       </div>
 
+      {/* MODALES */}
       <AreaModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
@@ -118,6 +141,18 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
         initialData={areaToEdit} 
         empleados={empleados}
       />
+
+      <ModalConfirmacion 
+        isOpen={!!areaToDelete}
+        onClose={() => setAreaToDelete(null)}
+        onConfirm={confirmDelete}
+        titulo="¿Eliminar Departamento?"
+        descripcion="Si hay empleados asignados a esta área, quedarán temporalmente sin departamento asignado."
+        variant="danger"
+        textConfirmar="Sí, eliminar área"
+        loading={isDeleting}
+      />
+      
     </div>
   )
 }

@@ -13,63 +13,81 @@ interface PrestamosHeaderProps {
 }
 
 export default function PrestamosHeader({ stats, canManage, onOpenModal }: PrestamosHeaderProps) {
-  const formatMoney = (amount: number) => 
+
+  const formatMoney = (amount: number) =>
     new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount)
 
   return (
-    <div className="
-      bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl 
-      border border-emerald-200/30 dark:border-emerald-900/30 
-      rounded-3xl p-6 md:p-8 mb-8 shadow-sm animate-in slide-in-from-top-4 duration-500
-    ">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8">
-        
+    <div className="w-full flex justify-center  bg-neutral-50 dark:bg-neutral-950 ">
+
+      <div className="
+      
+        w-full 
+        max-w-[1100px] 
+        flex flex-col lg:flex-row lg:items-center 
+        justify-between gap-5 lg:gap-8
+       bg-neutral-50 dark:bg-neutral-950 
+      ">
+
         {/* Estadísticas */}
-        <div className="flex flex-wrap gap-4 md:gap-6">
-          
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+
           {/* Dinero Pendiente */}
           <div className="
-            flex items-center gap-4 min-w-[240px] 
-            bg-white/60 dark:bg-neutral-950/50 
-            border border-emerald-200/40 dark:border-emerald-900/30 
-            rounded-2xl p-5 hover:border-emerald-400/60 transition-all
+            flex items-center gap-3 flex-1 sm:min-w-[240px]
+            bg-white dark:bg-neutral-900
+            rounded-2xl p-4 md:p-5
           ">
             <div className="
-              h-12 w-12 rounded-2xl flex items-center justify-center 
-              bg-emerald-500/10 dark:bg-emerald-600/15 
-              ring-1 ring-emerald-200/30 dark:ring-emerald-900/30
+              h-10 w-10 md:h-12 md:w-12
+              rounded-xl md:rounded-2xl
+              flex items-center justify-center
+              bg-emerald-500/10 dark:bg-emerald-600/15
+              shrink-0
             ">
-              <TrendingDown size={24} className="text-emerald-600 dark:text-emerald-400" />
+              <TrendingDown
+                size={20}
+                className="md:w-6 md:h-6 text-emerald-600 dark:text-emerald-400"
+              />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] md:text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide truncate">
                 Dinero Pendiente
               </p>
-              <p className="text-2xl md:text-3xl font-black text-neutral-900 dark:text-white tabular-nums mt-0.5">
+
+              <p className="text-xl md:text-2xl lg:text-3xl font-black text-neutral-900 dark:text-white tabular-nums mt-0.5 truncate">
                 {formatMoney(stats.dineroEnLaCalle)}
               </p>
             </div>
           </div>
 
+
           {/* Préstamos Activos */}
           <div className="
-            flex items-center gap-4 min-w-[200px] 
-            bg-white/60 dark:bg-neutral-950/50 
-            border border-emerald-200/40 dark:border-emerald-900/30 
-            rounded-2xl p-5 hover:border-emerald-400/60 transition-all
+            flex items-center gap-3 flex-1 sm:min-w-[200px]
+            bg-white dark:bg-neutral-900
+            rounded-2xl p-4 md:p-5
           ">
             <div className="
-              h-12 w-12 rounded-2xl flex items-center justify-center 
-              bg-emerald-500/10 dark:bg-emerald-600/15 
-              ring-1 ring-emerald-200/30 dark:ring-emerald-900/30
+              h-10 w-10 md:h-12 md:w-12
+              rounded-xl md:rounded-2xl
+              flex items-center justify-center
+              bg-emerald-500/10 dark:bg-emerald-600/15
+              shrink-0
             ">
-              <HandCoins size={24} className="text-emerald-600 dark:text-emerald-400" />
+              <HandCoins
+                size={20}
+                className="md:w-6 md:h-6 text-emerald-600 dark:text-emerald-400"
+              />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] md:text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide truncate">
                 Préstamos Activos
               </p>
-              <p className="text-2xl md:text-3xl font-black text-neutral-900 dark:text-white tabular-nums mt-0.5">
+
+              <p className="text-xl md:text-2xl lg:text-3xl font-black text-neutral-900 dark:text-white tabular-nums mt-0.5">
                 {stats.prestamosActivos}
               </p>
             </div>
@@ -77,23 +95,30 @@ export default function PrestamosHeader({ stats, canManage, onOpenModal }: Prest
 
         </div>
 
-        {/* Botón Nuevo Préstamo */}
+
+        {/* Botón */}
         {canManage && (
           <button
             onClick={onOpenModal}
             className="
-              flex items-center justify-center gap-2.5 
-              bg-emerald-600 hover:bg-emerald-700 
-              text-white font-semibold px-7 py-4 rounded-2xl 
-              transition-all shadow-lg shadow-emerald-600/20 
-              hover:shadow-xl hover:shadow-emerald-600/30 
-              active:scale-[0.98] shrink-0 min-w-[200px]
+              flex items-center justify-center gap-2
+              bg-emerald-600 hover:bg-emerald-700
+              text-white font-semibold
+              px-6 py-3.5
+              rounded-2xl
+              transition-all
+              shadow-lg shadow-emerald-600/20
+              hover:shadow-xl hover:shadow-emerald-600/30
+              active:scale-[0.98]
+              w-full lg:w-auto
+              lg:min-w-[210px]
             "
           >
-            <Plus size={20} strokeWidth={2.5} />
+            <Plus size={18} strokeWidth={2.5} />
             Nuevo Préstamo
           </button>
         )}
+
       </div>
     </div>
   )

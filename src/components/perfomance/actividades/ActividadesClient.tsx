@@ -175,12 +175,14 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     setModalOpen(true)
   }
 
+  // --- AQUÍ ESTÁ LA MAGIA ---
+  // Agregamos btnText a los retornos de esta función para poder personalizar el botón
   const getModalTexts = () => {
     const estado = accionPendiente?.nuevoEstado
-    if (estado === 'revision') return { title: "¿Solicitar Revisión?", desc: "Se notificará al supervisor.", variant: "info" as const }
-    if (estado === 'completada') return { title: canManage ? "¿Aprobar Tarea?" : "¿Tarea Finalizada?", desc: "Se registrará como éxito.", variant: "success" as const }
-    if (estado === 'no_realizada') return { title: "¿Cerrar con Plazo Agotado?", desc: "Se marcará como no realizada.", variant: "danger" as const }
-    return { title: "Confirmar Cambio", desc: "¿Deseas continuar?", variant: "info" as const }
+    if (estado === 'revision') return { title: "¿Solicitar Revisión?", desc: "Se notificará al supervisor.", variant: "info" as const, btnText: "Sí, solicitar" }
+    if (estado === 'completada') return { title: canManage ? "¿Aprobar Tarea?" : "¿Tarea Finalizada?", desc: "Se registrará como éxito.", variant: "success" as const, btnText: "Sí, confirmar" }
+    if (estado === 'no_realizada') return { title: "¿Cerrar con Plazo Agotado?", desc: "Se marcará como no realizada.", variant: "danger" as const, btnText: "Sí, cerrar plazo" } // <--- Cambio clave aquí
+    return { title: "Confirmar Cambio", desc: "¿Deseas continuar?", variant: "info" as const, btnText: "Continuar" }
   }
 
   if ((loading && actividades.length === 0) || !isReady) {
@@ -197,14 +199,14 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] overflow-hidden">
       
-      {/* Sección superior fija - SUBIDA MÁS ARRIBA */}
-      <div className="flex-none mb-2 z-20 relative pt-1">  {/* ← mb-2 + pt-1: muy pegado arriba */}
+      {/* Sección superior fija */}
+      <div className="flex-none mb-2 z-20 relative pt-1">
         <DateHeader 
           selectedDate={selectedDate} 
           onDateChange={setSelectedDate} 
           onCalendarClick={() => setIsCalendarModalOpen(true)}
         />
-        <div className="mt-1">  {/* ← reducido a mt-1 (casi pegado) */}
+        <div className="mt-1">
           <ActividadesHeader 
             stats={stats} 
             filtro={filtro} 
@@ -215,14 +217,14 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         </div>
       </div>
 
-      {/* Lista de actividades (scrollable) - más espacio vertical */}
-      <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-10 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent pt-1">  {/* ← pt-1 para aire */}
+      {/* Lista de actividades (scrollable) */}
+      <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-10 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent pt-1">
         
         {actividadesDelDia.length === 0 ? (
           <div className="
             bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm
             border border-orange-200/30 dark:border-orange-900/30 
-            rounded-3xl p-8 md:p-12 text-center shadow-sm mt-1  {/* ← reducido padding y mt */}
+            rounded-3xl p-8 md:p-12 text-center shadow-sm mt-1
           ">
             <AlertCircle className="mx-auto h-10 w-10 text-orange-400 mb-4" />
             <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">
@@ -267,6 +269,7 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         actividadTitulo={selectedActividad?.titulo || ''} 
       />
 
+      {/* MODAL PARA CAMBIOS DE ESTADO (Ahora le pasamos el textConfirmar) */}
       <ModalConfirmacion
         isOpen={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
@@ -274,8 +277,10 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         titulo={modalContent.title}
         descripcion={modalContent.desc}
         variant={modalContent.variant}
+        textConfirmar={modalContent.btnText} // <--- Pasamos el texto personalizado
       />
 
+      {/* MODAL PARA ELIMINAR (Dejamos que use el default de "Sí, eliminar") */}
       <ModalConfirmacion
         isOpen={!!idParaEliminar}
         onClose={() => setIdParaEliminar(null)}

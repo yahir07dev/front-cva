@@ -30,15 +30,16 @@ export function useAreasData(initialAreas: any[] = [], initialEmpleados: any[] =
     if (session) loadUserPermissions()
   }, [session])
 
-  // 2. Calcular si puede gestionar (Admin)
+  // 2. Calcular si puede gestionar (AHORA ES ESTRICTAMENTE SOLO ADMIN)
   const canManage = useMemo(() => {
-    return hasPermission(userPerms, ['areas.create', 'areas.delete', 'acceso_total']);
+    // Solo el Administrador tiene 'acceso_total'. Ignoramos los permisos individuales de areas.
+    return hasPermission(userPerms, ['acceso_total']);
   }, [userPerms]);
 
   // 3. Función de Recarga
   const refreshData = useCallback(async () => {
     try {
-      setLoading(true) // Opcional: mostrar loading al recargar
+      setLoading(true) 
       const [areasData, empleadosData] = await Promise.all([
         getAreasConEncargado(),
         getEmpleadosActivos()
@@ -57,7 +58,6 @@ export function useAreasData(initialAreas: any[] = [], initialEmpleados: any[] =
     if (!supabase || !session?.user?.id) return
     const channel = supabase.channel('areas-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'areas' }, () => refreshData())
-      // Escuchamos cambios en empleados para ver cuando cambian de área
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, () => refreshData())
       .subscribe()
 
@@ -66,30 +66,29 @@ export function useAreasData(initialAreas: any[] = [], initialEmpleados: any[] =
 
   // 5. Acciones
   const handleCrear = async (nombre: string, descripcion: string, encargadoId: number | null) => {
-    if (!canManage) throw new Error("No tienes permiso")
+    if (!canManage) throw new Error("No tienes permiso de Administrador")
     
-    // Al llamar a crearArea, el servicio se encarga de mover al empleado
     await crearArea(nombre, descripcion, encargadoId ?? undefined)
     await refreshData()
   }
 
   const handleEditar = async (id: number, nombre: string, descripcion: string, encargadoId: number | null) => {
-    if (!canManage) throw new Error("No tienes permiso")
+    if (!canManage) throw new Error("No tienes permiso de Administrador")
     
-    // Al llamar a actualizarArea, el servicio se encarga de mover al empleado si cambió
     await actualizarArea(id, { nombre, descripcion, encargado_id: encargadoId })
     await refreshData()
   }
 
   const handleEliminar = async (id: number) => {
-    if (!canManage) throw new Error("No tienes permiso")
+    if (!canManage) throw new Error("No tienes permiso de Administrador")
     await eliminarArea(id)
     await refreshData()
   }
 
   const handleAsignar = async (empId: number, areaId: number | null) => {
-    if (!hasPermission(userPerms, ['empleados.area.assign', 'acceso_total'])) {
-      throw new Error("No tienes permiso")
+    // También exigimos acceso_total para poder mover empleados de área
+    if (!hasPermission(userPerms, ['acceso_total'])) {
+      throw new Error("Solo los administradores pueden asignar áreas")
     }
     await asignarEmpleadoAArea(empId, areaId)
     await refreshData()

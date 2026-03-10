@@ -21,12 +21,14 @@ export default async function AreasPage() {
 
   if (perfil?.estado === 'baja') redirect('/login?error=cuenta_desactivada')
 
-  // 2. Permisos
+  // 2. Permisos (🔒 BLOQUEO ESTRICTO SOLO PARA ADMINS)
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
-  const canView = permisos.includes('areas.read') || permisos.includes('acceso_total')
+  
+  // Quitamos 'areas.read' porque el supervisor lo tiene. Ahora solo entra el Admin.
+  const canView = permisos.includes('acceso_total')
 
-  if (!canView) return <AccessDenied message="No tienes permisos." />
+  if (!canView) return <AccessDenied message="No tienes permisos de Administrador para ver la estructura organizacional." />
 
   // 3. Carga de datos
   const [areasRes, empleadosRes] = await Promise.all([
@@ -36,7 +38,6 @@ export default async function AreasPage() {
 
   return (
     /**
-     * 🟢 INTEGRACIÓN TOTAL CON EL FONDO:
      * - Fondo consistente en toda la página
      * - Sin bordes ni separaciones
      */

@@ -80,7 +80,13 @@ export default function ModalConfirmacion({
   }
 
   const style = config[variant]
-  const Icon = style.icon
+  const finalBtnText = textConfirmar || style.btnText
+  
+  // Detectar si la acción realmente es de "eliminar"
+  const isDeleteAction = finalBtnText.toLowerCase().includes('eliminar')
+  
+  // Si es danger pero NO es eliminar, cambiamos el bote de basura por una alerta general
+  const Icon = (variant === 'danger' && !isDeleteAction) ? AlertTriangle : style.icon
 
   return (
     <div className={`
@@ -153,14 +159,18 @@ export default function ModalConfirmacion({
             {descripcion}
           </p>
 
-          {/* Advertencia adicional para variante danger con animación */}
+          {/* Advertencia adicional para variante danger dinámica */}
           {variant === 'danger' && (
             <div className={`
               mb-6 flex items-start gap-3 rounded-xl p-4 text-xs font-medium ${style.warningBg}
               animate-in fade-in slide-in-from-bottom-4 duration-500 delay-250
             `}>
               <AlertTriangle className="h-5 w-5 shrink-0 animate-pulse" />
-              <span className="text-left">Esta acción es permanente y no se podrá recuperar el mensaje.</span>
+              <span className="text-left">
+                {isDeleteAction 
+                  ? 'Esta acción es permanente y no se podrá recuperar la información.'
+                  : 'Esta acción es permanente. Por favor, confirma que deseas continuar.'}
+              </span>
             </div>
           )}
 
@@ -198,7 +208,7 @@ export default function ModalConfirmacion({
               {loading && (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               )}
-              {textConfirmar || style.btnText}
+              {finalBtnText}
             </button>
           </div>
         </div>

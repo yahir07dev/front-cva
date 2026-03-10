@@ -1,7 +1,7 @@
 import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
-import ConfigNominaClient from '@/src/components/nomina/ConfigNominaClient'
+import ConfigNominaClient from '@/src/components/nomina/configuracion/ConfigNominaClient'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0

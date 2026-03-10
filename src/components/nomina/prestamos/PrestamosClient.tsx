@@ -40,7 +40,7 @@ export default function PrestamosClient() {
 
   if (!loading && !canRead) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center text-center">
+      <div className="flex h-[60vh] flex-col items-center justify-center text-center px-4">
         <Users className="h-12 w-12 text-neutral-400 dark:text-neutral-600 mb-4" />
         <h3 className="text-xl font-bold text-neutral-900 dark:text-white">Acceso Denegado</h3>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2 max-w-md">
@@ -59,42 +59,44 @@ export default function PrestamosClient() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto pb-20 md:pb-32">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       
-      <PrestamosHeader 
-        stats={stats} 
-        canManage={canManage} 
-        onOpenModal={() => setIsModalOpen(true)} 
-      />
+      {/* Header fijo (sticky) */}
+      <div className="flex-none z-10">
+        <PrestamosHeader 
+          stats={stats} 
+          canManage={canManage} 
+          onOpenModal={() => setIsModalOpen(true)} 
+        />
+      </div>
 
-      {/* Controles: Pestañas + Buscador */}
+      {/* Controles: Pestañas + Buscador - sticky */}
       {prestamos.length > 0 && (
         <div className="
-          bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm 
-          border border-emerald-200/30 dark:border-emerald-900/30 
-          rounded-3xl p-4 mb-8 shadow-sm
+          sticky top-0 z-10 bg-neutral-50 dark:bg-neutral-950/90 backdrop-blur-xl 
+        
+          px-3 sm:px-4 py-3 md:py-4
         ">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            
+          <div className="flex flex-col gap-3 max-w-6xl mx-auto">
             {/* Pestañas */}
             <div className="
-              flex p-1.5 bg-white/50 dark:bg-neutral-950/40 
-              border border-emerald-200/40 dark:border-emerald-900/30 
-              rounded-2xl w-fit shadow-inner
+              flex p-1 bg-white/50 dark:bg-neutral-950/40 
+              rounded-xl md:rounded-2xl w-full shadow-inner
             ">
               <button
                 onClick={() => setActiveTab('activo')}
                 className={`
-                  flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-200
+                  flex items-center justify-center gap-1.5 md:gap-2.5 flex-1 px-2 md:px-6 py-2.5 md:py-3 
+                  rounded-lg md:rounded-xl text-xs md:text-sm font-semibold transition-all duration-200
                   ${activeTab === 'activo' 
                     ? 'bg-emerald-600 text-white shadow-md' 
                     : 'text-neutral-600 dark:text-neutral-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'}
                 `}
               >
-                <Wallet size={18} />
-                Activos
+                <Wallet size={16} className="md:w-[18px] md:h-[18px]" />
+                <span className="hidden xs:inline">Activos</span>
                 <span className={`
-                  ml-1.5 px-2.5 py-1 rounded-full text-xs font-bold
+                  ml-0.5 md:ml-1.5 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-bold
                   ${activeTab === 'activo' 
                     ? 'bg-white/30 text-white' 
                     : 'bg-neutral-200/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300'}
@@ -106,16 +108,17 @@ export default function PrestamosClient() {
               <button
                 onClick={() => setActiveTab('completado')}
                 className={`
-                  flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-200
+                  flex items-center justify-center gap-1.5 md:gap-2.5 flex-1 px-2 md:px-6 py-2.5 md:py-3 
+                  rounded-lg md:rounded-xl text-xs md:text-sm font-semibold transition-all duration-200
                   ${activeTab === 'completado' 
                     ? 'bg-emerald-600 text-white shadow-md' 
                     : 'text-neutral-600 dark:text-neutral-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'}
                 `}
               >
-                <CheckCircle2 size={18} />
-                Completados
+                <CheckCircle2 size={16} className="md:w-[18px] md:h-[18px]" />
+                <span className="hidden xs:inline">Completados</span>
                 <span className={`
-                  ml-1.5 px-2.5 py-1 rounded-full text-xs font-bold
+                  ml-0.5 md:ml-1.5 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-bold
                   ${activeTab === 'completado' 
                     ? 'bg-white/30 text-white' 
                     : 'bg-neutral-200/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300'}
@@ -126,10 +129,10 @@ export default function PrestamosClient() {
             </div>
 
             {/* Buscador */}
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full">
               <Search 
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-emerald-600 transition-colors" 
-                size={18} 
+                className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-emerald-600 transition-colors" 
+                size={16} 
               />
               <input
                 type="text"
@@ -137,11 +140,12 @@ export default function PrestamosClient() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="
-                  w-full pl-11 pr-5 py-3.5 rounded-2xl bg-white/60 dark:bg-neutral-950/50 
-                  border border-emerald-200/40 dark:border-emerald-900/30
+                  w-full pl-9 md:pl-11 pr-4 md:pr-5 py-3 md:py-3.5 
+                  rounded-xl md:rounded-2xl bg-white/60 dark:bg-neutral-950/50 
                   text-sm font-medium outline-none 
-                  focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20
-                  transition-all placeholder:text-neutral-400/70 hover:border-emerald-400/60
+                  focus:ring-1 focus:ring-emerald-500/20 focus:border-emerald-500
+                  transition-all placeholder:text-neutral-400/70
+                  border-0 ring-1 ring-neutral-200/30 dark:ring-neutral-800/30
                 "
               />
             </div>
@@ -149,43 +153,56 @@ export default function PrestamosClient() {
         </div>
       )}
 
-      {/* Contenido principal */}
-      {prestamos.length === 0 ? (
+      {/* Contenedor scrollable - fondo transparente */}
+      <div className="
+        flex-1 overflow-hidden relative
+        bg-neutral-50 dark:bg-neutral-950 
+      ">
         <div className="
-          bg-white/60 dark:bg-neutral-950/50 backdrop-blur-sm
-          border border-emerald-200/30 dark:border-emerald-900/30 
-          rounded-3xl p-12 text-center
+          absolute inset-0 overflow-y-auto px-3 sm:px-4 pb-20 pt-2
+          scrollbar-thin scrollbar-thumb-emerald-300/50 dark:scrollbar-thumb-emerald-700/50
+          scrollbar-track-transparent hover:scrollbar-thumb-emerald-400/70
         ">
-          <p className="text-lg font-medium text-neutral-600 dark:text-neutral-300">
-            No hay préstamos registrados en el sistema.
-          </p>
+          <div className="max-w-6xl mx-auto">
+            {prestamos.length === 0 ? (
+              <div className="
+                bg-white/60 dark:bg-neutral-950/50 backdrop-blur-sm
+                rounded-2xl md:rounded-3xl p-8 md:p-12 text-center mt-4
+              ">
+                <p className="text-base md:text-lg font-medium text-neutral-600 dark:text-neutral-300">
+                  No hay préstamos registrados en el sistema.
+                </p>
+              </div>
+            ) : prestamosFiltrados.length === 0 ? (
+              <div className="
+                bg-white/60 dark:bg-neutral-950/50 backdrop-blur-sm
+                rounded-2xl md:rounded-3xl p-8 md:p-12 text-center mt-4
+              ">
+                <Search className="mx-auto h-8 w-8 md:h-10 md:w-10 text-neutral-400 mb-3 md:mb-4" />
+                <p className="text-base md:text-lg font-medium text-neutral-600 dark:text-neutral-300">
+                  {searchQuery 
+                    ? `No se encontraron resultados para "${searchQuery}"` 
+                    : `No hay préstamos ${activeTab === 'activo' ? 'activos' : 'completados'}.`}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 pb-16 md:space-y-6">
+                {prestamosFiltrados.map(prestamo => (
+                  <PrestamoCard 
+                    key={prestamo.id} 
+                    prestamo={prestamo} 
+                    canManage={canManage}
+                    onOpenAbono={setPrestamoSeleccionado}
+                    onTogglePausa={handleTogglePausa}
+                  />
+                ))}
+                {/* Espacio extra al final para que la última card se vea completa */}
+                <div className="h-8 md:h-12" />
+              </div>
+            )}
+          </div>
         </div>
-      ) : prestamosFiltrados.length === 0 ? (
-        <div className="
-          bg-white/60 dark:bg-neutral-950/50 backdrop-blur-sm
-          border border-emerald-200/30 dark:border-emerald-900/30 
-          rounded-3xl p-12 text-center
-        ">
-          <Search className="mx-auto h-10 w-10 text-neutral-400 mb-4" />
-          <p className="text-lg font-medium text-neutral-600 dark:text-neutral-300">
-            {searchQuery 
-              ? `No se encontraron resultados para "${searchQuery}"` 
-              : `No hay préstamos ${activeTab === 'activo' ? 'activos' : 'completados'}.`}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 animate-in fade-in duration-300">
-          {prestamosFiltrados.map(prestamo => (
-            <PrestamoCard 
-              key={prestamo.id} 
-              prestamo={prestamo} 
-              canManage={canManage}
-              onOpenAbono={setPrestamoSeleccionado}
-              onTogglePausa={handleTogglePausa}
-            />
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Modales */}
       <ModalNuevoPrestamo 

@@ -177,13 +177,14 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       icon: <Building2 size={20} />,
       label: "Organización",
       hasSubmenu: true,
-      permission: ["areas.read", "acceso_total"],
+      // 🔒 AQUÍ EL CANDADO: Quitamos "areas.read", ahora SOLO Admin lo verá
+      permission: ["acceso_total"],
       submenu: [
         {
           icon: <MapPin size={18} />,
           label: "Áreas",
           path: "/dashboard/organizacion/areas",
-          permission: ["areas.read", "acceso_total"],
+          permission: ["acceso_total"], // 🔒 Igual aquí
         },
       ],
     },
@@ -213,9 +214,8 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         },
         {
           icon: <BarChart3 size={18} />,
-          label: isAdmin ? "Desempeño" : "Mi Rendimiento", // <-- TEXTO DINÁMICO
+          label: isAdmin ? "Desempeño" : "Mi Rendimiento", 
           path: "/dashboard/rendimiento/reportes",
-          // <-- AGREGAMOS "actividades.read" PARA QUE LOS EMPLEADOS LO VEAN
           permission: ["reportes.read_all", "acceso_total", "actividades.read"], 
         },
       ],
