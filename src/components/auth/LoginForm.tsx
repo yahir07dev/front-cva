@@ -24,6 +24,21 @@ export default function LoginPage() {
 
       if (error) throw error;
 
+      if (data.user) {
+        // si hay un usuario en auth
+        const { data: empleado } = await supabase
+          .from("empleados")
+          .select("estado, deleted_at")
+          .eq("usuario_id", data.user.id)
+          .single();
+
+        if (!empleado || empleado.estado === "baja" || empleado.deleted_at) {
+          await supabase.auth.signOut();
+          alert("Tu cuenta ha sido desactivada :(");
+          return;
+        }
+      }
+
       console.log("Login correo exitoso:", data);
       router.push("/");
     } catch (err: any) {

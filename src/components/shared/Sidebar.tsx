@@ -18,7 +18,6 @@ import {
   LayoutDashboard,
   TrendingUp,
   Banknote,
-  GraduationCap,
   Users,
   UserRound,
   UserPen,
@@ -30,6 +29,8 @@ import {
   HandCoins,
   Calculator,
   History,
+  Newspaper, // <-- Agregado de tu compañero
+  Timer,     // <-- Agregado de tu compañero
 } from "lucide-react";
 
 /* ================= TIPOS ================= */
@@ -64,6 +65,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  
   // Ruta "optimista": la que el usuario eligió, aunque la página aún no cargó
   const [optimisticPath, setOptimisticPath] = useState<string>(pathname);
   const [isPending, startTransition] = useTransition();
@@ -79,11 +81,11 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
 
   // Pre-fetch de todas las rutas al montar el componente para eliminar el lag
   const allPaths = useMemo(() => {
-    const paths: string[] = [];
     const known = [
       "/dashboard",
       "/dashboard/personal/empleados",
       "/dashboard/personal/roles",
+      "/dashboard/documentos/empleados", // <-- Agregado de tu compañero
       "/dashboard/organizacion/areas",
       "/dashboard/rendimiento/actividades",
       "/dashboard/rendimiento/comentarios",
@@ -127,6 +129,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   };
 
   /* ================= ESTILO ACTIVO DINÁMICO ================= */
+  // Conservamos tu diseño dinámico y agregamos el de documentos de tu compañero
   const getActiveStyles = (id: string) => {
     if (id === "rendimiento") {
       return "bg-orange-500/15 text-orange-600 dark:bg-orange-600/25 dark:text-orange-400";
@@ -135,15 +138,23 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       return "bg-blue-500/15 text-blue-600 dark:bg-blue-600/25 dark:text-blue-400";
     }
     if (id === "nomina") {
-      // Color Esmeralda (Verde) recomendado para finanzas/nómina
       return "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-600/25 dark:text-emerald-400";
+    }
+    if (id === "asistencia") {
+      return "bg-violet-500/15 text-violet-600 dark:bg-violet-600/25 dark:text-violet-400";
+    }
+    if (id === "personal") {
+      return "bg-indigo-500/15 text-indigo-600 dark:bg-indigo-600/25 dark:text-indigo-400";
+    }
+    if (id === "documentos") {
+      return "bg-cyan-500/15 text-cyan-600 dark:bg-cyan-600/25 dark:text-cyan-400"; // <-- Color para documentos
     }
     return "bg-neutral-200/50 dark:bg-neutral-800/40 text-neutral-900 dark:text-neutral-100";
   };
 
   const logoGradient = "from-neutral-700 to-neutral-950";
 
-  /* ================= MENÚ ================= */
+  /* ================= MENÚ FUSIONADO ================= */
   const rawMenuItems: MenuItem[] = [
     {
       id: "dashboard",
@@ -164,11 +175,20 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
           path: "/dashboard/personal/empleados",
           permission: ["empleados.update", "acceso_total"],
         },
+      ],
+    },
+    {
+      id: "documentos", // <-- MÓDULO NUEVO DE TU COMPAÑERO
+      icon: <Newspaper size={20} />,
+      label: "Documentos",
+      hasSubmenu: true,
+      permission: ["documentos.update", "documentos.read", "acceso_total"],
+      submenu: [
         {
-          icon: <UserCog size={18} />,
-          label: "Roles",
-          path: "/dashboard/personal/roles",
-          permission: ["roles.update", "acceso_total"],
+          icon: <UserPen size={18} />,
+          label: "Empleados",
+          path: "/dashboard/documentos/empleados",
+          permission: ["empleados.update", "acceso_total"],
         },
       ],
     },
@@ -177,14 +197,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       icon: <Building2 size={20} />,
       label: "Organización",
       hasSubmenu: true,
-      // 🔒 AQUÍ EL CANDADO: Quitamos "areas.read", ahora SOLO Admin lo verá
-      permission: ["acceso_total"],
+      permission: ["acceso_total"], // Validado solo Admin
       submenu: [
         {
           icon: <MapPin size={18} />,
           label: "Áreas",
           path: "/dashboard/organizacion/areas",
-          permission: ["acceso_total"], // 🔒 Igual aquí
+          permission: ["acceso_total"], 
         },
       ],
     },
@@ -194,6 +213,9 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       label: "Rendimiento",
       hasSubmenu: true,
       permission: [
+        "rendimiento.create", // <-- Actualizado de tu compañero
+        "actividades.create", // <-- Actualizado de tu compañero
+        "asignaciones.create",// <-- Actualizado de tu compañero
         "actividades.read",
         "comentarios.read",
         "reportes.read_all",
@@ -208,13 +230,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         },
         {
           icon: <Users size={18} />,
-          label: "Comentarios",
+          label: "Feedback", // <-- Cambiado de 'Comentarios' a 'Feedback' como en el de tu compañero
           path: "/dashboard/rendimiento/comentarios",
           permission: ["comentarios.read", "acceso_total"],
         },
         {
           icon: <BarChart3 size={18} />,
-          label: isAdmin ? "Desempeño" : "Mi Rendimiento", 
+          label: isAdmin ? "Analítica" : "Mi Rendimiento", // Combinación de tu validación con su texto
           path: "/dashboard/rendimiento/reportes",
           permission: ["reportes.read_all", "acceso_total", "actividades.read"], 
         },
@@ -261,12 +283,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     },
     {
       id: "asistencia",
-      icon: <GraduationCap size={20} />,
+      icon: <Timer size={20} />, // <-- Icono actualizado de tu compañero
       label: "Asistencia",
       path: "/dashboard/asistencia",
     },
   ];
 
+  /* ================= LÓGICA DE FILTRADO ================= */
   const filteredMenuItems = useMemo(() => {
     const checkAccess = (req?: string | string[]) => {
       if (!req) return true;
@@ -285,6 +308,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
         finalSubmenu = item.submenu.filter((sub) =>
           checkAccess(sub.permission)
         );
+        // Ocultamos el padre si todos los hijos fueron filtrados y no tiene ruta propia
         if (finalSubmenu.length === 0 && !item.path) return acc;
       }
 
@@ -305,7 +329,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     return isActive(itemPath);
   };
 
-  /* ================= CLASES ================= */
+  /* ================= CLASES GENERALES ================= */
   const inactiveClasses =
     "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/80 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors duration-200";
 

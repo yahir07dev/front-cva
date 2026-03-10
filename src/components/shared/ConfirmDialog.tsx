@@ -35,21 +35,20 @@ export default function ConfirmDialog({
     }
   }, [open]);
 
-  const handleCancel = () => {
-    onCancel();
-  };
-
   if (!isVisible && !open) return null;
+
+  // Detectamos si es una acción destructiva basándonos en el texto del botón
+  const isDestructive = confirmText.toLowerCase().includes("eliminar") || confirmText.toLowerCase().includes("borrar");
 
   return (
     <div
       className={`
-        fixed inset-0 z-50 flex items-center justify-center p-4
+        fixed inset-0 z-[100] flex items-center justify-center p-4
         transition-all duration-300 ease-out
         ${open ? "opacity-100" : "opacity-0 pointer-events-none"}
       `}
     >
-      {/* Backdrop con animación */}
+      {/* Backdrop con animación (No se puede cerrar haciendo clic si está cargando) */}
       <div
         className={`
           absolute inset-0 transition-all duration-300
@@ -58,7 +57,7 @@ export default function ConfirmDialog({
             : "bg-black/0 backdrop-blur-0"
           }
         `}
-        onClick={handleCancel}
+        onClick={!loading ? onCancel : undefined}
       />
 
       {/* Modal con animación */}
@@ -77,11 +76,13 @@ export default function ConfirmDialog({
       >
         {/* Botón de cerrar */}
         <button
-          onClick={handleCancel}
+          onClick={onCancel}
+          disabled={loading}
           className="
             absolute right-4 top-4 z-10
             text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200
             transition-all duration-200 hover:rotate-90 active:scale-75
+            disabled:opacity-50 disabled:pointer-events-none
           "
         >
           <X size={18} />
@@ -110,8 +111,8 @@ export default function ConfirmDialog({
             </p>
           )}
 
-          {/* Advertencia sutil (opcional - para acciones destructivas) */}
-          {confirmText.toLowerCase().includes("eliminar") && (
+          {/* Advertencia sutil si la acción es eliminar */}
+          {isDestructive && (
             <div
               className={`
                 flex items-center gap-2 mt-4 p-3 rounded-xl
@@ -121,7 +122,7 @@ export default function ConfirmDialog({
               `}
             >
               <AlertCircle size={16} className="shrink-0" />
-              <span>Esta acción no se puede deshacer</span>
+              <span>Esta acción no se puede deshacer.</span>
             </div>
           )}
 
@@ -133,7 +134,7 @@ export default function ConfirmDialog({
             `}
           >
             <button
-              onClick={handleCancel}
+              onClick={onCancel}
               disabled={loading}
               className="
                 px-4 py-2 rounded-xl text-sm font-medium
@@ -150,20 +151,21 @@ export default function ConfirmDialog({
             <button
               onClick={onConfirm}
               disabled={loading}
-              className="
+              className={`
                 px-4 py-2 rounded-xl text-sm font-medium text-white
-                bg-gradient-to-r from-indigo-600 to-indigo-500
-                shadow-lg shadow-indigo-600/20 dark:shadow-indigo-600/40
-                hover:shadow-xl hover:shadow-indigo-600/30 hover:scale-[1.02]
-                active:scale-95 transition-all duration-200
-                disabled:opacity-50 disabled:hover:scale-100
+                shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02]
+                active:scale-95 disabled:opacity-50 disabled:hover:scale-100
                 flex items-center gap-2
-              "
+                ${isDestructive 
+                  ? "bg-gradient-to-r from-rose-600 to-rose-500 shadow-rose-600/20 dark:shadow-rose-600/40" 
+                  : "bg-gradient-to-r from-indigo-600 to-indigo-500 shadow-indigo-600/20 dark:shadow-indigo-600/40"
+                }
+              `}
             >
               {loading ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  <span>Guardando...</span>
+                  <span>{isDestructive ? "Eliminando..." : "Procesando..."}</span>
                 </>
               ) : (
                 confirmText
