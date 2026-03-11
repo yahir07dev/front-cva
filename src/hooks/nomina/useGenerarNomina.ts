@@ -7,7 +7,7 @@ import {
   guardarNominaMasiva,
   getNominaGuardada,
   RenglonNomina 
-} from '@/src/services/generarNominaService'
+} from '@/src/services/nomina/generarNominaService'
 
 export interface ValoresCalculadora {
   diasNormales: number;

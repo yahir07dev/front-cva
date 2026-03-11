@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
 import { AlertCircle, Loader2, Users } from 'lucide-react'
-import { usePerformance } from '@/src/hooks/usePerformance'
+import { usePerformance } from '@/src/hooks/perfomance/usePerformance'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
 import { useRouter } from 'next/navigation'

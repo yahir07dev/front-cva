@@ -3,7 +3,7 @@ import { createClient } from '@/src/lib/supabase/client'
 import { useSession } from '@/src/hooks/useSession'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions'
-import { getPrestamos, getEmpleadosParaPrestamo, crearPrestamo, NuevoPrestamo, registrarAbonoPrestamo } from '@/src/services/prestamosService'
+import { getPrestamos, getEmpleadosParaPrestamo, crearPrestamo, NuevoPrestamo, registrarAbonoPrestamo } from '@/src/services/nomina/prestamosService'
 
 
 export function usePrestamos() {
@@ -124,7 +124,7 @@ const handleAbonar = async (prestamoId: number, monto: number, omitir: boolean, 
     if (!canManage) throw new Error("No tienes permisos para modificar préstamos.");
     
     // Importamos la función sobre la marcha para no tener que subir hasta arriba de tu archivo
-    const { togglePausarCobro } = await import('@/src/services/prestamosService');
+    const { togglePausarCobro } = await import('@/src/services/nomina/prestamosService');
     
     await togglePausarCobro(prestamoId, estadoActual);
     await fetchData();

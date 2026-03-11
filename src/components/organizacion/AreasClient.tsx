@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Search, LayoutGrid } from 'lucide-react'
-import { useAreasData } from '@/src/hooks/useAreasData'
+import { useAreasData } from '@/src/hooks/organizacion/useAreasData'
 import AreaCard from './AreaCard'
 import AreaModal from './AreaModal'
 import AreaStats from './AreaStats'

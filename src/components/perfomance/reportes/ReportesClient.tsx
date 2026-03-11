@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer 
 } from 'recharts'
 import { Download, TrendingUp, Trophy, Users, UserCheck, ShieldAlert, User, Building } from 'lucide-react'
-import { useReportesData } from '@/src/hooks/useReportesData'
+import { useReportesData } from '@/src/hooks/perfomance/useReportesData'
 import StatsCarousel from './StatsCarousel' 
 import RankingList from './RankingList'     
 import MiRendimientoDashboard from './MiRendimientoDashboard' 

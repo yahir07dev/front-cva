@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Calculator, PlusCircle, CalendarClock, DollarSign } from 'lucide-react'
-import { ValoresCalculadora } from '@/src/hooks/useGenerarNomina'
+import { ValoresCalculadora } from '@/src/hooks/nomina/useGenerarNomina'
 
 interface ModalCalculadoraProps {
   isOpen: boolean

@@ -7,7 +7,6 @@ import { hasPermission } from '@/src/app/auth/permissions'
 import { isSameDay, subDays, startOfDay, parseISO, isValid } from 'date-fns'
 
 // 🛠️ HELPER EXTERNO: Calcula la racha para cualquier lista de actividades dada.
-// Al estar fuera del componente, evitamos recrearlo en cada render (menos crashes).
 function calcularRachas(listaActividades: ActividadConRelaciones[], fechaActual: Date) {
   if (!listaActividades || listaActividades.length === 0) {
       return { diasRegistrados: 0, diasPerfectos: 0 };
@@ -20,7 +19,7 @@ function calcularRachas(listaActividades: ActividadConRelaciones[], fechaActual:
     if(!fechaRef) return;
 
     const fecha = parseISO(fechaRef as string);
-    if (!isValid(fecha)) return; // Protección contra fechas inválidas
+    if (!isValid(fecha)) return; 
 
     const diaKey = startOfDay(fecha).toISOString();
     if (!actividadesPorDia[diaKey]) actividadesPorDia[diaKey] = [];
@@ -31,7 +30,6 @@ function calcularRachas(listaActividades: ActividadConRelaciones[], fechaActual:
   let rachaPerfecta = 0;
   let checkDate = startOfDay(fechaActual);
 
-  // Límite de seguridad para el while (evita bucles infinitos y crashes del navegador)
   let safetyCounter = 0; 
 
   while (safetyCounter < 365) { 
@@ -48,15 +46,13 @@ function calcularRachas(listaActividades: ActividadConRelaciones[], fechaActual:
          if (todoExito) rachaPerfecta++;
          checkDate = subDays(checkDate, 1);
        } else {
-         // Si es hoy y no he terminado, permito seguir buscando atrás
          if (isSameDay(checkDate, fechaActual)) {
             checkDate = subDays(checkDate, 1);
             continue;
          }
-         break; // Rompe la racha
+         break; 
        }
     } else {
-       // Si no hubo tareas ese día, saltamos
        checkDate = subDays(checkDate, 1);
     }
   }
@@ -75,7 +71,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
   const { session, loading: sessionLoading } = useSession() as any
 
   useEffect(() => {
-    // Actualiza 'now' cada minuto para mantener las fechas frescas
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
@@ -88,9 +83,20 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     if (session) loadUserPermissions()
   }, [session])
 
+  // LÓGICA DE ROLES Y PERMISOS ACTUALIZADA
   const canManage = useMemo(() => {
     return hasPermission(userPerms, ['actividades.update', 'acceso_total']);
   }, [userPerms]);
+
+  // Evaluamos si es Administrador total
+  const isAdmin = useMemo(() => {
+    return hasPermission(userPerms, ['acceso_total']);
+  }, [userPerms]);
+
+  // Evaluamos si es Supervisor (puede crear/editar pero no es Admin)
+  const isSupervisor = useMemo(() => {
+    return canManage && !isAdmin;
+  }, [canManage, isAdmin]);
   
   const fetchActividades = useCallback(async () => {
     try {
@@ -113,12 +119,10 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       const currentUserId = session?.user?.id;
       const googleAvatar = session?.user?.user_metadata?.avatar_url;
 
-      // Tu lógica original de mapeo de avatares (Intacta)
       datosProcesados = datosProcesados.map(actividad => ({
         ...actividad,
         asignacion_actividades: actividad.asignacion_actividades?.filter((asig: any) => {
             const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
-            // Filtro de seguridad para no mostrar empleados borrados
             return emp && (emp.estado === 'activo' || emp.usuario_id === currentUserId);
         }).map((asig: any) => {
             const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
@@ -147,7 +151,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     if (!initialData && session) fetchActividades()
   }, [fetchActividades, initialData, session])
 
-  // Realtime
   useEffect(() => {
     if (!supabase || !session?.user?.id) return
     const channel = supabase.channel(`perf-updates-${session.user.id}`) 
@@ -157,8 +160,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     return () => { supabase.removeChannel(channel) }
   }, [supabase, session?.user?.id, fetchActividades])
 
-  // 1. LISTA GLOBAL: Lo que se muestra en la tabla/kanban
-  // Admin ve todo, Empleado ve solo lo suyo.
   const actividadesSeguras = useMemo(() => {
       if (!actividades) return [];
       if (!canManage && session?.user?.id) {
@@ -172,8 +173,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       return actividades;
   }, [actividades, canManage, session]);
 
-  // 2. LISTA PERSONAL: Lo que cuenta para MI racha personal
-  // Esta lista SIEMPRE filtra por mi ID, aunque sea Admin.
   const actividadesSoloMias = useMemo(() => {
       if (!session?.user?.id || !actividades) return [];
       return actividades.filter(act => 
@@ -184,13 +183,9 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       );
   }, [actividades, session]);
 
-  // 3. CÁLCULO DE RACHAS: Usamos el helper dos veces
   const rachaData = useMemo(() => {
-    // Racha del Equipo (Global)
     const global = calcularRachas(actividadesSeguras, now);
-    // Racha Personal (Estricta)
     const personal = calcularRachas(actividadesSoloMias, now);
-
     return { global, personal };
   }, [actividadesSeguras, actividadesSoloMias, now]);
 
@@ -202,7 +197,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     
     const noRealizadas = source.filter(a => {
       if (!a.fecha_limite || a.estado === 'completada') return false;
-      // Validación extra para fecha válida
       const d = new Date(a.fecha_limite);
       if (isNaN(d.getTime())) return false;
       return d.getTime() < ahoraMs;
@@ -228,7 +222,6 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       pendientes, 
       noRealizadas, 
       promedio,
-      // Aquí está la magia: pasamos las dos rachas
       rachaGlobal: rachaData.global,
       rachaPersonal: rachaData.personal
     };
@@ -260,6 +253,8 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     stats,
     loading: loading || sessionLoading,
     canManage, 
+    isAdmin,      // NUEVO: Bandera para saber si es administrador absoluto
+    isSupervisor, // NUEVO: Bandera para saber si es supervisor
     filtro,
     setFiltro,
     recargar: fetchActividades,

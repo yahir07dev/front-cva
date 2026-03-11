@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { RenglonNomina } from '@/src/services/generarNominaService'
+import { RenglonNomina } from '@/src/services/nomina/generarNominaService'
 import { Calculator, Save, Lock, UserRound } from 'lucide-react'
 import ModalCalculadora from './ModalCalculadora'
 import Image from 'next/image'
-import { ValoresCalculadora } from '@/src/hooks/useGenerarNomina'
+import { ValoresCalculadora } from '@/src/hooks/nomina/useGenerarNomina'
 
 interface TablaProps {
   renglones: RenglonNomina[]
@@ -26,7 +26,7 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
   return (
     <>
       <div className={`
-        rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300
+        w-full rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300
         bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm
         border border-neutral-200/40 dark:border-neutral-800/50
         shadow-xl shadow-black/5 dark:shadow-black/30
@@ -35,15 +35,15 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
 
         {/* AVISO DE CANDADO */}
         {isReadOnly && (
-          <div className="bg-emerald-900/10 dark:bg-emerald-950/30 p-3 px-4 sm:p-4 sm:px-6 border-b border-emerald-500/10 flex items-center gap-2 sm:gap-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400/90">
+          <div className="w-full bg-emerald-900/10 dark:bg-emerald-950/30 p-3 px-4 sm:p-4 sm:px-6 border-b border-emerald-500/10 flex items-center gap-2 sm:gap-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400/90">
             <Lock size={14} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
             <span>Nómina autorizada y procesada — solo lectura</span>
           </div>
         )}
 
         {/* Tabla con scroll horizontal en móvil */}
-        <div className="overflow-x-auto">
-          <div className="p-2 sm:p-3 md:p-4 min-w-[600px]">
+        <div className="overflow-x-auto w-full">
+          <div className="p-2 sm:p-3 md:p-4 min-w-[800px] w-full">
             <table className="w-full text-left border-separate border-spacing-y-2 sm:border-spacing-y-3">
               <thead>
                 <tr className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
@@ -64,11 +64,11 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                       bg-white/40 dark:bg-neutral-950/40
                       hover:bg-white/70 dark:hover:bg-neutral-900/60
                       ${!isReadOnly ? 'hover:shadow-md hover:scale-[1.002]' : ''}
-                      rounded-xl sm:rounded-2xl
+                      rounded-xl sm:rounded-2xl w-full
                     `}
                   >
                     {/* Empleado */}
-                    <td className="p-2.5 sm:p-3 md:p-4 rounded-l-xl sm:rounded-l-2xl">
+                    <td className="p-2.5 sm:p-3 md:p-4 rounded-l-xl sm:rounded-l-2xl w-[30%]">
                       <div className="flex items-center gap-2 sm:gap-3">
                         {renglon.foto_perfil_url ? (
                           <div className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-1 ring-emerald-200/50 dark:ring-emerald-900/40 shadow-sm shrink-0">
@@ -79,11 +79,11 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                             <UserRound size={14} className="sm:w-4 sm:h-4 md:w-5 md:h-5 text-emerald-600/70 dark:text-emerald-500/70" />
                           </div>
                         )}
-                        <div className="min-w-0">
-                          <div className="font-semibold text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm leading-tight truncate max-w-[120px] sm:max-w-[160px] md:max-w-none">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm leading-tight truncate">
                             {renglon.nombre_completo}
                           </div>
-                          <div className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          <div className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
                             Base: {formatMoney(renglon.sueldo_base)}
                           </div>
                         </div>
@@ -91,7 +91,7 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                     </td>
 
                     {/* Sueldo Calculado */}
-                    <td className="p-2.5 sm:p-3 md:p-4 text-right">
+                    <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5 sm:gap-2 font-bold text-neutral-800 dark:text-neutral-100">
                         {!isReadOnly && (
                           <button
@@ -118,20 +118,19 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                     </td>
 
                     {/* Préstamo */}
-                    <td className="p-2.5 sm:p-3 md:p-4 text-right">
+                    <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
                       <span className={`
                         px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold
                         bg-white/70 dark:bg-neutral-900/60
                         border border-emerald-200/40 dark:border-emerald-900/30
                         ${renglon.descuento_prestamo > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-400'}
-                        whitespace-nowrap
                       `}>
                         - {formatMoney(renglon.descuento_prestamo)}
                       </span>
                     </td>
 
                     {/* Anticipo */}
-                    <td className="p-2.5 sm:p-3 md:p-4 text-right">
+                    <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1 font-semibold text-rose-600 dark:text-rose-400">
                         <span className="text-rose-400/70 font-normal text-xs sm:text-sm">- $</span>
                         {isReadOnly ? (
@@ -148,7 +147,7 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                     </td>
 
                     {/* Tarjeta */}
-                    <td className="p-2.5 sm:p-3 md:p-4 text-right">
+                    <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
                       {renglon.recibe_pago_tarjeta ? (
                         <div className="flex items-center justify-end gap-1.5 sm:gap-2 font-semibold text-blue-600 dark:text-blue-400">
                           {!isReadOnly && (
@@ -179,8 +178,8 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                     </td>
 
                     {/* Neto Efectivo */}
-                    <td className="p-2.5 sm:p-3 md:p-4 text-right rounded-r-xl sm:rounded-r-2xl bg-emerald-50/40 dark:bg-emerald-950/30 border-l border-emerald-500/20">
-                      <span className="text-base sm:text-xl md:text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums whitespace-nowrap">
+                    <td className="p-2.5 sm:p-3 md:p-4 text-right rounded-r-xl sm:rounded-r-2xl bg-emerald-50/40 dark:bg-emerald-950/30 border-l border-emerald-500/20 whitespace-nowrap">
+                      <span className="text-base sm:text-xl md:text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
                         {formatMoney(renglon.pago_neto)}
                       </span>
                     </td>
@@ -192,15 +191,15 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
         </div>
 
         {/* Totales */}
-        <div className="bg-emerald-50/40 dark:bg-emerald-950/30 border-t border-emerald-500/10 p-3 sm:p-4 md:p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-400/80 hidden sm:block">
+        <div className="w-full bg-emerald-50/40 dark:bg-emerald-950/30 border-t border-emerald-500/10 p-3 sm:p-4 md:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-400/80 hidden sm:block shrink-0">
               Resumen Total
             </span>
 
             {/* Scroll horizontal en móvil para los totales */}
-            <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-              <div className="flex gap-4 sm:gap-6 md:gap-10 text-sm font-medium sm:ml-auto min-w-max sm:min-w-0">
+            <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 w-full flex sm:justify-end">
+              <div className="flex gap-4 sm:gap-6 md:gap-10 text-sm font-medium min-w-max sm:min-w-0 w-full sm:w-auto justify-between sm:justify-end">
                 <div className="flex flex-col items-end">
                   <span className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 uppercase">Generado</span>
                   <span className="text-neutral-800 dark:text-neutral-200 tabular-nums text-xs sm:text-sm">{formatMoney(totales.sueldosGenerados)}</span>

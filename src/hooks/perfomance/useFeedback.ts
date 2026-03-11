@@ -4,7 +4,7 @@ import { useSession } from '@/src/hooks/useSession'
 import { TipoComentario } from '@/src/types/performance'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions'
-import { getComentarios, crearComentario, eliminarComentario } from '@/src/services/feedbackService'
+import { getComentarios, crearComentario, eliminarComentario } from '@/src/services/perfomance/feedbackService'
 
 export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const supabase = createClient()
@@ -36,7 +36,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     if (initialUser) loadUserData()
   }, [initialUser, currentUserId, supabase])
 
-  // Lógica de Permisos
+  // Lógica de Permisos Clásica
   const canCreate = useMemo(() => {
     if (userEstado === 'baja') return false
     return hasPermission(userPerms, ['comentarios.create', 'acceso_total'])
@@ -47,13 +47,24 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
      return hasPermission(userPerms, ['acceso_total', 'comentarios.read_all', 'roles.read'])
   }, [userPerms, userEstado])
 
+  // LÓGICA NUEVA: Discriminación de Autoridad
+  const isAdmin = useMemo(() => {
+    return hasPermission(userPerms, ['acceso_total']);
+  }, [userPerms]);
+
+  const isSupervisor = useMemo(() => {
+    // Si puede crear o administrar, pero NO tiene acceso_total, es un supervisor.
+    return (canCreate || canManage) && !isAdmin;
+  }, [canCreate, canManage, isAdmin]);
+
+
   // 2. PROCESAMIENTO DE DATOS
   const [loading, setLoading] = useState(false)
   
   const empleadosProcesados = useMemo(() => {
       if (!initialEmpleados) return [];
       
-      return initialEmpleados
+      let procesados = initialEmpleados
         .filter(emp => emp.estado === 'activo')
         .map(emp => {
           if (emp.usuario_id === currentUserId && (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '')) {
@@ -61,7 +72,16 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
           }
           return emp;
       });
-  }, [initialEmpleados, currentUserId, googleAvatar]);
+
+      // FILTRO MÁGICO: El Supervisor no debe interactuar con Contabilidad
+      if (isSupervisor) {
+        procesados = procesados.filter(
+          (emp: any) => emp.roles?.nombre !== 'Contabilidad'
+        );
+      }
+
+      return procesados;
+  }, [initialEmpleados, currentUserId, googleAvatar, isSupervisor]);
 
   const [selectedEmp, setSelectedEmp] = useState<any>(null)
   const [comentarios, setComentarios] = useState<any[]>([])
@@ -79,7 +99,7 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
   const [form, setForm] = useState<{titulo: string, descripcion: string, tipo: TipoComentario}>({
     titulo: '',
     descripcion: '', 
-    tipo: 'positivo' // Por defecto inicia en positivo
+    tipo: 'positivo' 
   })
 
   // 5. FETCHING Y REALTIME 
@@ -191,7 +211,6 @@ export function useFeedback(initialUser?: any, initialEmpleados?: any[]) {
     }
   }
 
-  // AJUSTADO: Ahora reconoce si agregaste 'negativo'
   const stats = useMemo(() => {
     if (!comentarios.length) return { total: 0, positivos: 0, mejora: 0, negativos: 0 }
     return {

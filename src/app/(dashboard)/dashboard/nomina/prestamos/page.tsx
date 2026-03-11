@@ -44,9 +44,10 @@ export default async function PrestamosPage() {
   }
 
   // 5. RENDERIZADO
-  // Si pasa todos los blindajes, mostramos la UI de Préstamos.
+  // Se aplicó el fondo dinámico (bg-neutral-50 / dark:bg-neutral-950) y se unificó el padding (p-4 sm:p-6 lg:p-8)
+  // Esto permite que el componente hijo se expanda de lado a lado usando sus márgenes negativos.
   return (
-    <div className="h-full px-4 sm:px-6 lg:px-8 py-6">
+    <div className="h-full p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
       <PrestamosClient />
     </div>
   )

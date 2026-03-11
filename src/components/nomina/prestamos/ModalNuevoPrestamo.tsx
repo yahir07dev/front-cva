@@ -2,7 +2,7 @@
 
 import { useState, useMemo, } from 'react'
 import { X, Loader2, Info } from 'lucide-react'
-import { NuevoPrestamo } from '@/src/services/prestamosService'
+import { NuevoPrestamo } from '@/src/services/nomina/prestamosService'
 
 interface ModalProps {
   isOpen: boolean

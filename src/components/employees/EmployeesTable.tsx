@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/src/lib/supabase/client";
-import { Pencil, Trash, Search, Users, ShieldAlert, Loader2 } from "lucide-react";
+import { Pencil, Trash, Search, ShieldAlert, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "../shared/ConfirmDialog";
 import SuccessDialog from "../shared/SuccessDialog";
@@ -56,14 +56,12 @@ export default function EmpleadosTable() {
     fetchEmpleados();
   }, [supabase]);
 
-  // Filtro de búsqueda en tiempo real
   const filteredEmpleados = empleados.filter((e) => {
     const fullSearch =
       `${e.nombre} ${e.apellidos} ${e.rol?.nombre || ""} ${e.area?.nombre || ""}`.toLowerCase();
     return fullSearch.includes(search.toLowerCase());
   });
 
-  // Eliminación de empleado
   const handleOpenDelete = (empleado: Empleado) => {
     setEmpleadoSeleccionado(empleado);
     setOpenConfirm(true);
@@ -134,16 +132,17 @@ export default function EmpleadosTable() {
         />
       </div>
 
-      {/* Tabla con estilo moderno */}
+      {/* Tabla con estilo original + SCROLL */}
       <div className="
         w-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl 
         border border-neutral-200/60 dark:border-neutral-800/60 
         rounded-3xl overflow-hidden shadow-md
       ">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left whitespace-nowrap border-collapse">
-            <thead>
-              <tr className="border-b border-neutral-200/50 dark:border-neutral-800/50 bg-neutral-50/50 dark:bg-neutral-950/50">
+        {/* ENVOLTURA PARA SCROLL HORIZONTAL Y VERTICAL */}
+        <div className="overflow-auto max-h-[65vh] scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
+          <table className="w-full text-left whitespace-nowrap border-collapse relative">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-neutral-200/50 dark:border-neutral-800/50 bg-neutral-50/95 dark:bg-neutral-950/95 backdrop-blur-sm">
                 <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Nombre Completo</th>
                 <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Estado</th>
                 <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Rol</th>
@@ -187,7 +186,8 @@ export default function EmpleadosTable() {
                       : "-"}
                   </td>
                   <td className="px-6 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    {/* ACCIONES: lg:opacity-0 las oculta en PC hasta el hover, pero en móvil siempre se ven */}
+                    <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
                       <button
                         onClick={() => router.push(`/dashboard/personal/empleados/${emp.id}`)}
                         className="
@@ -218,7 +218,7 @@ export default function EmpleadosTable() {
           </table>
         </div>
 
-        {/* Estado vacío */}
+        {/* Estado vacío original */}
         {filteredEmpleados.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-center animate-in zoom-in-95 duration-500">
             <div className="relative mb-6">

@@ -3,7 +3,7 @@ import { createClient } from '@/src/lib/supabase/client'
 import { useSession } from '@/src/hooks/useSession'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
 import { hasPermission } from '@/src/app/auth/permissions'
-import { getEmpleadosConfigNomina, actualizarConfigNominaEmpleado, NominaConfig } from '@/src/services/nominaService'
+import { getEmpleadosConfigNomina, actualizarConfigNominaEmpleado, NominaConfig } from '@/src/services/nomina/nominaService'
 
 export function useConfigNomina() {
   const [supabase] = useState(() => createClient())

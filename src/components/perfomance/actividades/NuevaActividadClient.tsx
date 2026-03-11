@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { 
   Type, ArrowLeft, Check, Save, Clock, Sparkles, Zap, CircleDot, AlertCircle, Calendar as CalendarIcon, ShieldAlert 
 } from 'lucide-react'
-import { useNuevaActividad } from '@/src/hooks/useNuevaActividad'
+import { useNuevaActividad } from '@/src/hooks/perfomance/useNuevaActividad'
 import SelectorEmpleados from '@/src/components/perfomance/actividades/SelectorEmpleados' // Ajusta la ruta si es necesario
 import DateTimePickerModal from './DateTimePickerModal' 
 import ModalAlerta from '@/src/components/shared/ModalAlerta' // <-- IMPORTACIÓN DEL NUEVO MODAL

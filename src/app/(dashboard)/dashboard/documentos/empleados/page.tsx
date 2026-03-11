@@ -20,33 +20,35 @@ export default async function DocumentosPage() {
 
   if (error) {
     console.error("Error al obtener empleados:", error.message);
-    // Podrías mostrar un mensaje de error al usuario aquí si lo deseas
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      {/* Contenedor principal con padding y max-width para centrar */}
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
-        {/* Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-12 gap-4">
+    // 1. CORRECCIÓN: Cambiamos `min-h-screen` por `h-full flex flex-col min-h-0` para acotar la altura
+    <div className="h-full flex flex-col min-h-0 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
+      
+      {/* 2. CORRECCIÓN: El contenedor interno también debe ser flex y transmitir la altura al hijo */}
+      <div className="h-full flex flex-col min-h-0 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-10">
+        
+        {/* 3. CORRECCIÓN: `shrink-0` evita que el header se aplaste cuando aparecen muchos empleados */}
+        <header className="shrink-0 flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-10 gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-neutral-900 dark:text-white">
               Expedientes Digitales
             </h1>
-            <p className="mt-1.5 text-sm md:text-base text-neutral-400">
+            <p className="mt-1.5 text-sm md:text-base text-neutral-500 dark:text-neutral-400">
               Gestión de documentos oficiales por colaborador
             </p>
           </div>
 
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-neutral-900/80 border border-neutral-800 rounded-xl shadow-sm">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-sm font-medium text-neutral-300">
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-white/70 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-xl shadow-sm">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
               {empleados?.length || 0} activos
             </span>
           </div>
         </header>
 
-        {/* Aquí va tu componente cliente bonito */}
+        {/* El componente hijo ahora puede usar su flex-1 y hacer scroll interno libremente */}
         <EmpleadoGrid empleados={empleados || []} />
       </div>
     </div>

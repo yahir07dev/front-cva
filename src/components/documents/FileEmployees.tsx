@@ -135,9 +135,11 @@ export default function DetalleExpedientePage() {
     );
 
   return (
-    <div className="w-full min-h-full bg-white transition-colors duration-300 dark:bg-[#1a1d29] border-2 border-gray-100 dark:border-[#2d3142] rounded-2xl overflow-hidden shadow-sm">
-      {/* HEADER */}
-      <header className="px-6 py-8 md:px-10 border-b border-gray-50 dark:border-[#2d3142] flex flex-col md:flex-row justify-between items-center gap-6">
+    // CAMBIO 1: h-full flex flex-col min-h-0 para habilitar el scroll interno
+    <div className="w-full h-full flex flex-col min-h-0 bg-white transition-colors duration-300 dark:bg-[#1a1d29] border-2 border-gray-100 dark:border-[#2d3142] rounded-2xl overflow-hidden shadow-sm">
+      
+      {/* HEADER: shrink-0 para que no se aplaste */}
+      <header className="shrink-0 px-6 py-8 md:px-10 border-b border-gray-50 dark:border-[#2d3142] flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">
           <button
             onClick={() => router.back()}
@@ -145,7 +147,7 @@ export default function DetalleExpedientePage() {
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 overflow-hidden flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 overflow-hidden flex items-center justify-center shrink-0">
             {empleado?.foto_perfil_url ? (
               <img
                 src={empleado.foto_perfil_url}
@@ -156,11 +158,11 @@ export default function DetalleExpedientePage() {
               <User className="w-8 h-8 text-indigo-400" />
             )}
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white capitalize">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white capitalize truncate">
               {empleado?.nombre} {empleado?.apellidos}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
               Expediente Digital
             </p>
           </div>
@@ -168,11 +170,14 @@ export default function DetalleExpedientePage() {
       </header>
 
       {/* TABLA DE DOCUMENTOS */}
-      <main className="p-6 md:p-10">
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-[#2d3142]">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-[#232734] text-gray-400 text-xs font-bold uppercase tracking-widest">
+      {/* CAMBIO 2: flex-1 min-h-0 para que el main empuje el contenido y permita el overflow */}
+      <main className="flex-1 min-h-0 p-6 md:p-10 flex flex-col">
+        {/* CAMBIO 3: overflow-auto y clases de scrollbar */}
+        <div className="overflow-auto rounded-2xl border border-gray-100 dark:border-[#2d3142] scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-[#3a3f55]">
+          <table className="w-full text-left border-collapse relative">
+            {/* CAMBIO 4: sticky top-0 z-10 para anclar la cabecera */}
+            <thead className="sticky top-0 z-10 shadow-sm">
+              <tr className="bg-gray-50 dark:bg-[#232734] text-gray-400 text-xs font-bold uppercase tracking-widest border-b border-gray-100 dark:border-[#2d3142]">
                 <th className="px-6 py-4">Documento</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Fecha de Carga</th>

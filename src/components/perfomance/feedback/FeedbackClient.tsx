@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { CheckCircle2, MessageSquare, ArrowLeft, MoreVertical, ListTodo, TrendingUp, User, ShieldAlert } from 'lucide-react'
-import { useFeedback } from '@/src/hooks/useFeedback'
+import { useFeedback } from '@/src/hooks/perfomance/useFeedback'
 import ListaEmpleados from './ListaEmpleados'
 import MensajeItem from './MensajeItem'
 import ChatInput from './ChatInput'

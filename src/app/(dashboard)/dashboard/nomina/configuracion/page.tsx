@@ -44,11 +44,10 @@ export default async function ConfigNominaPage() {
   }
 
   // 5. RENDERIZADO
-  // Si pasa todos los blindajes, mostramos la UI.
-  // Nota: Dejamos que el cliente haga el Fetch inicial para aprovechar la inyección de fotos de Google 
-  // y la suscripción en tiempo real desde el momento cero.
+  // Se aplicó el fondo dinámico para el tema Light/Dark y se unificó el padding (p-4 sm:p-6 lg:p-8)
+  // Esto permite que el componente hijo expanda su "Header" de lado a lado usando sus márgenes negativos.
   return (
-    <div className="h-full px-4 sm:px-6 lg:px-8 py-6">
+    <div className="h-full p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
       <ConfigNominaClient />
     </div>
   )

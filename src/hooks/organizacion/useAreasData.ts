@@ -10,7 +10,7 @@ import {
   asignarEmpleadoAArea, 
   actualizarArea, 
   eliminarArea 
-} from '@/src/services/areasService'
+} from '@/src/services/organizacion/areasService'
 
 export function useAreasData(initialAreas: any[] = [], initialEmpleados: any[] = []) {
   const [supabase] = useState(() => createClient())

@@ -2,7 +2,7 @@ import { createClient } from '@/src/lib/supabase/server'
 import ActividadesClient from '@/src/components/perfomance/actividades/ActividadesClient'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { redirect } from 'next/navigation'
-import AccessDenied from '@/src/components/shared/AccessDenied' // <-- IMPORTANTE AGREGAR ESTO
+import AccessDenied from '@/src/components/shared/AccessDenied'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0 
@@ -23,12 +23,11 @@ export default async function ActividadesPage() {
     .eq('usuario_id', user.id)
     .single()
 
-  // Si el usuario es "baja", lo sacamos de aquí inmediatamente
   if (perfil?.estado === 'baja') { 
     redirect('/login?error=cuenta_desactivada')
   }
   
-  // 2. 🛡️ NUEVO BLINDAJE: VERIFICACIÓN DE PERMISOS (EL CANDADO REAL)
+  // 2. VERIFICACIÓN DE PERMISOS (Aquí ya pasará Contabilidad gracias a la BD)
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
 
@@ -42,7 +41,7 @@ export default async function ActividadesPage() {
     )
   }
 
-  // 3. FETCH: Cargamos datos solo si pasó el candado de arriba
+  // 3. FETCH DE ACTIVIDADES (RLS protege lo que pueden ver)
   const { data, error } = await supabase 
     .from('actividades') 
     .select(`
@@ -68,7 +67,8 @@ export default async function ActividadesPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
+    // CONTENEDOR AJUSTADO PARA EL SCROLL INTERNO
+    <div className="h-full flex flex-col min-h-0 w-full px-4 sm:px-6 lg:px-8">
       <ActividadesClient
         initialData={(data as unknown as ActividadConRelaciones[]) || []}
       />

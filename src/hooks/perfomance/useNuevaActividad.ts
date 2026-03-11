@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
-import { crearNuevaActividad, getEmpleadosParaAsignacion } from '@/src/services/performanceService'
+import { crearNuevaActividad, getEmpleadosParaAsignacion } from '@/src/services/perfomance/performanceService'
 import { PrioridadActividad } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
 import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
@@ -61,10 +61,19 @@ export function useNuevaActividad() {
     if (session) loadUserData()
   }, [session, supabase])
 
+  // LÓGICA DE ROLES Y PERMISOS
   const canCreate = useMemo(() => {
     if (!session || userEstado === 'baja') return false; 
     return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
   }, [userPerms, session, userEstado]);
+
+  const isAdmin = useMemo(() => {
+    return hasPermission(userPerms, ['acceso_total']);
+  }, [userPerms]);
+
+  const isSupervisor = useMemo(() => {
+    return canCreate && !isAdmin;
+  }, [canCreate, isAdmin]);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,7 +85,8 @@ export function useNuevaActividad() {
                 const currentUserId = session?.user?.id;
                 const googleAvatar = session?.user?.user_metadata?.avatar_url;
 
-                const empleadosProcesados = data.map((emp: any) => {
+                // 1. Procesamos los avatares como lo tenías originalmente
+                let empleadosProcesados = data.map((emp: any) => {
                     const esElUsuarioActual = emp.usuario_id === currentUserId;
                     const noTieneFotoBD = !emp.foto_perfil_url || emp.foto_perfil_url.trim() === '';
 
@@ -85,6 +95,13 @@ export function useNuevaActividad() {
                     }
                     return emp;
                 });
+
+                // 2. FILTRO MÁGICO: Si es Supervisor, borramos a los de Contabilidad de la lista
+                if (isSupervisor) {
+                  empleadosProcesados = empleadosProcesados.filter(
+                    (emp: any) => emp.roles?.nombre !== 'Contabilidad'
+                  );
+                }
 
                 setEmpleados(empleadosProcesados)
             }
@@ -96,7 +113,7 @@ export function useNuevaActividad() {
     if (canCreate && session) fetchEmpleados()
 
     return () => { isMounted = false; };
-  }, [canCreate, session]); 
+  }, [canCreate, session, isSupervisor]); // Agregamos isSupervisor a las dependencias
 
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
@@ -157,8 +174,8 @@ export function useNuevaActividad() {
     loading,
     success,
     userEstado,
-    alerta,        // <--- Exportamos el estado del modal
-    cerrarAlerta,  // <--- Exportamos la función para cerrarlo
+    alerta,        
+    cerrarAlerta,  
     toggleEmpleado,
     handleChange,
     handleSubmit,
