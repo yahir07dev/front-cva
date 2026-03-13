@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Users, Check, Search, Building2 } from 'lucide-react'
-import Image from 'next/image'
 
 interface SelectorEmpleadosProps {
   empleados: any[]
@@ -121,12 +120,11 @@ export default function SelectorEmpleados({ empleados, asignados, onToggle }: Se
                       : 'ring-1 ring-neutral-200/50 dark:ring-neutral-800/50 group-hover:ring-orange-400/40'}
                   `}>
                     {fotoUrl ? (
-                      <Image 
+                      /* 👇 AQUÍ ES EL CAMBIO: Usamos <img> estándar */
+                      <img 
                         src={fotoUrl} 
                         alt={emp.nombre} 
-                        fill 
-                        className="object-cover transition-transform group-hover:scale-110" 
-                        sizes="40px"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-110" 
                       />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-xs font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 uppercase">

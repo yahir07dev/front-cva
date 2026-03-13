@@ -10,7 +10,7 @@ import {
   eliminarCurso, 
   enviarEvaluacion, 
   guardarProgresoBorrador,
-  getDetalleEvaluacion // <--- Nueva importación
+  getDetalleEvaluacion
 } from '@/src/services/capacitacion/capacitacionService'
 import { CursoCapacitacion } from '@/src/types/capacitacion'
 
@@ -56,7 +56,8 @@ export function useCapacitacion(initialData?: any[]) {
   // 3. Fetch Principal
   const fetchCursosData = useCallback(async () => {
     try {
-      setLoading(true)
+      // Evitamos pantalla de carga si ya hay cursos (para que el realtime no parpadee visualmente)
+      if (cursos.length === 0) setLoading(true);
       const data = await getCursos()
       setCursos(data)
     } catch (err) {
@@ -64,19 +65,32 @@ export function useCapacitacion(initialData?: any[]) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [cursos.length])
 
   useEffect(() => {
     if (!initialData && session) fetchCursosData()
   }, [fetchCursosData, initialData, session])
 
-  // 4. Suscripción en Tiempo Real
+  // 4. Suscripción en Tiempo Real (Mejorada para reaccionar al instante)
   useEffect(() => {
     if (!supabase || !session?.user?.id) return
     const channel = supabase.channel(`cursos-updates-${session.user.id}`) 
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cursos' }, () => fetchCursosData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_cursos' }, () => setTimeout(() => fetchCursosData(), 500))
-      .subscribe()
+      // Escucha inserciones, actualizaciones y borrados de Cursos
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cursos' }, (payload) => {
+        console.log("⚡ Realtime detectó un cambio en CURSOS:", payload.eventType);
+        fetchCursosData();
+      })
+      // Escucha inserciones o actualizaciones de las asignaciones para que aparezca al vuelo
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_cursos' }, (payload) => {
+        console.log("⚡ Realtime detectó un cambio en ASIGNACIÓN:", payload.eventType);
+        setTimeout(() => fetchCursosData(), 100) 
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("🟢 Conectado al servidor de Tiempo Real para Capacitación");
+        }
+      })
+    
     return () => { supabase.removeChannel(channel) }
   }, [supabase, session?.user?.id, fetchCursosData])
 
@@ -99,7 +113,6 @@ export function useCapacitacion(initialData?: any[]) {
   }, [cursos, filtro, session?.user?.id]);
 
   // 6. Funciones Wrapper para la UI
-
   const handleCrearCurso = async (cursoData: CursoCapacitacion, empleadosIds: number[]) => {
     if (!canManage) throw new Error("No tienes permisos para crear cursos.");
     await crearCursoCompleto(cursoData, empleadosIds);
@@ -115,6 +128,8 @@ export function useCapacitacion(initialData?: any[]) {
   const handleEliminarCurso = async (cursoId: number) => {
     if (!canManage) throw new Error("No tienes permisos para eliminar cursos.");
     await eliminarCurso(cursoId);
+    // Ya no es estrictamente necesario el fetch manual porque el realtime lo atrapa, 
+    // pero lo dejamos por consistencia de UI.
     await fetchCursosData();
   };
 
@@ -129,7 +144,6 @@ export function useCapacitacion(initialData?: any[]) {
     return resultado;
   };
 
-  // NUEVO: Función para que el empleado vea el desglose de sus aciertos y errores
   const handleObtenerDetalles = async (cursoId: number) => {
     if (!empleadoId) return null;
     return await getDetalleEvaluacion(cursoId, empleadoId);
@@ -148,6 +162,6 @@ export function useCapacitacion(initialData?: any[]) {
     eliminarCurso: handleEliminarCurso,
     guardarProgreso: handleGuardarProgreso,
     enviarExamen: handleEnviarExamen,
-    obtenerDetallesEvaluacion: handleObtenerDetalles // <--- Nueva exportación
+    obtenerDetallesEvaluacion: handleObtenerDetalles
   }
 }

@@ -31,7 +31,7 @@ export const getEmpleadosActivos = async () => {
   return data || [];
 }
 
-// 🟢 FUNCIÓN AUXILIAR PARA MOVER EMPLEADO
+// FUNCIÓN AUXILIAR PARA MOVER EMPLEADO
 export const asignarEmpleadoAArea = async (empleadoId: number, areaId: number | null) => {
   const { error } = await supabase
     .from('empleados')

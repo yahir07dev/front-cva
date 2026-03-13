@@ -13,15 +13,15 @@ export default async function CapacitacionPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. BLINDAJE DE ESTADO: Verificar si el usuario que accede está ACTIVO
+  // 2. BLINDAJE DE ESTADO: Verificar si el usuario que accede existe y está ACTIVO
   const { data: perfil } = await supabase
     .from('empleados')
     .select('estado')
     .eq('usuario_id', user.id)
     .single()
 
-  // Si el usuario es "baja", lo sacamos de aquí inmediatamente
-  if (perfil?.estado === 'baja') {
+  // 👇 FIX de Seguridad: Si el perfil no existe o es "baja", lo sacamos.
+  if (!perfil || perfil.estado === 'baja') {
     redirect('/login?error=cuenta_desactivada')
   }
 
@@ -30,8 +30,10 @@ export default async function CapacitacionPage() {
   const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
   const permisos = perms || []
 
+  // 🔍 LOG DE DEPURACIÓN (Mira tu terminal de VSCode al recargar la página)
+  console.log("🛠️ Permisos del usuario actual:", permisos)
+
   // Para entrar aquí necesita tener el permiso de lectura de cursos (cursos.read) o acceso total.
-  // Recordando que por SQL ya le dimos 'cursos.read' tanto a Administradores como a Empleados.
   const canAccess = permisos.includes('cursos.read') || permisos.includes('acceso_total')
 
   // 4. SI NO TIENE PERMISO -> PANTALLA DE BLOQUEO TOTAL
@@ -44,9 +46,8 @@ export default async function CapacitacionPage() {
   }
 
   // 5. RENDERIZADO
-  // Se aplicó el fondo dinámico para el tema Light/Dark y se unificó el padding
   return (
-    <div className="h-full p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500 overflow-hidden flex flex-col min-h-0">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500 flex flex-col">
       <CapacitacionClient />
     </div>
   )

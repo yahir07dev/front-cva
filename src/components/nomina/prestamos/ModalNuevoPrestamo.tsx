@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, } from 'react'
-import { X, Loader2, Info } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { X, Loader2, Info, ChevronDown, Check } from 'lucide-react'
 import { NuevoPrestamo } from '@/src/services/nomina/prestamosService'
 
 interface ModalProps {
@@ -14,6 +14,9 @@ interface ModalProps {
 export default function ModalNuevoPrestamo({ isOpen, onClose, empleados, onSave }: ModalProps) {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ empleado_id: '', monto: '', observaciones: '' })
+  
+  // Estado para controlar nuestro selector personalizado
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const preview = useMemo(() => {
     const montoNum = Number(form.monto)
@@ -25,11 +28,22 @@ export default function ModalNuevoPrestamo({ isOpen, onClose, empleados, onSave 
     return { cuota, pagos }
   }, [form.monto])
 
+  // Encontrar el empleado seleccionado para mostrar su nombre
+  const empleadoSeleccionado = useMemo(() => {
+    return empleados.find(emp => String(emp.id) === form.empleado_id)
+  }, [empleados, form.empleado_id])
+
   if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.empleado_id || !form.monto) return
+    
+    // Validación manual rápida ya que quitamos el <select required>
+    if (!form.empleado_id) {
+      alert("Por favor, selecciona un empleado.")
+      return
+    }
+    if (!form.monto) return
 
     setLoading(true)
     try {
@@ -51,7 +65,7 @@ export default function ModalNuevoPrestamo({ isOpen, onClose, empleados, onSave 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
         onClick={!loading ? onClose : undefined}
       />
 
@@ -87,31 +101,70 @@ export default function ModalNuevoPrestamo({ isOpen, onClose, empleados, onSave 
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
 
-          {/* Empleado */}
-          <div className="space-y-1">
+          {/* SELECTOR DE EMPLEADO PERSONALIZADO 👇 */}
+          <div className="space-y-1 relative">
             <label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide ml-1">
               Empleado
             </label>
-            <select
-              required
-              value={form.empleado_id}
-              onChange={e => setForm({ ...form, empleado_id: e.target.value })}
-              className="
+            
+            {/* Botón que abre/cierra el dropdown */}
+            <div
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className={`
                 w-full px-4 py-3.5 rounded-xl sm:rounded-2xl 
                 bg-neutral-50 dark:bg-neutral-950/80 
-                border border-neutral-200 dark:border-neutral-800
+                border ${isDropdownOpen ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-neutral-200 dark:border-neutral-800'}
                 text-sm font-semibold outline-none 
-                focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20
-                transition-all cursor-pointer
-              "
+                transition-all cursor-pointer flex justify-between items-center
+              `}
             >
-              <option value="">Selecciona un empleado...</option>
-              {empleados.map(emp => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.nombre} {emp.apellidos}
-                </option>
-              ))}
-            </select>
+              <span className={empleadoSeleccionado ? 'text-neutral-900 dark:text-white' : 'text-neutral-400 dark:text-neutral-500'}>
+                {empleadoSeleccionado ? `${empleadoSeleccionado.nombre} ${empleadoSeleccionado.apellidos}` : 'Selecciona un empleado...'}
+              </span>
+              <ChevronDown size={18} className={`text-neutral-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Menú Desplegable */}
+            {isDropdownOpen && (
+              <>
+                {/* Capa invisible para cerrar al hacer clic afuera */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsDropdownOpen(false)} 
+                />
+                
+                <div className="absolute z-50 w-full mt-2 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-200 dark:scrollbar-thumb-emerald-900/50">
+                    {empleados.length === 0 ? (
+                      <div className="px-4 py-4 text-center text-sm text-neutral-500">No hay empleados activos</div>
+                    ) : (
+                      empleados.map(emp => {
+                        const isSelected = String(form.empleado_id) === String(emp.id);
+                        return (
+                          <div
+                            key={emp.id}
+                            onClick={() => {
+                              setForm({ ...form, empleado_id: String(emp.id) });
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`
+                              flex items-center justify-between px-4 py-3 cursor-pointer transition-colors text-sm font-medium
+                              ${isSelected
+                                ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                              }
+                            `}
+                          >
+                            <span>{emp.nombre} {emp.apellidos}</span>
+                            {isSelected && <Check size={16} className="text-emerald-500" />}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Monto */}

@@ -93,6 +93,7 @@ export const crearCursoCompleto = async (curso: CursoCapacitacion, empleadosIds:
       descripcion: curso.descripcion,
       url_youtube: curso.url_youtube,
       duracion_minutos: curso.duracion_minutos,
+      tiempo_limite_examen: curso.tiempo_limite_examen || 0, // 👈 Se inyecta el tiempo límite (0 por defecto)
       es_obligatorio: curso.es_obligatorio,
       created_by: user.id,
     }])
@@ -154,6 +155,7 @@ export const actualizarCursoCompleto = async (cursoId: number, curso: CursoCapac
       descripcion: curso.descripcion,
       url_youtube: curso.url_youtube,
       duracion_minutos: curso.duracion_minutos,
+      tiempo_limite_examen: curso.tiempo_limite_examen || 0, // 👈 Se actualiza el tiempo límite
       es_obligatorio: curso.es_obligatorio,
       updated_at: new Date().toISOString(),
       updated_by: user.id,
@@ -325,17 +327,13 @@ export const enviarEvaluacion = async (cursoId: number, respuestas: RespuestaEnv
 
 /**
  * OBTENER DETALLE DE EVALUACIÓN
- * Trae la evaluación más reciente con sus respuestas Y las opciones correctas del curso
- * para que el admin pueda hacer la revisión completa pregunta por pregunta.
  */
 export const getDetalleEvaluacion = async (cursoId: number, empleadoId: number) => {
-  // Verificación defensiva de IDs antes de lanzar el query
   if (!cursoId || !empleadoId) {
     console.error('getDetalleEvaluacion: cursoId o empleadoId son inválidos', { cursoId, empleadoId });
     return null;
   }
 
-  // 1. Traemos la evaluación más reciente del empleado para este curso
   const { data: evaluacion, error } = await supabase
     .from('evaluaciones_resultados')
     .select(`
@@ -359,14 +357,12 @@ export const getDetalleEvaluacion = async (cursoId: number, empleadoId: number) 
     .single();
 
   if (error) {
-    // PGRST116 = no rows found, no es un error real
     if (error.code !== 'PGRST116') {
       console.error("Error obteniendo detalles:", error.message);
     }
     return null;
   }
 
-  // 2. Traemos las preguntas del curso con TODAS las opciones (para mostrar las correctas en la revisión)
   const { data: preguntas } = await supabase
     .from('preguntas')
     .select(`
@@ -379,7 +375,6 @@ export const getDetalleEvaluacion = async (cursoId: number, empleadoId: number) 
     .is('deleted_at', null)
     .order('orden', { ascending: true });
 
-  // 3. Combinamos: para cada pregunta, marcamos qué opción eligió el empleado
   const preguntasConRespuesta = (preguntas || []).map((preg: any) => {
     const respuestaEmpleado = evaluacion.respuestas_empleado?.find(
       (r: any) => r.pregunta_id === preg.id

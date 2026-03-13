@@ -17,6 +17,8 @@ export interface CursoCapacitacion {
   descripcion: string;
   url_youtube: string;
   duracion_minutos: number;
+  // 👇 Nuevo campo para el límite de tiempo del examen
+  tiempo_limite_examen?: number; 
   es_obligatorio: boolean;
   esta_activo: boolean;
   preguntas?: PreguntaCurso[];

@@ -6,12 +6,14 @@ import { useSession } from '@/src/hooks/useSession'
 import { Loader2, BoxSelect, Briefcase, GraduationCap } from 'lucide-react'
 
 // Componentes
-import HeaderCapacitacion from '../admin/HeaderCapacitacion'
-import CardCursoAdmin from '../admin/CardCursoAdmin'
-import ModalCrearCurso from '../admin/ModalCrearCurso'
-import ModalReporteCurso from '../admin/ModalReporteCurso' // <--- NUEVO
+import HeaderCapacitacion from './HeaderCapacitacion'
+import CardCursoAdmin from './CardCursoAdmin'
+import ModalCrearCurso from './ModalCrearCurso'
+import ModalReporteCurso from './ModalReporteCurso' 
 import CardCursoEmpleado from '../empleado/CardCursoEmpleado'
 import VisorCurso from '../empleado/VisorCurso'
+// Importamos tu ModalConfirmacion 👇
+import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion'
 
 export default function CapacitacionClient() {
   const { session } = useSession() as any
@@ -20,13 +22,15 @@ export default function CapacitacionClient() {
     eliminarCurso, guardarProgreso, enviarExamen, obtenerDetallesEvaluacion 
   } = useCapacitacion()
   
-  // Toggle de vista para el Admin
   const [vistaAdmin, setVistaAdmin] = useState<'gestion' | 'mis_cursos'>('gestion')
-
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cursoAEditar, setCursoAEditar] = useState<any | null>(null)
   const [cursoJugando, setCursoJugando] = useState<any | null>(null)
-  const [cursoParaReporte, setCursoParaReporte] = useState<any | null>(null) // <--- NUEVO
+  const [cursoParaReporte, setCursoParaReporte] = useState<any | null>(null) 
+
+  // ESTADO PARA EL MODAL DE CONFIRMACIÓN 👇
+  const [cursoAEliminar, setCursoAEliminar] = useState<number | null>(null)
+  const [isEliminando, setIsEliminando] = useState(false)
 
   const stats = useMemo(() => {
     return {
@@ -41,7 +45,6 @@ export default function CapacitacionClient() {
   const cursosAMostrar = useMemo(() => {
     if (modoVistaActual === 'gestion') return cursos;
     
-    // Filtrar solo los cursos donde el usuario actual está asignado personalmente
     return cursos.filter(curso => {
       const asignaciones = (curso as any).asignacion_cursos || [];
       return asignaciones.some((a: any) => {
@@ -51,16 +54,31 @@ export default function CapacitacionClient() {
     });
   }, [cursos, modoVistaActual, session?.user?.id]);
 
-  /* Handlers Admin */
+  /* Handlers */
   const handleNuevoCurso = () => { setCursoAEditar(null); setIsModalOpen(true); }
   const handleEditarCurso = (curso: any) => { setCursoAEditar(curso); setIsModalOpen(true); }
-  const handleEliminarCurso = async (id: number) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este curso?")) {
-      await eliminarCurso(id);
+  
+  // Modificamos este handler para que abra tu modal en lugar de usar window.confirm 👇
+  const handleEliminarClick = (id: number) => {
+    setCursoAEliminar(id)
+  }
+
+  // Nueva función que se ejecuta cuando confirman en el modal 👇
+  const confirmarEliminacion = async () => {
+    if (cursoAEliminar === null) return
+    
+    setIsEliminando(true)
+    try {
+      await eliminarCurso(cursoAEliminar)
+    } catch (error) {
+      console.error("Error al eliminar:", error)
+      // Opcional: mostrar un toast de error si tienes uno
+    } finally {
+      setIsEliminando(false)
+      setCursoAEliminar(null)
     }
   }
 
-  /* Handlers Empleado/Jugador */
   const handleEmpezarCurso = (curso: any) => setCursoJugando(curso);
 
   if (loading && cursos.length === 0) {
@@ -73,15 +91,18 @@ export default function CapacitacionClient() {
   }
 
   return (
-    <div className="pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="min-h-screen pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {canManage && modoVistaActual === 'gestion' && (
-        <HeaderCapacitacion stats={stats} onNuevoCurso={handleNuevoCurso} />
-      )}
+      {/* HEADER SUPERIOR */}
+      <div className="mb-8">
+        {canManage && modoVistaActual === 'gestion' && (
+          <HeaderCapacitacion stats={stats} onNuevoCurso={handleNuevoCurso} />
+        )}
+      </div>
 
       {/* SWITCH DE VISTA PARA ADMINISTRADOR */}
       {canManage && (
-        <div className="flex bg-neutral-200 dark:bg-neutral-800/80 p-1.5 rounded-2xl w-fit mb-8 mx-auto sm:mx-0 shadow-inner">
+        <div className="flex bg-neutral-200/80 dark:bg-neutral-800/80 p-1.5 rounded-2xl w-fit mb-10 mx-auto sm:mx-0 shadow-inner backdrop-blur-sm">
           <button 
             onClick={() => setVistaAdmin('gestion')} 
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${vistaAdmin === 'gestion' ? 'bg-white dark:bg-neutral-700 text-rose-600 dark:text-rose-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'}`}
@@ -97,8 +118,9 @@ export default function CapacitacionClient() {
         </div>
       )}
 
+      {/* CONTENEDOR DE LAS TARJETAS (GRID) */}
       {cursosAMostrar.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm rounded-3xl border-2 border-dashed border-rose-200 dark:border-rose-900/30">
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm rounded-3xl border-2 border-dashed border-rose-200 dark:border-rose-900/30 mx-4 sm:mx-0">
           <BoxSelect size={48} className="text-rose-500 mb-6" />
           <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">No hay cursos disponibles</h3>
           <p className="text-neutral-500 max-w-md mx-auto mb-8">
@@ -106,15 +128,15 @@ export default function CapacitacionClient() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max px-2 sm:px-0">
           {cursosAMostrar.map((curso) => (
             modoVistaActual === 'gestion' ? (
               <CardCursoAdmin 
                 key={curso.id} 
                 curso={curso} 
                 onEdit={handleEditarCurso} 
-                onDelete={handleEliminarCurso} 
-                onVerReporte={setCursoParaReporte} // <--- PASAMOS LA FUNCIÓN
+                onDelete={handleEliminarClick} // Usamos el nuevo handler 👇
+                onVerReporte={setCursoParaReporte} 
               />
             ) : (
               <CardCursoEmpleado 
@@ -128,7 +150,7 @@ export default function CapacitacionClient() {
         </div>
       )}
 
-      {/* MODALES */}
+      {/* MODALES DE FORMULARIOS Y REPORTES */}
       {isModalOpen && (
         <ModalCrearCurso 
           isOpen={isModalOpen} 
@@ -157,6 +179,19 @@ export default function CapacitacionClient() {
           onGetDetalles={obtenerDetallesEvaluacion} 
         />
       )}
+
+      {/* TU MODAL DE CONFIRMACIÓN 👇 */}
+      <ModalConfirmacion 
+        isOpen={cursoAEliminar !== null}
+        onClose={() => setCursoAEliminar(null)}
+        onConfirm={confirmarEliminacion}
+        titulo="¿Eliminar curso?"
+        descripcion="Si eliminas este curso, se perderá la información y los empleados asignados ya no podrán acceder a él."
+        variant="danger"
+        textConfirmar="Sí, eliminar"
+        loading={isEliminando}
+      />
+      
     </div>
   )
 }

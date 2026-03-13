@@ -1,7 +1,6 @@
 'use client'
 
 import { Search, UserX } from 'lucide-react'
-import Image from 'next/image'
 
 interface ListaEmpleadosProps {
   empleados: any[]
@@ -75,7 +74,7 @@ export default function ListaEmpleados({
         scrollbar-track-transparent hover:scrollbar-thumb-orange-400/70
       ">
         {loading ? (
-          // Skeleton loading (mismo que tenías)
+          // Skeleton loading
           [1, 2, 3, 4, 5, 6, 7].map(i => (
             <div key={i} className="flex items-center gap-3 p-2 rounded-xl animate-pulse">
               <div className="h-10 w-10 rounded-full bg-neutral-100 dark:bg-neutral-800" />
@@ -117,12 +116,11 @@ export default function ListaEmpleados({
                     : 'ring-1 ring-neutral-200/50 dark:ring-neutral-800/50 group-hover:ring-orange-400/40'}
                 `}>
                   {fotoUrl ? (
-                    <Image 
+                    /* 👇 AQUÍ ESTÁ EL CAMBIO: Usamos la etiqueta <img> nativa */
+                    <img 
                       src={fotoUrl} 
                       alt={emp.nombre} 
-                      fill
-                      className="object-cover transition-transform group-hover:scale-110"
-                      sizes="40px"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-xs font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 uppercase">

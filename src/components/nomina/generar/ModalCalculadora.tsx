@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Calculator, PlusCircle, CalendarClock, DollarSign } from 'lucide-react'
+import { X, Calculator, PlusCircle, CalendarClock, DollarSign, ChevronDown, Check } from 'lucide-react'
 import { ValoresCalculadora } from '@/src/hooks/nomina/useGenerarNomina'
 
 interface ModalCalculadoraProps {
@@ -20,6 +20,19 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
   const [diasEspeciales, setDiasEspeciales] = useState(0)
   const [precioEspecial, setPrecioEspecial] = useState(250)
 
+  // NUEVO: Estado para abrir/cerrar el selector personalizado
+  const [isDescansoOpen, setIsDescansoOpen] = useState(false)
+
+  // Opciones del selector de descanso
+  const opcionesDescanso = [
+    { value: 1, label: 'Pagado (100%)' },
+    { value: 0.5, label: 'Medio (50%)' },
+    { value: 0, label: 'Sin Pagar' }
+  ]
+
+  // Encontrar el texto de la opción seleccionada
+  const descansoLabel = opcionesDescanso.find(opt => opt.value === descanso)?.label
+
   useEffect(() => {
     if (isOpen) {
       setDiasNormales(6)
@@ -29,6 +42,7 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
       setHoras(0)
       setDiasEspeciales(0)
       setPrecioEspecial(250)
+      setIsDescansoOpen(false) // Cerrar si estaba abierto al volver a abrir
     }
   }, [isOpen])
 
@@ -45,7 +59,7 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
         onClick={onClose}
       />
 
@@ -105,17 +119,65 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
                   className="w-16 sm:w-20 text-center bg-transparent border-b-2 border-transparent focus:border-emerald-500 text-base sm:text-lg font-bold outline-none transition-all tabular-nums"
                 />
               </div>
-              <div className="flex justify-between items-center p-3 sm:p-4 rounded-xl bg-neutral-50 dark:bg-neutral-950/80">
+              
+              {/* SELECTOR DE DESCANSO PERSONALIZADO 👇 */}
+              <div className="flex justify-between items-center p-3 sm:p-4 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 relative">
                 <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-200">Día Descanso</span>
-                <select
-                  value={descanso}
-                  onChange={e => setDescanso(Number(e.target.value))}
-                  className="px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 text-xs sm:text-sm font-semibold outline-none cursor-pointer transition-all"
-                >
-                  <option value={1}>Pagado (100%)</option>
-                  <option value={0.5}>Medio (50%)</option>
-                  <option value={0}>Sin Pagar</option>
-                </select>
+                
+                <div className="relative min-w-[130px] sm:min-w-[150px]">
+                  {/* Botón Trigger */}
+                  <div
+                    onClick={() => setIsDescansoOpen(!isDescansoOpen)}
+                    className={`
+                      flex items-center justify-between gap-2 px-3 py-2 rounded-xl 
+                      bg-white dark:bg-neutral-900 border transition-all cursor-pointer 
+                      text-xs sm:text-sm font-semibold outline-none select-none
+                      ${isDescansoOpen ? 'border-emerald-500 ring-1 ring-emerald-500/20' : 'border-neutral-200 dark:border-neutral-800 hover:border-emerald-300 dark:hover:border-emerald-800'}
+                    `}
+                  >
+                    <span className="text-neutral-900 dark:text-white truncate">
+                      {descansoLabel}
+                    </span>
+                    <ChevronDown size={14} className={`text-neutral-400 transition-transform duration-300 shrink-0 ${isDescansoOpen ? 'rotate-180' : ''}`} />
+                  </div>
+
+                  {/* Menú Desplegable */}
+                  {isDescansoOpen && (
+                    <>
+                      {/* Capa invisible para cerrar al hacer clic afuera */}
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setIsDescansoOpen(false)} 
+                      />
+                      <div className="absolute right-0 top-full mt-2 z-50 w-full min-w-[150px] bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 shadow-xl rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="flex flex-col">
+                          {opcionesDescanso.map((opt) => {
+                            const isSelected = descanso === opt.value;
+                            return (
+                              <div
+                                key={opt.value}
+                                onClick={() => {
+                                  setDescanso(opt.value);
+                                  setIsDescansoOpen(false);
+                                }}
+                                className={`
+                                  flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors text-xs sm:text-sm font-semibold
+                                  ${isSelected 
+                                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
+                                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                                  }
+                                `}
+                              >
+                                <span>{opt.label}</span>
+                                {isSelected && <Check size={14} className="text-emerald-500 shrink-0" />}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </section>

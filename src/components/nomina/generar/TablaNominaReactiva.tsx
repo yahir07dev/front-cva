@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import { RenglonNomina } from '@/src/services/nomina/generarNominaService'
-import { Calculator, Save, Lock, UserRound } from 'lucide-react'
+import { Calculator, Save, Lock, UserRound, Download, Loader2 } from 'lucide-react'
 import ModalCalculadora from './ModalCalculadora'
-import Image from 'next/image'
 import { ValoresCalculadora } from '@/src/hooks/nomina/useGenerarNomina'
 
 interface TablaProps {
@@ -14,9 +13,16 @@ interface TablaProps {
   onCalculate: (id: number, valores: ValoresCalculadora) => void
   onSaveTarjeta: (id: number, monto: number) => void
   totales: any
+  // NUEVAS PROPS PARA EL BOTÓN 👇
+  onSaveAndDownload: () => Promise<void>
+  descargarSoloPDF: () => void
+  guardando: boolean
 }
 
-export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, onCalculate, onSaveTarjeta, totales }: TablaProps) {
+export default function TablaNominaReactiva({ 
+  renglones, isReadOnly, onChange, onCalculate, onSaveTarjeta, totales,
+  onSaveAndDownload, descargarSoloPDF, guardando
+}: TablaProps) {
   const [empleadoCalculadora, setEmpleadoCalculadora] = useState<RenglonNomina | null>(null)
 
   const formatMoney = (num: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num || 0)
@@ -26,35 +32,40 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
   return (
     <>
       <div className={`
-        w-full rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300
+        flex flex-col w-full rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300
         bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm
         border border-neutral-200/40 dark:border-neutral-800/50
         shadow-xl shadow-black/5 dark:shadow-black/30
+        h-full /* 👈 Ahora ocupa todo el espacio restante que le da el padre */
+        min-h-[400px]
         ${isReadOnly ? 'opacity-90' : ''}
       `}>
 
-        {/* AVISO DE CANDADO */}
+        {/* AVISO DE CANDADO (Fijo arriba) */}
         {isReadOnly && (
-          <div className="w-full bg-emerald-900/10 dark:bg-emerald-950/30 p-3 px-4 sm:p-4 sm:px-6 border-b border-emerald-500/10 flex items-center gap-2 sm:gap-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400/90">
+          <div className="shrink-0 w-full bg-emerald-900/10 dark:bg-emerald-950/30 p-3 px-4 sm:p-4 sm:px-6 border-b border-emerald-500/10 flex items-center gap-2 sm:gap-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400/90">
             <Lock size={14} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
             <span>Nómina autorizada y procesada — solo lectura</span>
           </div>
         )}
 
-        {/* Tabla con scroll horizontal en móvil */}
-        <div className="overflow-x-auto w-full">
-          <div className="p-2 sm:p-3 md:p-4 min-w-[800px] w-full">
-            <table className="w-full text-left border-separate border-spacing-y-2 sm:border-spacing-y-3">
-              <thead>
-                <tr className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold">
-                  <th className="px-3 sm:px-4 pb-2 sm:pb-3 font-medium">Empleado</th>
-                  <th className="px-3 sm:px-4 pb-2 sm:pb-3 text-right font-medium">Sueldo</th>
-                  <th className="px-3 sm:px-4 pb-2 sm:pb-3 text-right text-emerald-600/80 font-medium">Préstamo</th>
-                  <th className="px-3 sm:px-4 pb-2 sm:pb-3 text-right text-rose-600/80 font-medium">Anticipo</th>
-                  <th className="px-3 sm:px-4 pb-2 sm:pb-3 text-right text-blue-600/80 font-medium">Tarjeta</th>
-                  <th className="px-3 sm:px-4 pb-2 sm:pb-3 text-right text-emerald-600 font-medium">A Pagar</th>
+        {/* CONTENEDOR SCROLLABLE (Horizontal y Vertical) */}
+        <div className="flex-1 overflow-auto w-full scrollbar-thin scrollbar-thumb-emerald-200/50 dark:scrollbar-thumb-emerald-900/50">
+          <div className="min-w-[800px] w-full relative">
+            <table className="w-full text-left border-separate border-spacing-y-2 sm:border-spacing-y-3 p-2 sm:p-3 md:p-4">
+              
+              {/* HEADER DE TABLA (Pegajoso / Sticky) */}
+              <thead className="sticky top-0 z-10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-t-xl before:content-[''] before:absolute before:inset-0 before:border-b before:border-neutral-200/40 dark:before:border-neutral-800/50">
+                <tr className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold relative">
+                  <th className="px-3 sm:px-4 py-3 font-medium rounded-tl-xl">Empleado</th>
+                  <th className="px-3 sm:px-4 py-3 text-right font-medium">Sueldo</th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-emerald-600/80 font-medium">Préstamo</th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-rose-600/80 font-medium">Anticipo</th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-blue-600/80 font-medium">Tarjeta</th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-emerald-600 font-medium rounded-tr-xl">A Pagar</th>
                 </tr>
               </thead>
+              
               <tbody>
                 {renglones.map((renglon) => (
                   <tr
@@ -72,7 +83,12 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
                       <div className="flex items-center gap-2 sm:gap-3">
                         {renglon.foto_perfil_url ? (
                           <div className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-1 ring-emerald-200/50 dark:ring-emerald-900/40 shadow-sm shrink-0">
-                            <Image src={renglon.foto_perfil_url} alt={renglon.nombre_completo} fill className="object-cover" />
+                            <img 
+                                src={renglon.foto_perfil_url} 
+                                alt={renglon.nombre_completo} 
+                                className="w-full h-full object-cover" 
+                                referrerPolicy="no-referrer"
+                            />
                           </div>
                         ) : (
                           <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-950 dark:to-neutral-900 flex items-center justify-center ring-1 ring-emerald-200/40 dark:ring-emerald-900/30 shadow-sm shrink-0">
@@ -190,41 +206,69 @@ export default function TablaNominaReactiva({ renglones, isReadOnly, onChange, o
           </div>
         </div>
 
-        {/* Totales */}
-        <div className="w-full bg-emerald-50/40 dark:bg-emerald-950/30 border-t border-emerald-500/10 p-3 sm:p-4 md:p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-400/80 hidden sm:block shrink-0">
-              Resumen Total
-            </span>
-
-            {/* Scroll horizontal en móvil para los totales */}
-            <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 w-full flex sm:justify-end">
-              <div className="flex gap-4 sm:gap-6 md:gap-10 text-sm font-medium min-w-max sm:min-w-0 w-full sm:w-auto justify-between sm:justify-end">
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 uppercase">Generado</span>
-                  <span className="text-neutral-800 dark:text-neutral-200 tabular-nums text-xs sm:text-sm">{formatMoney(totales.sueldosGenerados)}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] sm:text-[10px] text-emerald-600/80 uppercase">Préstamos</span>
-                  <span className="text-emerald-700 dark:text-emerald-400 tabular-nums text-xs sm:text-sm">- {formatMoney(totales.prestamos)}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] sm:text-[10px] text-rose-600/80 uppercase">Anticipos</span>
-                  <span className="text-rose-600 tabular-nums text-xs sm:text-sm">- {formatMoney(totales.anticipos)}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] sm:text-[10px] text-blue-600/80 uppercase">Tarjetas</span>
-                  <span className="text-blue-600 tabular-nums text-xs sm:text-sm">- {formatMoney(totales.tarjetas)}</span>
-                </div>
-                <div className="flex flex-col items-end pl-4 border-l border-emerald-500/20 shrink-0">
-                  <span className="text-[9px] sm:text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-semibold">Efectivo Total</span>
-                  <span className="text-xl sm:text-2xl md:text-3xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
-                    {formatMoney(totales.pagoNetoEfectivo)}
-                  </span>
-                </div>
+        {/* TOTALES (Integrado dentro de la tarjeta, fijo al fondo) */}
+        <div className="shrink-0 w-full bg-emerald-50/80 dark:bg-emerald-950/80 backdrop-blur-md border-t border-emerald-500/20 p-4 sm:p-5 z-20 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
+          
+          {/* Scroll horizontal en móvil para los totales numéricos */}
+          <div className="overflow-x-auto w-full md:w-auto scrollbar-none flex-1">
+            <div className="flex gap-4 sm:gap-6 text-sm font-medium min-w-max justify-start md:justify-end">
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 uppercase">Generado</span>
+                <span className="text-neutral-800 dark:text-neutral-200 tabular-nums text-xs sm:text-sm">{formatMoney(totales.sueldosGenerados)}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] sm:text-[10px] text-emerald-600/80 uppercase">Préstamos</span>
+                <span className="text-emerald-700 dark:text-emerald-400 tabular-nums text-xs sm:text-sm">- {formatMoney(totales.prestamos)}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] sm:text-[10px] text-rose-600/80 uppercase">Anticipos</span>
+                <span className="text-rose-600 tabular-nums text-xs sm:text-sm">- {formatMoney(totales.anticipos)}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] sm:text-[10px] text-blue-600/80 uppercase">Tarjetas</span>
+                <span className="text-blue-600 tabular-nums text-xs sm:text-sm">- {formatMoney(totales.tarjetas)}</span>
+              </div>
+              <div className="flex flex-col items-end pl-4 border-l border-emerald-500/30 shrink-0">
+                <span className="text-[9px] sm:text-[10px] text-emerald-700 dark:text-emerald-400 uppercase font-bold">Efectivo Total</span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
+                  {formatMoney(totales.pagoNetoEfectivo)}
+                </span>
               </div>
             </div>
           </div>
+
+          {/* BOTÓN DE ACCIÓN (Integrado a la derecha) */}
+          <div className="w-full md:w-auto shrink-0 flex justify-end">
+            {!isReadOnly ? (
+              <button
+                onClick={onSaveAndDownload}
+                disabled={guardando}
+                className="
+                  w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500
+                  text-white shadow-lg shadow-emerald-600/20
+                  px-6 py-3 rounded-2xl font-bold text-sm transition-all
+                  flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95
+                "
+              >
+                {guardando ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                <span>Guardar y Descargar PDF</span>
+              </button>
+            ) : (
+              <button
+                onClick={descargarSoloPDF}
+                className="
+                  w-full md:w-auto bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-100
+                  text-white dark:text-neutral-900 shadow-md
+                  px-6 py-3 rounded-2xl font-bold text-sm transition-all
+                  flex items-center justify-center gap-2 active:scale-95
+                "
+              >
+                <Download size={18} />
+                <span>Descargar PDF</span>
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
 

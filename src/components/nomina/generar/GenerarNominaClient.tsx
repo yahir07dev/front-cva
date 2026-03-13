@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useGenerarNomina } from '@/src/hooks/nomina/useGenerarNomina'
 import TablaNominaReactiva from './TablaNominaReactiva'
-import { FileCheck2, Loader2, UserPlus, CalendarDays, Save, Download, ChevronDown, Check } from 'lucide-react'
+import { Loader2, UserPlus, CalendarDays, ChevronDown, Check } from 'lucide-react'
 import { generarPDFNomina } from '@/src/lib/utils/reporteNominaGenerator'
 
 export default function GenerarNominaClient({ canManage }: { canManage: boolean }) {
@@ -48,7 +48,7 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
   const selectedEmpLabel = selectedEmp ? `${selectedEmp.nombre} ${selectedEmp.apellidos}` : 'Buscar empleado extra...'
 
   return (
-    <div className="w-full mx-auto pb-20 md:pb-24 relative">
+    <div className="w-full mx-auto flex flex-col h-[calc(100vh-8rem)] pb-4 sm:pb-8 relative">
 
       {/* Overlay cierra menús */}
       {(isDateMenuOpen || isEmpMenuOpen) && (
@@ -60,10 +60,10 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
 
       {/* HEADER DE CONTROLES */}
       <div className="
-        w-full bg-white/80 dark:bg-neutral-900/60 backdrop-blur-xl
+        shrink-0 w-full bg-white/80 dark:bg-neutral-900/60 backdrop-blur-xl
         border border-neutral-200/60 dark:border-neutral-800/50
         rounded-[24px] sm:rounded-[32px] shadow-sm
-        p-4 sm:p-5 md:p-6 mb-6 md:mb-8 relative z-30
+        p-4 sm:p-5 md:p-6 mb-4 md:mb-6 relative z-30
       ">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 w-full">
 
@@ -96,7 +96,7 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
                   border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl
                   shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2
                 ">
-                  <div className="max-h-52 overflow-y-auto overscroll-contain p-2">
+                  <div className="max-h-52 overflow-y-auto overscroll-contain p-2 scrollbar-thin scrollbar-thumb-emerald-200 dark:scrollbar-thumb-emerald-900/50">
                     {fechasDisponibles.map((f, i) => (
                       <button
                         key={i}
@@ -166,7 +166,7 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
                     border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl
                     shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2
                   ">
-                    <div className="max-h-52 overflow-y-auto overscroll-contain p-2">
+                    <div className="max-h-52 overflow-y-auto overscroll-contain p-2 scrollbar-thin scrollbar-thumb-emerald-200 dark:scrollbar-thumb-emerald-900/50">
                       {empleadosParaAgregar.length === 0 ? (
                         <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 py-6 font-medium">
                           No hay más empleados disponibles
@@ -214,76 +214,20 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
         </div>
       </div>
 
-      <TablaNominaReactiva
-        renglones={renglones}
-        isReadOnly={candadoActivo}
-        onChange={handleChangeCelda}
-        onCalculate={aplicarCalculadora}
-        onSaveTarjeta={guardarTarjeta}
-        totales={totales}
-      />
-
-      {/* FOOTER FLOTANTE COMPACTO CORREGIDO */}
-      {renglones.length > 0 && (
-        <div className="fixed bottom-6 lg:bottom-8 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-8 fade-in duration-500 pointer-events-none">
-          
-          <div className="
-            pointer-events-auto
-            bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white
-            p-2 pr-2 pl-6 rounded-full shadow-2xl shadow-black/10 dark:shadow-black/40
-            flex items-center gap-4 sm:gap-6 border border-neutral-200 dark:border-neutral-800
-          ">
-            {/* Texto y Total */}
-            <div className="flex items-center gap-3">
-              <FileCheck2 size={18} className="text-emerald-600 dark:text-emerald-400 hidden sm:block" />
-              <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
-                  Total Efectivo
-                </span>
-                <span className="text-lg sm:text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400 leading-none">
-                  {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totales.pagoNetoEfectivo)}
-                </span>
-              </div>
-            </div>
-
-            {/* Separador */}
-            <div className="h-8 w-px bg-neutral-200 dark:bg-neutral-800" />
-
-            {/* Botón de Acción */}
-            {!candadoActivo ? (
-              <button
-                onClick={onSaveAndDownload}
-                disabled={guardando}
-                className="
-                  bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500
-                  text-white
-                  px-5 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold text-xs sm:text-sm transition-all
-                  flex items-center gap-2 disabled:opacity-50 active:scale-95 shrink-0
-                "
-              >
-                {guardando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                <span className="hidden sm:inline">Guardar y PDF</span>
-                <span className="sm:hidden">Guardar</span>
-              </button>
-            ) : (
-              <button
-                onClick={descargarSoloPDF}
-                className="
-                  bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700
-                  text-neutral-900 dark:text-white
-                  px-5 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold text-xs sm:text-sm transition-all
-                  flex items-center gap-2 active:scale-95 shrink-0
-                "
-              >
-                <Download size={16} />
-                <span className="hidden sm:inline">Descargar PDF</span>
-                <span className="sm:hidden">PDF</span>
-              </button>
-            )}
-          </div>
-
-        </div>
-      )}
+      <div className="flex-1 min-h-0 flex flex-col w-full">
+        {/* 👇 Le pasamos el estado de guardado y las funciones al componente de la tabla */}
+        <TablaNominaReactiva
+          renglones={renglones}
+          isReadOnly={candadoActivo}
+          onChange={handleChangeCelda}
+          onCalculate={aplicarCalculadora}
+          onSaveTarjeta={guardarTarjeta}
+          totales={totales}
+          onSaveAndDownload={onSaveAndDownload}
+          descargarSoloPDF={descargarSoloPDF}
+          guardando={guardando}
+        />
+      </div>
     </div>
   )
 }

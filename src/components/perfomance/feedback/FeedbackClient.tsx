@@ -7,7 +7,6 @@ import ListaEmpleados from './ListaEmpleados'
 import MensajeItem from './MensajeItem'
 import ChatInput from './ChatInput'
 import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion'
-import Image from 'next/image'
 
 interface FeedbackClientProps {
   initialUser: any
@@ -130,18 +129,18 @@ export default function FeedbackClient({ initialUser, initialEmpleados }: Feedba
                     </button>
                   )}
 
-                  {/* 🔴 CAMBIO AQUÍ: El avatar solo se muestra si 'canManage' es true */}
+                  {/* 🔴 CAMBIO AQUÍ: Usamos <img> estándar */}
                   {canManage && (
                     <div className="relative h-8 w-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0 ring-1 ring-neutral-200 dark:ring-neutral-800">
                       {selectedEmp.foto_perfil_url ? (
-                          <Image 
+                          <img 
                               src={selectedEmp.foto_perfil_url} 
                               alt={selectedEmp.nombre} 
-                              fill
-                              className="object-cover"
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
                           />
                       ) : (
-                          <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500">
+                          <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500 uppercase">
                               {selectedEmp.nombre?.[0]}
                           </div>
                       )}

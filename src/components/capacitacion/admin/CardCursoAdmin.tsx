@@ -24,12 +24,11 @@ export default function CardCursoAdmin({ curso, onEdit, onDelete, onVerReporte }
 
   return (
     <div className="group relative bg-white dark:bg-[#1a1a1a] rounded-[2rem] p-1.5 border-2 border-transparent hover:border-rose-500/50 shadow-lg hover:shadow-rose-500/20 transition-all duration-300 flex flex-col h-full overflow-hidden">
-      
+
       {/* Etiquetas Superiores */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 items-start">
-        <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-wider flex items-center gap-1.5 backdrop-blur-md shadow-lg ${
-          isActivo ? 'bg-emerald-500/90 text-white' : 'bg-neutral-500/90 text-white'
-        }`}>
+        <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-wider flex items-center gap-1.5 backdrop-blur-md shadow-lg ${isActivo ? 'bg-emerald-500/90 text-white' : 'bg-neutral-500/90 text-white'
+          }`}>
           {isActivo ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
           {isActivo ? 'ACTIVO' : 'INACTIVO'}
         </span>
@@ -58,9 +57,9 @@ export default function CardCursoAdmin({ curso, onEdit, onDelete, onVerReporte }
           <div className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800/50 px-3 py-1 rounded-lg text-xs font-bold text-neutral-500 dark:text-neutral-400">
             <Clock size={14} className="text-blue-500" /> {curso.duracion_minutos} min
           </div>
-          
+
           {/* BOTÓN INTERACTIVO PARA VER RESULTADOS */}
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onVerReporte(curso);
@@ -73,12 +72,19 @@ export default function CardCursoAdmin({ curso, onEdit, onDelete, onVerReporte }
 
         {/* Acciones */}
         <div className="flex gap-2 mt-auto">
-          <button onClick={() => onEdit(curso)} className="flex-1 flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-500 dark:bg-rose-500/10 dark:hover:bg-rose-500 text-rose-600 dark:text-rose-500 dark:hover:text-white py-2.5 rounded-xl font-bold transition-all">
+
+          <button
+            onClick={() => onEdit(curso)}
+            className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 hover:border-rose-500 dark:hover:border-rose-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-neutral-700 dark:text-neutral-300 py-2.5 rounded-xl font-medium transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(225,29,72,0.15)] active:scale-95"
+          >
             <Edit3 size={18} /> Editar
           </button>
-          <button onClick={() => onDelete(curso.id!)} className="p-2.5 bg-neutral-50 hover:bg-red-500 dark:bg-neutral-800 hover:dark:bg-red-500/20 text-neutral-400 hover:text-red-500 rounded-xl transition-all">
-            <Trash2 size={20} />
-          </button>
+         <button 
+  onClick={() => onDelete(curso.id!)} 
+  className="p-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-neutral-400 dark:text-neutral-500 rounded-xl transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(239,68,68,0.15)] active:scale-95"
+>
+  <Trash2 size={20} />
+</button>
         </div>
       </div>
     </div>

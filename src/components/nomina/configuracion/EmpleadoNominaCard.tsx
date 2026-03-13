@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Edit2, Save, CreditCard, Banknote, Loader2, X } from 'lucide-react'
-import Image from 'next/image'
 import { NominaConfig } from '@/src/services/nomina/nominaService'
 
 interface EmpleadoNominaCardProps {
@@ -70,12 +69,12 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
             transition-transform duration-500 group-hover:scale-105
           ">
             {empleado.foto_perfil_url ? (
-              <Image
+              /* 👇 CAMBIO AQUÍ: Etiqueta img estándar 👇 */
+              <img
                 src={empleado.foto_perfil_url}
                 alt="Avatar"
-                fill
-                className="object-cover"
-                sizes="56px"
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
               />
             ) : (
               <div className="h-full w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center text-neutral-500 font-bold text-lg">
