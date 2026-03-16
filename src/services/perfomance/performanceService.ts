@@ -17,14 +17,14 @@ export const getEmpleadosParaAsignacion = async () => {
       foto_perfil_url,
       roles ( nombre ),
       areas!empleados_area_id_fkey ( nombre )  
-    `) 
-    .eq('estado', 'activo') 
-    .is('deleted_at', null) 
+    `)
+    .eq('estado', 'activo')
+    .is('deleted_at', null)
     .order('nombre', { ascending: true });
-  
+
   if (error) {
     console.error("Error al obtener empleados:", error.message);
-    return []; 
+    return [];
   }
   return data || [];
 }
@@ -62,7 +62,8 @@ export const crearNuevaActividad = async (
     fecha_limite: string 
     area_id?: number 
   }, 
-  empleadosIds: string[]
+  empleadosIds: string[],
+  archivoEvidencia?: File | null // <-- NUEVO: Recibimos el archivo
 ) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sesión no válida.');
@@ -90,6 +91,30 @@ export const crearNuevaActividad = async (
 
   const fechaParaDB = limite.toISOString(); 
 
+  // =========================================================
+  // ☁️ SUBIDA A CLOUDINARY (Referencia/Evidencia inicial)
+  // =========================================================
+  let evidenciaUrlFinal = undefined;
+
+  if (archivoEvidencia) {
+    const formData = new FormData();
+    formData.append('file', archivoEvidencia);
+    formData.append('upload_preset', 'evidencias_app'); // Reutilizamos el preset
+
+    const response = await fetch('https://api.cloudinary.com/v1_1/dgd0apnro/image/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('No se pudo subir la imagen de referencia. Intenta con una más ligera.');
+    }
+
+    const data = await response.json();
+    evidenciaUrlFinal = data.secure_url;
+  }
+  // =========================================================
+
   // 1. CREACIÓN DE LA ACTIVIDAD
   const { data: nuevaActividad, error: actError } = await supabase
     .from('actividades')
@@ -97,7 +122,8 @@ export const crearNuevaActividad = async (
       ...actividad,
       fecha_limite: fechaParaDB,
       estado: 'pendiente' as EstadoActividad,
-      created_by: user.id 
+      created_by: user.id,
+      referencia_url: evidenciaUrlFinal // 👇 CORRECCIÓN: Guardamos en referencia_url
     }])
     .select()
     .single()
@@ -129,8 +155,35 @@ export const crearNuevaActividad = async (
   return nuevaActividad
 }
 
-export const actualizarEstadoActividad = async (id: number, nuevoEstado: string, userId: string) => {
-  const updateData: any = { 
+export const actualizarEstadoActividad = async (
+  id: number,
+  nuevoEstado: string,
+  userId: string,
+  archivoEvidencia?: File | null // <-- Nuevo parámetro
+) => {
+  let evidenciaUrlFinal = undefined;
+
+  // 1. Si enviaron una foto de evidencia, la subimos a Cloudinary
+  if (archivoEvidencia) {
+    const formData = new FormData();
+    formData.append('file', archivoEvidencia);
+    formData.append('upload_preset', 'evidencias_app'); // <-- El nuevo preset
+
+    const response = await fetch('https://api.cloudinary.com/v1_1/dgd0apnro/image/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('No se pudo subir la evidencia. Intenta con una imagen más ligera.');
+    }
+
+    const data = await response.json();
+    evidenciaUrlFinal = data.secure_url;
+  }
+
+  // 2. Preparamos los datos para actualizar la actividad
+  const updateData: any = {
     estado: nuevoEstado,
     updated_at: new Date().toISOString(),
     updated_by: userId
@@ -142,6 +195,11 @@ export const actualizarEstadoActividad = async (id: number, nuevoEstado: string,
     updateData.fecha_completada = null
   }
 
+  if (evidenciaUrlFinal) {
+    updateData.evidencia_url = evidenciaUrlFinal;
+  }
+
+  // 3. Guardamos en Supabase
   const { error } = await supabase
     .from('actividades')
     .update(updateData)
@@ -160,9 +218,9 @@ export const eliminarActividad = async (id: number) => {
 }
 
 export const evaluarActividad = async (
-  id: number, 
-  rating: number, 
-  observaciones: string, 
+  id: number,
+  rating: number,
+  observaciones: string,
   evaluadorId: string
 ) => {
   const { error } = await supabase
@@ -171,7 +229,7 @@ export const evaluarActividad = async (
       calificacion: rating,
       observaciones_evaluacion: observaciones?.trim() || null,
       fecha_evaluada: new Date().toISOString(),
-      evaluado_por_id: evaluadorId 
+      evaluado_por_id: evaluadorId
     })
     .eq('id', id)
 

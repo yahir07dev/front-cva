@@ -1,7 +1,6 @@
 'use client'
 
 import { AlertTriangle, Search, Trophy, ArrowDown } from 'lucide-react'
-import Image from 'next/image'
 
 interface RankingListProps {
   empleados: any[]
@@ -76,7 +75,13 @@ export default function RankingList({ empleados, isAdmin, filtroNombre, setFiltr
                   {/* Avatar */}
                   <div className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-700">
                     {emp.foto_perfil_url ? (
-                      <Image src={emp.foto_perfil_url} alt="" fill className="object-cover" />
+                      /* 👇 CAMBIO AQUÍ 👇 */
+                      <img 
+                        src={emp.foto_perfil_url} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xs font-bold text-neutral-500">
                         {emp.nombre?.charAt(0)}

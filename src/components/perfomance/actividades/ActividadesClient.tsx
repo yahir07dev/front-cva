@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
-import { AlertCircle, Loader2, Users } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { usePerformance } from '@/src/hooks/perfomance/usePerformance'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { useSession } from '@/src/hooks/useSession'
 import { useRouter } from 'next/navigation'
 import { isSameDay, parseISO, isValid } from 'date-fns'
+
+// Importamos el servicio donde pusimos la nueva lógica de subida a Cloudinary
+import { actualizarEstadoActividad } from '@/src/services/perfomance/performanceService' 
 
 import ActividadesHeader from './ActividadesHeader'
 import CardActividad from './CardActividad'
@@ -39,8 +42,11 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedActividad, setSelectedActividad] = useState<ActividadConRelaciones | null>(null)
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
-  const [accionPendiente, setAccionPendiente] = useState<{ id: number, nuevoEstado: string } | null>(null)
   const [idParaEliminar, setIdParaEliminar] = useState<number | null>(null)
+  
+  // 👇 Ahora guardamos también el archivo temporalmente si el usuario mandó uno
+  const [accionPendiente, setAccionPendiente] = useState<{ id: number, nuevoEstado: string, file?: File | null } | null>(null)
+  const [isSavingStatus, setIsSavingStatus] = useState(false)
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -81,7 +87,8 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     return true
   }
 
-  const handleStatusChange = async (id: number, nuevoEstado: string) => {
+  // 👇 Actualizamos para recibir el archivo
+  const handleStatusChange = async (id: number, nuevoEstado: string, file?: File | null) => {
     if (!verifyAccess()) return 
 
     const actividadActual = actividades.find(a => a.id === id)
@@ -98,11 +105,12 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     }
 
     if (nuevoEstado === 'completada' || nuevoEstado === 'revision' || nuevoEstado === 'no_realizada') {
-      setAccionPendiente({ id, nuevoEstado })
+      setAccionPendiente({ id, nuevoEstado, file }) // <-- Guardamos el archivo
       setConfirmModalOpen(true)
       return
     }
-    await actualizarEstadoEnBD(id, nuevoEstado)
+    
+    await actualizarEstadoEnBD(id, nuevoEstado, file)
   }
 
   const handleReasignar = (actividad: ActividadConRelaciones) => {
@@ -111,9 +119,21 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
   }
 
   const confirmarAccion = async () => {
-    if (!verifyAccess()) return 
-    if (accionPendiente) {
-      await actualizarEstadoEnBD(accionPendiente.id, accionPendiente.nuevoEstado)
+    if (!verifyAccess() || !accionPendiente || !session?.user?.id) return 
+    
+    setIsSavingStatus(true)
+    try {
+      await actualizarEstadoActividad(
+        accionPendiente.id, 
+        accionPendiente.nuevoEstado, 
+        session.user.id,
+        accionPendiente.file // <-- Le pasamos el archivo al servicio
+      )
+      await recargar()
+    } catch (error: any) {
+      alert('Error: ' + error.message)
+    } finally {
+      setIsSavingStatus(false)
       setAccionPendiente(null)
       setConfirmModalOpen(false)
     }
@@ -134,18 +154,12 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     }
   }
 
-  const actualizarEstadoEnBD = async (id: number, estado: string) => {
+  // 👇 Actualizamos esta función para que use el servicio en lugar de consulta directa
+  const actualizarEstadoEnBD = async (id: number, estado: string, file?: File | null) => {
+    if (!session?.user?.id) return;
+    
     try {
-      const updateData: any = { 
-        estado,
-        updated_at: new Date().toISOString(),
-        updated_by: session?.user?.id
-      }
-      if (estado === 'completada' || estado === 'no_realizada') {
-        updateData.fecha_completada = new Date().toISOString()
-      }
-      const { error } = await supabase.from('actividades').update(updateData).eq('id', id)
-      if (error) throw error
+      await actualizarEstadoActividad(id, estado, session.user.id, file)
       await recargar() 
     } catch (error: any) {
       alert('Error: ' + error.message)
@@ -175,13 +189,11 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
     setModalOpen(true)
   }
 
-  // --- AQUÍ ESTÁ LA MAGIA ---
-  // Agregamos btnText a los retornos de esta función para poder personalizar el botón
   const getModalTexts = () => {
     const estado = accionPendiente?.nuevoEstado
-    if (estado === 'revision') return { title: "¿Solicitar Revisión?", desc: "Se notificará al supervisor.", variant: "info" as const, btnText: "Sí, solicitar" }
+    if (estado === 'revision') return { title: "¿Enviar a Revisión?", desc: "Se subirá la foto de evidencia y se notificará al supervisor.", variant: "info" as const, btnText: "Sí, enviar evidencia" }
     if (estado === 'completada') return { title: canManage ? "¿Aprobar Tarea?" : "¿Tarea Finalizada?", desc: "Se registrará como éxito.", variant: "success" as const, btnText: "Sí, confirmar" }
-    if (estado === 'no_realizada') return { title: "¿Cerrar con Plazo Agotado?", desc: "Se marcará como no realizada.", variant: "danger" as const, btnText: "Sí, cerrar plazo" } // <--- Cambio clave aquí
+    if (estado === 'no_realizada') return { title: "¿Cerrar con Plazo Agotado?", desc: "Se marcará como no realizada.", variant: "danger" as const, btnText: "Sí, cerrar plazo" } 
     return { title: "Confirmar Cambio", desc: "¿Deseas continuar?", variant: "info" as const, btnText: "Continuar" }
   }
 
@@ -269,7 +281,7 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         actividadTitulo={selectedActividad?.titulo || ''} 
       />
 
-      {/* MODAL PARA CAMBIOS DE ESTADO (Ahora le pasamos el textConfirmar) */}
+      {/* MODAL PARA CAMBIOS DE ESTADO */}
       <ModalConfirmacion
         isOpen={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
@@ -277,10 +289,11 @@ export default function ActividadesClient({ initialData }: { initialData: Activi
         titulo={modalContent.title}
         descripcion={modalContent.desc}
         variant={modalContent.variant}
-        textConfirmar={modalContent.btnText} // <--- Pasamos el texto personalizado
+        textConfirmar={modalContent.btnText} 
+        loading={isSavingStatus} // <-- Le pasamos el estado de carga para bloquear el botón si se está subiendo una foto pesada
       />
 
-      {/* MODAL PARA ELIMINAR (Dejamos que use el default de "Sí, eliminar") */}
+      {/* MODAL PARA ELIMINAR */}
       <ModalConfirmacion
         isOpen={!!idParaEliminar}
         onClose={() => setIdParaEliminar(null)}

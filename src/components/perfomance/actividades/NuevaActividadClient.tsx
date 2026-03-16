@@ -1,28 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { 
-  Type, ArrowLeft, Check, Save, Clock, Sparkles, Zap, CircleDot, AlertCircle, Calendar as CalendarIcon, ShieldAlert 
+  Type, ArrowLeft, Check, Save, Clock, Zap, CircleDot, AlertCircle, Calendar as CalendarIcon, ShieldAlert, Image as ImageIcon, X 
 } from 'lucide-react'
 import { useNuevaActividad } from '@/src/hooks/perfomance/useNuevaActividad'
-import SelectorEmpleados from '@/src/components/perfomance/actividades/SelectorEmpleados' // Ajusta la ruta si es necesario
+import SelectorEmpleados from '@/src/components/perfomance/actividades/SelectorEmpleados' 
 import DateTimePickerModal from './DateTimePickerModal' 
-import ModalAlerta from '@/src/components/shared/ModalAlerta' // <-- IMPORTACIÓN DEL NUEVO MODAL
+import ModalAlerta from '@/src/components/shared/ModalAlerta' 
 
 export default function NuevaActividadClient() {
   const { 
     form, empleados, loading, success, userEstado,
-    alerta, cerrarAlerta, // <-- EXTRAEMOS EL ESTADO Y LA FUNCIÓN DEL HOOK
-    toggleEmpleado, handleChange, handleSubmit, router 
+    alerta, cerrarAlerta, 
+    toggleEmpleado, handleChange, handleFileChange, handleSubmit, router // <-- Extraemos handleFileChange
   } = useNuevaActividad()
 
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const isBaja = userEstado === 'baja'
+  const fileInputRef = useRef<HTMLInputElement>(null) // <-- Referencia para el input de archivo
 
   const formatDateForDisplay = (isoString: string) => {
     if (!isoString) return 'Tocar para asignar fecha'
     const date = new Date(isoString)
-    // Validación extra por si acaso
     if (isNaN(date.getTime())) return 'Fecha inválida'
     
     return new Intl.DateTimeFormat('es-MX', {
@@ -38,7 +38,7 @@ export default function NuevaActividadClient() {
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950 transition-colors duration-500 font-sans">
       
-      {/* 1. Header Fijo (z-20 para no tapar selectores o modales) */}
+      {/* 1. Header Fijo */}
       <header className="flex-none sticky top-0 z-20 bg-neutral-50/80 dark:bg-neutral-950/80 backdrop-blur-md border-b border-neutral-200/50 dark:border-0 px-4 py-4 sm:px-8">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -116,6 +116,59 @@ export default function NuevaActividadClient() {
                       placeholder="Describe los pasos detalladamente..."
                     />
                   </div>
+
+                  {/* 👇 NUEVA SECCIÓN: Evidencia Fotográfica (Referencia) */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest px-1 flex items-center justify-between">
+                      <span>Imagen de Referencia</span>
+                      <span className="text-neutral-400/50 font-medium lowercase">(Opcional)</span>
+                    </label>
+                    
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                      accept="image/png, image/jpeg, image/jpg" 
+                      className="hidden"
+                    />
+
+                    {form.previewUrl ? (
+                      // Vista previa de la imagen seleccionada
+                      <div className="relative w-full h-48 rounded-2xl overflow-hidden group border border-neutral-200 dark:border-white/10">
+                        <img 
+                          src={form.previewUrl} 
+                          alt="Vista previa" 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                          <button 
+                            onClick={() => handleFileChange(null)}
+                            className="bg-rose-500 text-white flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-rose-600 hover:scale-105 transition-all"
+                          >
+                            <X size={16} strokeWidth={3} /> Quitar imagen
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      // Botón para subir imagen
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full border-2 border-dashed border-neutral-200 dark:border-white/10 hover:border-orange-500/50 dark:hover:border-orange-500/50 bg-neutral-50 dark:bg-white/[0.02] hover:bg-orange-500/5 transition-colors rounded-2xl p-8 flex flex-col items-center justify-center gap-3 group"
+                      >
+                        <div className="p-3 rounded-xl bg-white dark:bg-white/5 shadow-sm text-neutral-400 group-hover:text-orange-500 group-hover:scale-110 transition-all">
+                          <ImageIcon size={24} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                            Subir foto de ejemplo
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-1 font-medium">PNG, JPG hasta 5MB</p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                  {/* 👆 FIN SECCIÓN EVIDENCIA */}
+
                 </div>
               </section>
 
@@ -205,9 +258,6 @@ export default function NuevaActividadClient() {
         onSelect={(val: string) => handleChange('fechaLimite', val)} 
       />
 
-      {/* ========================================== */}
-      {/* NUEVO: MODAL DE ALERTA RENDERIZADO AQUÍ      */}
-      {/* ========================================== */}
       <ModalAlerta 
         isOpen={alerta.isOpen}
         onClose={cerrarAlerta}

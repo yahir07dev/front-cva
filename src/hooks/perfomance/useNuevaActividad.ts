@@ -18,7 +18,6 @@ export function useNuevaActividad() {
   const [userPerms, setUserPerms] = useState<string[]>([]) 
   const [userEstado, setUserEstado] = useState<string>('activo')
 
-  // NUEVO: Estado para controlar el modal de alerta
   const [alerta, setAlerta] = useState({
     isOpen: false,
     titulo: '',
@@ -26,12 +25,15 @@ export function useNuevaActividad() {
     variant: 'warning' as 'warning' | 'danger' | 'info' | 'success'
   })
 
+  // 👇 NUEVO: Agregamos archivoEvidencia y previewUrl al formulario
   const [form, setForm] = useState({
     titulo: '',
     descripcion: '',
     prioridad: 'media' as PrioridadActividad,
     fechaLimite: '',
-    asignados: [] as string[]
+    asignados: [] as string[],
+    archivoEvidencia: null as File | null, 
+    previewUrl: '' as string
   })
 
   const mostrarAlerta = (titulo: string, descripcion: string, variant: 'warning'|'danger'|'info' = 'warning') => {
@@ -61,7 +63,6 @@ export function useNuevaActividad() {
     if (session) loadUserData()
   }, [session, supabase])
 
-  // LÓGICA DE ROLES Y PERMISOS
   const canCreate = useMemo(() => {
     if (!session || userEstado === 'baja') return false; 
     return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
@@ -85,7 +86,6 @@ export function useNuevaActividad() {
                 const currentUserId = session?.user?.id;
                 const googleAvatar = session?.user?.user_metadata?.avatar_url;
 
-                // 1. Procesamos los avatares como lo tenías originalmente
                 let empleadosProcesados = data.map((emp: any) => {
                     const esElUsuarioActual = emp.usuario_id === currentUserId;
                     const noTieneFotoBD = !emp.foto_perfil_url || emp.foto_perfil_url.trim() === '';
@@ -96,7 +96,6 @@ export function useNuevaActividad() {
                     return emp;
                 });
 
-                // 2. FILTRO MÁGICO: Si es Supervisor, borramos a los de Contabilidad de la lista
                 if (isSupervisor) {
                   empleadosProcesados = empleadosProcesados.filter(
                     (emp: any) => emp.roles?.nombre !== 'Contabilidad'
@@ -113,7 +112,7 @@ export function useNuevaActividad() {
     if (canCreate && session) fetchEmpleados()
 
     return () => { isMounted = false; };
-  }, [canCreate, session, isSupervisor]); // Agregamos isSupervisor a las dependencias
+  }, [canCreate, session, isSupervisor]);
 
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
@@ -128,7 +127,23 @@ export function useNuevaActividad() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  // ENVÍO SEGURO CON MODALES
+  // 👇 NUEVO: Función especializada para manejar la imagen
+  const handleFileChange = (file: File | null) => {
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        mostrarAlerta('Archivo muy pesado', 'La imagen de referencia debe pesar menos de 5MB.', 'warning');
+        return;
+      }
+      setForm(prev => ({ 
+        ...prev, 
+        archivoEvidencia: file, 
+        previewUrl: URL.createObjectURL(file) 
+      }));
+    } else {
+      setForm(prev => ({ ...prev, archivoEvidencia: null, previewUrl: '' }));
+    }
+  }
+
   const handleSubmit = async () => {
     if (userEstado === 'baja') {
       return mostrarAlerta('Acceso Denegado', 'Tu cuenta no está activa. Contacta a recursos humanos.', 'danger')
@@ -148,12 +163,13 @@ export function useNuevaActividad() {
 
     setLoading(true)
     try {
+      // 👇 NUEVO: Le pasamos el archivo al servicio
       await crearNuevaActividad({
         titulo: form.titulo,
         descripcion: form.descripcion,
         prioridad: form.prioridad,
         fecha_limite: form.fechaLimite
-      }, form.asignados)
+      }, form.asignados, form.archivoEvidencia)
 
       setSuccess(true)
       
@@ -178,6 +194,7 @@ export function useNuevaActividad() {
     cerrarAlerta,  
     toggleEmpleado,
     handleChange,
+    handleFileChange, // <-- Exponemos la función a la vista
     handleSubmit,
     router
   }
