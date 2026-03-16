@@ -116,7 +116,7 @@ export default function ListaEmpleados({
                     : 'ring-1 ring-neutral-200/50 dark:ring-neutral-800/50 group-hover:ring-orange-400/40'}
                 `}>
                   {fotoUrl ? (
-                    /* 👇 AQUÍ ESTÁ EL CAMBIO: Usamos la etiqueta <img> nativa */
+                    /*Usamos la etiqueta <img> nativa */
                     <img 
                       src={fotoUrl} 
                       alt={emp.nombre} 

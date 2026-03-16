@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { Calendar, PauseCircle, PlayCircle, ChevronRight, TrendingUp, Wallet, Clock } from 'lucide-react'
 import { useState } from 'react'
 
@@ -67,7 +66,13 @@ export default function PrestamoCard({ prestamo, canManage, onOpenAbono, onToggl
               style={{ ringColor: stateColor.accent } as any}
             >
               {emp?.foto_perfil_url ? (
-                <Image src={emp.foto_perfil_url} alt="Avatar" fill className="object-cover" sizes="52px" />
+                /* 👇 CAMBIO AQUÍ: Etiqueta img estándar 👇 */
+                <img 
+                  src={emp.foto_perfil_url} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                />
               ) : (
                 <div
                   className="h-full w-full flex items-center justify-center text-white font-black text-base uppercase"

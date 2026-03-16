@@ -20,7 +20,7 @@ export default async function CapacitacionPage() {
     .eq('usuario_id', user.id)
     .single()
 
-  // 👇 FIX de Seguridad: Si el perfil no existe o es "baja", lo sacamos.
+  //FIX de Seguridad: Si el perfil no existe o es "baja", lo sacamos.
   if (!perfil || perfil.estado === 'baja') {
     redirect('/login?error=cuenta_desactivada')
   }
