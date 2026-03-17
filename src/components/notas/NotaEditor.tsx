@@ -12,7 +12,6 @@ import FontFamily from '@tiptap/extension-font-family'
 import { Node, mergeAttributes } from '@tiptap/react'
 import { Loader2 } from 'lucide-react'
 
-// ─── Imagen redimensionable ───────────────────────────────────
 const ResizableImageView = ({ node, updateAttributes, selected }: any) => {
   const [isResizing, setIsResizing] = useState(false)
   const startX = useRef(0)
@@ -21,7 +20,7 @@ const ResizableImageView = ({ node, updateAttributes, selected }: any) => {
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    e.stopPropagation() // <-- Evita que Tiptap robe el clic
+    e.stopPropagation() 
     setIsResizing(true)
     startX.current = e.clientX
     startW.current = node.attrs.width || imgRef.current?.clientWidth || 300
@@ -70,26 +69,13 @@ const ResizableImageView = ({ node, updateAttributes, selected }: any) => {
           ref={imgRef}
           src={node.attrs.src}
           alt={node.attrs.alt || ''}
-          style={{
-            width: width ? `${width}px` : 'auto',
-            maxWidth: '100%',
-            borderRadius: '12px',
-            display: 'block',
-            outline: selected ? '2px solid #1a73e8' : 'none',
-            outlineOffset: '2px',
-            cursor: 'default',
-          }}
+          style={{ width: width ? `${width}px` : 'auto', maxWidth: '100%', borderRadius: '12px', display: 'block', outline: selected ? '2px solid #1a73e8' : 'none', outlineOffset: '2px', cursor: 'default' }}
         />
         <div
           onMouseDown={onMouseDown}
           onTouchStart={onTouchStart}
           title="Arrastrar tamaño"
-          style={{
-            position: 'absolute', bottom: 4, right: 4, width: 24, height: 24,
-            background: 'rgba(26,115,232,0.85)', borderRadius: 6, cursor: 'nwse-resize',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            opacity: selected ? 1 : 0, transition: 'opacity 0.15s', zIndex: 10,
-          }}
+          style={{ position: 'absolute', bottom: 4, right: 4, width: 24, height: 24, background: 'rgba(26,115,232,0.85)', borderRadius: 6, cursor: 'nwse-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: selected ? 1 : 0, transition: 'opacity 0.15s', zIndex: 10 }}
         >
           <svg width="12" height="12" viewBox="0 0 10 10" fill="none"><path d="M2 8L8 2M5 8L8 5M8 8V8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </div>
@@ -104,9 +90,7 @@ const ResizableImage = Node.create({
   inline: false,
   draggable: true,
   atom: true,
-  addAttributes() {
-    return { src: { default: null }, alt: { default: null }, width: { default: null }, align: { default: 'left' } }
-  },
+  addAttributes() { return { src: { default: null }, alt: { default: null }, width: { default: null }, align: { default: 'left' } } },
   parseHTML() { return [{ tag: 'img[src]' }] },
   renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, any> }) {
     const { width, align, ...rest } = HTMLAttributes
@@ -153,6 +137,7 @@ export default function NotaEditor({
       TaskList.configure({ HTMLAttributes: { class: 'not-prose pl-0' } }),
       TaskItem.configure({ nested: true, HTMLAttributes: { class: 'flex items-start gap-2 my-1' } }),
     ],
+    // Tiptap solo cargará esto 1 vez al abrirse, evitando el parpadeo del cursor.
     content: contenidoInicial || '',
     immediatelyRender: false,
     editorProps: {
@@ -172,9 +157,7 @@ export default function NotaEditor({
       formData.append('file', file)
       formData.append('upload_preset', 'notas_app')
 
-      const res = await fetch('https://api.cloudinary.com/v1_1/dgd0apnro/image/upload', {
-        method: 'POST', body: formData,
-      })
+      const res = await fetch('https://api.cloudinary.com/v1_1/dgd0apnro/image/upload', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Error al subir imagen')
       const data = await res.json()
 
@@ -189,7 +172,6 @@ export default function NotaEditor({
 
   if (!editor) return null
 
-  // 👇 CLASES DE BOTÓN QUE NO USAN DARK MODE, SE ADAPTAN AL FONDO 👇
   const btnClass = (active: boolean) =>
     `p-2 rounded-xl transition-all ${active ? 'bg-[#1a73e8]/15 text-[#1a73e8]' : 'opacity-60 hover:opacity-100 hover:bg-[rgba(127,127,127,0.15)]'}`
 
@@ -206,20 +188,11 @@ export default function NotaEditor({
         <EditorContent editor={editor} />
       </div>
 
-      {/* ── BARRA INFERIOR (Sin dark mode, usa RGBA para fundirse con la hoja) ── */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 z-20"
-        style={{ background: 'rgba(0,0,0,0.03)', borderTop: '1px solid rgba(0,0,0,0.06)' }}
-      >
+      <div className="absolute bottom-0 left-0 right-0 z-20" style={{ background: 'rgba(0,0,0,0.03)', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
         {showColors && (
           <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-[rgba(0,0,0,0.05)] overflow-x-auto scrollbar-hide">
             {TEXT_COLORS.map(c => (
-              <button
-                key={c}
-                onClick={() => { editor.chain().focus().setColor(c).run(); setShowColors(false) }}
-                className="w-6 h-6 rounded-full shrink-0 border border-black/10 active:scale-75 transition-transform"
-                style={{ background: c }}
-              />
+              <button key={c} onClick={() => { editor.chain().focus().setColor(c).run(); setShowColors(false) }} className="w-6 h-6 rounded-full shrink-0 border border-black/10 active:scale-75 transition-transform" style={{ background: c }} />
             ))}
           </div>
         )}
@@ -227,12 +200,7 @@ export default function NotaEditor({
         {showBgColors && onBgColorChange && (
           <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-[rgba(0,0,0,0.05)] overflow-x-auto scrollbar-hide">
             {BG_COLORS.map(c => (
-              <button
-                key={c}
-                onClick={() => { onBgColorChange(c); setShowBgColors(false) }}
-                className="w-6 h-6 rounded-full shrink-0 transition-all active:scale-75"
-                style={{ background: c, border: colorFondo === c ? '2.5px solid #1a73e8' : '1.5px solid rgba(0,0,0,0.12)', transform: colorFondo === c ? 'scale(1.15)' : 'scale(1)' }}
-              />
+              <button key={c} onClick={() => { onBgColorChange(c); setShowBgColors(false) }} className="w-6 h-6 rounded-full shrink-0 transition-all active:scale-75" style={{ background: c, border: colorFondo === c ? '2.5px solid #1a73e8' : '1.5px solid rgba(0,0,0,0.12)', transform: colorFondo === c ? 'scale(1.15)' : 'scale(1)' }} />
             ))}
           </div>
         )}
@@ -254,7 +222,7 @@ export default function NotaEditor({
         .prose h1, .prose h2, .prose h3, .prose strong, .prose b { color: inherit !important; }
         .prose ul[data-type="taskList"] { list-style: none; padding: 0; }
         .prose ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
-        .prose ul[data-type="taskList"] li input[type="checkbox"] { margin-top: 3px; width: 18px; height: 18px; accent-color: #1a73e8; cursor: pointer; flex-shrink: 0; border-radius: 4px; }
+        .prose ul[data-type="taskList"] li input[type="checkbox"] { margin-top: 3px; width: 18px; height: 18px; accent-color: #25C2FF; cursor: pointer; flex-shrink: 0; border-radius: 4px; }
         .prose ul[data-type="taskList"] li p { margin: 0; line-height: 1.5; }
         .prose ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; opacity: 0.55; }
         .prose img { max-width: 100%; border-radius: 12px; cursor: default; }
