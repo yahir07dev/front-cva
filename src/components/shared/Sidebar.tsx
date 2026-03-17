@@ -109,13 +109,20 @@ const ACCENT: Record<string, AccentSet> = {
     subHover:    { light: "hover:bg-violet-50 hover:text-violet-700", dark: "dark:hover:bg-violet-500/10 dark:hover:text-violet-400" },
     itemHover:   { light: "hover:bg-violet-50/70 hover:text-violet-700", dark: "dark:hover:bg-violet-500/10 dark:hover:text-violet-400" },
   },
+  notas: {
+    activePill:  { light: "bg-sky-50 text-sky-700",             dark: "dark:bg-sky-500/20 dark:text-sky-400" },
+    activeIcon:  { light: "text-sky-600",                           dark: "dark:text-sky-400" },
+    subActive:   { light: "bg-sky-50 text-sky-700",             dark: "dark:bg-sky-500/20 dark:text-sky-400" },
+    subHover:    { light: "hover:bg-sky-50 hover:text-sky-700",     dark: "dark:hover:bg-sky-500/10 dark:hover:text-sky-400" },
+    itemHover:   { light: "hover:bg-sky-50/70 hover:text-sky-700",  dark: "dark:hover:bg-sky-500/10 dark:hover:text-sky-400" },
+  },
 };
 
 const fallbackAccent = ACCENT.dashboard;
 
 const SECTION_LABELS: Record<string, string> = {
   personal: "Gestión", rendimiento: "Análisis",
-  capacitacion: "Formación", nomina: "Finanzas", asistencia: "Tiempo",
+  capacitacion: "Formación", nomina: "Finanzas", asistencia: "Tiempo", notas: "Gestión",
 };
 
 /* ──────────────────────────────────────────────────────── COMPONENT */
@@ -163,7 +170,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     "/dashboard/rendimiento/actividades", "/dashboard/rendimiento/comentarios",
     "/dashboard/rendimiento/reportes", "/dashboard/capacitacion",
     "/dashboard/nomina/configuracion", "/dashboard/nomina/prestamos",
-    "/dashboard/nomina/generar", "/dashboard/nomina/historial", "/dashboard/asistencia",
+    "/dashboard/nomina/generar", "/dashboard/nomina/historial", "/dashboard/asistencia","/dashboard/notas",
   ], []);
 
   useEffect(() => { allPaths.forEach(p => router.prefetch(p)); }, [allPaths, router]);
@@ -187,6 +194,13 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       id: "personal", icon: <UserRound size={18} />, label: "Personal",
       hasSubmenu: true, permission: ["empleados.update", "roles.update", "acceso_total"],
       submenu: [{ icon: <UserPen size={16} />, label: "Empleados", path: "/dashboard/personal/empleados", permission: ["empleados.update", "acceso_total"] }],
+    },
+    { 
+      id: "notas", 
+      icon: <History size={18} />, // Puedes usar History o importar StickyNote de lucide-react
+      label: "Notas", 
+      path: "/dashboard/notas",
+      permission: ["notas.read", "acceso_total"] 
     },
     {
       id: "documentos", icon: <Newspaper size={18} />, label: "Documentos",

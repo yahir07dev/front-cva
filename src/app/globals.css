@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@plugin "@tailwindcss/typography";
+
 /* --- TRUCO PARA V4: Activar modo oscuro por CLASE manual --- */
 @variant dark (&:where(.dark, .dark *));
 
