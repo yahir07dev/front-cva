@@ -10,7 +10,7 @@ import {
   Menu, ChevronLeft, ChevronRight, Sun, Moon, LogOut,
   BarChart3, LayoutDashboard, TrendingUp, Banknote, Users,
   UserRound, UserPen, Building2, MapPin, Loader2, Settings,
-  HandCoins, Calculator, History, Newspaper, Timer, GraduationCap, X,
+  HandCoins, Calculator, History, Newspaper, Timer, GraduationCap, X, ShieldAlert
 } from "lucide-react";
 
 /* ──────────────────────────────────────────────────────── LOGO */
@@ -31,11 +31,12 @@ const LogoEmpresa = ({ className }: { className?: string }) => (
 );
 
 /* ──────────────────────────────────────────────────────── TYPES */
-interface SubMenuItem { icon: JSX.Element; label: string; path: string; permission?: string | string[]; }
+interface SubMenuItem { icon: JSX.Element; label: string; path: string; permission?: string | string[]; strict?: boolean; }
 interface MenuItem {
   id: string; icon: JSX.Element; label: string; path?: string;
   hasSubmenu?: boolean; submenu?: SubMenuItem[];
   permission?: string | string[]; isCapacitacion?: boolean;
+  strict?: boolean;
 }
 interface SidebarProps { permissions: string[]; }
 
@@ -80,7 +81,6 @@ const ACCENT: Record<string, AccentSet> = {
     subHover:    { light: "hover:bg-blue-50 hover:text-blue-700",   dark: "dark:hover:bg-blue-500/10 dark:hover:text-blue-400" },
     itemHover:   { light: "hover:bg-blue-50/70 hover:text-blue-700", dark: "dark:hover:bg-blue-500/10 dark:hover:text-blue-400" },
   },
-  // 👇 AQUÍ ESTÁ LA CORRECCIÓN: Tonalidad Amber respetada y validada para Tailwind
   rendimiento: {
     activePill:  { light: "bg-amber-50 text-amber-700",             dark: "dark:bg-amber-500/20 dark:text-amber-400" },
     activeIcon:  { light: "text-amber-600",                          dark: "dark:text-amber-400" },
@@ -192,12 +192,17 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     { id: "dashboard", icon: <LayoutDashboard size={18} />, label: "Dashboard", path: "/dashboard" },
     {
       id: "personal", icon: <UserRound size={18} />, label: "Personal",
-      hasSubmenu: true, permission: ["empleados.update", "roles.update", "acceso_total"],
-      submenu: [{ icon: <UserPen size={16} />, label: "Empleados", path: "/dashboard/personal/empleados", permission: ["empleados.update", "acceso_total"] }],
+      // 👇 Añadimos "superadmin" aquí para que la pestaña "Personal" no se oculte si SOLO tienen ese permiso
+      hasSubmenu: true, permission: ["empleados.update", "roles.update", "acceso_total", "superadmin"],
+      submenu: [
+        { icon: <UserPen size={16} />, label: "Empleados", path: "/dashboard/personal/empleados", permission: ["empleados.update", "acceso_total"] },
+        // 👇 AQUÍ ESTÁ EL APARTADO DE ROLES, PROTEGIDO CON STRICT 👇
+        { icon: <ShieldAlert size={16} />, label: "Roles", path: "/dashboard/personal/roles", permission: "superadmin", strict: true }
+      ],
     },
     { 
       id: "notas", 
-      icon: <History size={18} />, // Puedes usar History o importar StickyNote de lucide-react
+      icon: <History size={18} />, 
       label: "Notas", 
       path: "/dashboard/notas",
       permission: ["notas.read", "acceso_total"] 
@@ -236,20 +241,23 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   ];
 
   const filteredMenuItems = useMemo(() => {
-    const checkAccess = (req?: string | string[]) => {
+    // 👇 AQUÍ IMPLEMENTAMOS LA LÓGICA ESTRICTA 👇
+    const checkAccess = (req?: string | string[], strict?: boolean) => {
       if (!req) return true;
-      if (permissions.includes("acceso_total")) return true;
+      // Si NO es estricto, le dejamos pasar con acceso_total
+      if (!strict && permissions.includes("acceso_total")) return true;
       if (Array.isArray(req)) return req.some(p => permissions.includes(p));
       return permissions.includes(req);
     };
+
     return rawMenuItems.reduce((acc, item) => {
       if (item.isCapacitacion) {
         if (!canManageCourses && !hasAssignedCourses) return acc;
-      } else if (!checkAccess(item.permission)) return acc;
+      } else if (!checkAccess(item.permission, item.strict)) return acc;
 
       let finalSubmenu = item.submenu;
       if (item.submenu) {
-        finalSubmenu = item.submenu.filter(sub => checkAccess(sub.permission));
+        finalSubmenu = item.submenu.filter(sub => checkAccess(sub.permission, sub.strict));
         if (finalSubmenu.length === 0 && !item.path) return acc;
       }
       acc.push({ ...item, submenu: finalSubmenu });

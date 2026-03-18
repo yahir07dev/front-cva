@@ -1,7 +1,7 @@
 import { Metadata } from "next";
-import { requirePermission } from "@/src/lib/auth/guard";
 import { createClient } from "@/src/lib/supabase/server";
 import EmpleadoGrid from "@/src/components/documents/EmployeesGrid";
+import AccessDenied from "@/src/components/shared/AccessDenied";
 
 export const metadata: Metadata = {
   title: "Documentos",
@@ -9,9 +9,21 @@ export const metadata: Metadata = {
 };
 
 export default async function DocumentosPage() {
-  await requirePermission("documentos.update");
-
   const supabase = await createClient();
+
+  // 1. Validar Permisos explícitamente desde la base de datos
+  const { data: perms } = await supabase.rpc('get_my_permissions_slugs');
+  const permisos = perms || [];
+
+  // 2. Verificamos si tiene "acceso_total" (Superadmin) o el permiso específico
+  const tieneAcceso = permisos.includes('acceso_total') || permisos.includes('documentos.update');
+
+  // 3. Si no tiene ninguno de los dos, mostramos la pantalla de bloqueo
+  if (!tieneAcceso) {
+    return <AccessDenied message="No tienes permisos para ver o gestionar los expedientes digitales." />;
+  }
+
+  // 4. Si pasa la seguridad, cargamos los datos
   const { data: empleados, error } = await supabase
     .from("empleados")
     .select("id, nombre, apellidos, foto_perfil_url")
@@ -23,13 +35,10 @@ export default async function DocumentosPage() {
   }
 
   return (
-    // 1. CORRECCIÓN: Cambiamos `min-h-screen` por `h-full flex flex-col min-h-0` para acotar la altura
     <div className="h-full flex flex-col min-h-0 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
       
-      {/* 2. CORRECCIÓN: El contenedor interno también debe ser flex y transmitir la altura al hijo */}
       <div className="h-full flex flex-col min-h-0 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-10">
         
-        {/* 3. CORRECCIÓN: `shrink-0` evita que el header se aplaste cuando aparecen muchos empleados */}
         <header className="shrink-0 flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-10 gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-neutral-900 dark:text-white">
@@ -48,7 +57,6 @@ export default async function DocumentosPage() {
           </div>
         </header>
 
-        {/* El componente hijo ahora puede usar su flex-1 y hacer scroll interno libremente */}
         <EmpleadoGrid empleados={empleados || []} />
       </div>
     </div>

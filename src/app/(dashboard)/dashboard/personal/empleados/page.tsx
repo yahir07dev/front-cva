@@ -1,7 +1,7 @@
 import { Metadata } from "next";
-import { requirePermission } from "@/src/lib/auth/guard";
 import { createClient } from "@/src/lib/supabase/server";
 import EmpleadosTable from "@/src/components/employees/EmployeesTable";
+import AccessDenied from "@/src/components/shared/AccessDenied"; // Importamos el componente de bloqueo
 
 export const metadata: Metadata = {
   title: "Empleados",
@@ -9,10 +9,22 @@ export const metadata: Metadata = {
 };
 
 export default async function EmpleadosPage() {
-  await requirePermission("empleados.update");
-
-  // Obtenemos solo el conteo para el indicador del header
   const supabase = await createClient();
+
+  // 1. Validar Permisos explícitamente
+  const { data: perms } = await supabase.rpc('get_my_permissions_slugs');
+  const permisos = perms || [];
+  
+  // 2. Le damos pase libre si tiene acceso total, lectura de empleados o actualización
+  const tieneAcceso = permisos.includes('acceso_total') || 
+                      permisos.includes('empleados.read') || 
+                      permisos.includes('empleados.update');
+
+  if (!tieneAcceso) {
+    return <AccessDenied message="No tienes permisos para ver el módulo de Empleados." />
+  }
+
+  // 3. Obtenemos solo el conteo para el indicador del header
   const { count } = await supabase
     .from("empleados")
     .select("*", { count: "exact", head: true })
