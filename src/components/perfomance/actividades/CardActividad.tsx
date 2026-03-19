@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Clock, RotateCw, HelpCircle, CheckCircle2, Trash2, Star, Calendar, Zap, AlertCircle, CircleDot, Eye, Timer, AlertTriangle, RefreshCw, XCircle, Paperclip, Loader2 } from 'lucide-react'
 import { ActividadConRelaciones } from '@/src/types/performance'
-import { useSession } from '@/src/hooks/useSession'
 
 interface CardActividadProps {
   actividad: ActividadConRelaciones
   canManage: boolean 
-  // Actualizamos el tipo para que acepte el archivo opcionalmente
+  userId: string | undefined     // ✅ NUEVO: Reemplaza a useSession
+  userAvatar: string | undefined // ✅ NUEVO: Reemplaza a useSession
   onStatusChange: (id: number, status: string, file?: File | null) => void
   onDelete: (id: number) => void
   onEvaluar: (actividad: ActividadConRelaciones) => void
@@ -18,24 +18,24 @@ interface CardActividadProps {
 export default function CardActividad({ 
   actividad: act, 
   canManage, 
+  userId,        // ✅ Extraído de props
+  userAvatar,    // ✅ Extraído de props
   onStatusChange, 
   onDelete, 
   onEvaluar,
   onReasignar 
 }: CardActividadProps) {
-  const { session } = useSession() as any
-  const currentUserId = session?.user?.id
   
   const [timeLeft, setTimeLeft] = useState("");
   const [isExpired, setIsExpired] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Referencias para el input de archivo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
+  // 1. Manejo del temporizador (Vencimiento)
   useEffect(() => {
-    if (!act.fecha_limite || act.estado === 'completada' || (act.estado as string) === 'no_realizada') {
+    if (!act.fecha_limite || act.estado === 'completada' || act.estado === 'no_realizada') {
         setIsExpired(false);
         return;
     }
@@ -67,26 +67,24 @@ export default function CardActividad({
     return () => clearInterval(timer);
   }, [act.fecha_limite, act.estado]);
 
+  // 2. Evaluaciones de estado y permisos
   const isAssignedToMe = act.asignacion_actividades?.some((asig: any) => {
     const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
-    return emp?.usuario_id === currentUserId;
+    return emp?.usuario_id === userId; // ✅ Usa userId de las props
   });
 
   const esNoRealizada = isExpired && !['completada', 'no_realizada', 'revision'].includes(act.estado || '');
 
-  // Lógica para interceptar el clic y pedir la foto
+  // 3. Manejadores de Interacción
   const handleStatusClick = (status: string) => {
-    // Si el usuario (no admin) quiere mandarla a revisión, pedimos foto obligatoria
     if (status === 'revision' && !canManage) {
       setPendingStatus(status);
       fileInputRef.current?.click();
     } else {
-      // Si es otro estado o es el admin, lo cambiamos normal
       onStatusChange(act.id, status);
     }
   }
 
-  // Se ejecuta cuando el usuario selecciona la foto
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && pendingStatus) {
@@ -105,6 +103,7 @@ export default function CardActividad({
     }
   }
 
+  // 4. Configuración Visual (Estilos e Íconos)
   const stateStyles: Record<string, { accent: string, btn: string, icon: any, label: string, lightBg: string, textColor: string }> = {
     pendiente: { 
       accent: esNoRealizada ? 'bg-rose-500' : 'bg-orange-500', 
@@ -166,7 +165,7 @@ export default function CardActividad({
   }
   const prioridad = prioridadConfig[act.prioridad as keyof typeof prioridadConfig] || prioridadConfig.baja
 
-  // Helper para renderizar las miniaturas de imágenes
+  // Helper de UI para las imágenes
   const renderImagePreview = (url: string, title: string, icon: React.ReactNode) => (
     <div className="mt-4 animate-in fade-in slide-in-from-bottom-1">
       <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mb-1.5 px-1 flex items-center gap-1.5">
@@ -212,7 +211,7 @@ export default function CardActividad({
         className="hidden"
       />
 
-      {/* Indicador de estado lateral sutil */}
+      {/* Indicador de estado lateral */}
       <div className={`absolute left-0 top-12 bottom-12 w-1 rounded-r-full ${currentStyle.accent} opacity-50 group-hover:opacity-100 transition-opacity`} />
 
       {esNoRealizada && (
@@ -221,7 +220,7 @@ export default function CardActividad({
         </div>
       )}
 
-      {/* 1. Header */}
+      {/* 1. HEADER CARD */}
       <div className={`flex items-start justify-between gap-2 mb-4 ${esNoRealizada ? 'mt-6' : ''}`}>
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${currentStyle.lightBg} border border-current/5`}>
           <StatusIcon size={12} strokeWidth={3} className={(act.estado === 'explicacion_requerida' || esNoRealizada) ? 'animate-pulse' : ''} />
@@ -233,7 +232,7 @@ export default function CardActividad({
         </span>
       </div>
 
-      {/* 2. Cuerpo */}
+      {/* 2. BODY CARD */}
       <div className="flex-1 space-y-3 mb-4">
         <h3 className={`line-clamp-2 text-lg font-black text-neutral-900 dark:text-neutral-50 transition-colors duration-300 leading-snug ${currentStyle.textColor}`}>
           {act.titulo}
@@ -242,23 +241,13 @@ export default function CardActividad({
           {act.descripcion || 'Sin descripción detallada'}
         </p>
 
-        {/* SECCIÓN DE IMÁGENES */}
+        {/* Imágenes */}
         <div className="flex flex-col sm:flex-row gap-x-4 gap-y-1">
-          {/* 1. Foto de Referencia (Supervisor) */}
-          {(act as any).referencia_url && renderImagePreview(
-            (act as any).referencia_url, 
-            "Guía del Supervisor", 
-            <Paperclip size={12} className="text-blue-500" />
-          )}
-
-          {/* 2. Foto de Evidencia (Empleado) */}
-          {(act as any).evidencia_url && renderImagePreview(
-            (act as any).evidencia_url, 
-            "Resultado del Empleado", 
-            <CheckCircle2 size={12} className="text-emerald-500" />
-          )}
+          {(act as any).referencia_url && renderImagePreview((act as any).referencia_url, "Guía del Supervisor", <Paperclip size={12} className="text-blue-500" />)}
+          {(act as any).evidencia_url && renderImagePreview((act as any).evidencia_url, "Resultado del Empleado", <CheckCircle2 size={12} className="text-emerald-500" />)}
         </div>
 
+        {/* Temporizador */}
         {!isExpired && !['completada', 'no_realizada', 'revision'].includes(act.estado || '') && act.fecha_limite && (
           <div className="flex items-center gap-2 text-[10px] font-black text-orange-600 dark:text-orange-400 bg-orange-500/10 px-3 py-1.5 rounded-xl w-fit border border-orange-500/10 mt-3 relative z-10">
             <Timer size={14} strokeWidth={3} />
@@ -272,8 +261,9 @@ export default function CardActividad({
             {act.asignacion_actividades?.map((asig: any, i: number) => {
                const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
                let fotoUrl = emp?.foto_perfil_url;
-               if ((!fotoUrl || fotoUrl.trim() === '') && emp?.usuario_id === currentUserId) {
-                   fotoUrl = session?.user?.user_metadata?.avatar_url;
+               // ✅ Usa userId y userAvatar de las props
+               if ((!fotoUrl || fotoUrl.trim() === '') && emp?.usuario_id === userId) {
+                   fotoUrl = userAvatar;
                }
                return (
                 <div key={i} className="relative h-7 w-7 rounded-full bg-neutral-200 dark:bg-neutral-800 border-2 border-white dark:border-neutral-950 overflow-hidden shadow-sm">
@@ -310,8 +300,10 @@ export default function CardActividad({
         )}
       </div>
 
-      {/* 3. Footer de Acciones */}
+      {/* 3. FOOTER ACCIONES */}
       <div className="pt-4 mt-auto border-t border-neutral-100 dark:border-white/5 relative z-10">
+        
+        {/* Overlay de Carga */}
         {isUploading && (
           <div className="absolute inset-0 bg-white/80 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center rounded-b-[32px] z-10 -mx-5 -mb-5 pb-5 pt-5">
             <Loader2 className="animate-spin text-emerald-500" size={24} />
@@ -328,7 +320,7 @@ export default function CardActividad({
             <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-rose-500/10 text-rose-600 text-[10px] font-black uppercase tracking-widest animate-pulse border border-rose-500/10"><XCircle size={14} strokeWidth={3} /> Tiempo Agotado</div>
           )
         ) : (
-          isAssignedToMe && act.estado !== 'completada' && (act.estado as string) !== 'no_realizada' ? (
+          isAssignedToMe && act.estado !== 'completada' && act.estado !== 'no_realizada' ? (
             <div className="grid grid-cols-4 gap-2">
               {[
                 { value: 'pendiente', icon: Clock },
@@ -342,7 +334,6 @@ export default function CardActividad({
                 return (
                   <button
                     key={opt.value}
-                    // Aquí llamamos a la nueva función interceptora
                     onClick={() => handleStatusClick(opt.value)}
                     className={`flex items-center justify-center rounded-xl p-2.5 transition-all duration-300 active:scale-90 ${isActive ? `${optStyle.btn} text-white shadow-lg` : 'bg-neutral-100 dark:bg-white/5 text-neutral-400 hover:bg-neutral-200 dark:hover:bg-white/10'}`}
                   >
@@ -362,7 +353,7 @@ export default function CardActividad({
         {canManage && (
           <div className="mt-3 flex justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-white/5">
             <button onClick={() => onDelete(act.id)} className="p-2 text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"><Trash2 size={16} /></button>
-            {((act.estado as string) === 'completada' || (act.estado as string) === 'no_realizada') && (
+            {(act.estado === 'completada' || act.estado === 'no_realizada') && (
               <button onClick={() => onEvaluar(act)} className="p-2 text-neutral-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-xl transition-all"><Star size={16} /></button>
             )}
             {canManage && act.estado === 'revision' && (

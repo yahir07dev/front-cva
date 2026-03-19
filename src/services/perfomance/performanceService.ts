@@ -1,20 +1,14 @@
 import { createClient } from '@/src/lib/supabase/client';
 import { EstadoActividad, PrioridadActividad, ActividadConRelaciones } from '@/src/types/performance'
+import { uploadImageToCloudinary } from '@/src/services/upload/cloudinaryService';
 
 const supabase = createClient()
 
-/**
- * Obtiene empleados activos para asignarles tareas.
- */
 export const getEmpleadosParaAsignacion = async () => {
   const { data, error } = await supabase
     .from('empleados')
     .select(`
-      id, 
-      usuario_id, 
-      nombre, 
-      apellidos, 
-      foto_perfil_url,
+      id, usuario_id, nombre, apellidos, foto_perfil_url,
       roles ( nombre ),
       areas!empleados_area_id_fkey ( nombre )  
     `)
@@ -22,35 +16,23 @@ export const getEmpleadosParaAsignacion = async () => {
     .is('deleted_at', null)
     .order('nombre', { ascending: true });
 
-  if (error) {
-    console.error("Error al obtener empleados:", error.message);
-    return [];
-  }
+  if (error) throw new Error("Error al obtener empleados: " + error.message);
   return data || [];
 }
 
-/**
- * Obtiene TODAS las actividades.
- */
 export const getActividades = async () => {
   const { data, error } = await supabase
     .from('actividades')
     .select(`
-      *,
-      areas ( nombre ),
+      *, areas ( nombre ),
       asignacion_actividades (
-        id,
-        empleados ( id, usuario_id, nombre, apellidos, foto_perfil_url, estado )
+        id, empleados ( id, usuario_id, nombre, apellidos, foto_perfil_url, estado )
       )
     `)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error("Error fetching activities:", error.message)
-    throw error
-  }
-
+  if (error) throw error
   return data as unknown as ActividadConRelaciones[]
 }
 
@@ -63,76 +45,46 @@ export const crearNuevaActividad = async (
     area_id?: number 
   }, 
   empleadosIds: string[],
-  archivoEvidencia?: File | null // <-- NUEVO: Recibimos el archivo
+  archivoEvidencia?: File | null
 ) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Sesión no válida.');
-
-  const { data: perfilAutor } = await supabase
-    .from('empleados')
-    .select('estado')
-    .eq('usuario_id', user.id)
-    .single();
-
-  if (perfilAutor?.estado === 'baja') { 
-    throw new Error('Tu cuenta está desactivada.');
-  }
-
   const ahora = new Date();
   const limite = new Date(actividad.fecha_limite);
 
-  if (isNaN(limite.getTime())) {
-      throw new Error('La fecha límite no es válida.');
+  if (isNaN(limite.getTime())) throw new Error('La fecha límite no es válida.');
+  if (limite.getTime() <= ahora.getTime()) throw new Error('La fecha límite debe ser futura.');
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión no válida.');
+
+  // 🚀 OPTIMIZACIÓN: Ejecutamos la consulta del perfil y la subida de imagen EN PARALELO.
+  // Esto ahorra el tiempo de red al no esperar a que termine uno para empezar el otro.
+  const [perfilResponse, evidenciaUrlFinal] = await Promise.all([
+    supabase.from('empleados').select('estado').eq('usuario_id', user.id).single(),
+    archivoEvidencia ? uploadImageToCloudinary(archivoEvidencia) : Promise.resolve(undefined)
+  ]);
+
+  if (perfilResponse.data?.estado === 'baja') { 
+    throw new Error('Tu cuenta está desactivada.');
   }
-
-  if (limite.getTime() <= ahora.getTime()) {
-    throw new Error('La fecha y hora límite deben ser mayores a la hora actual.');
-  }
-
-  const fechaParaDB = limite.toISOString(); 
-
-  // =========================================================
-  // ☁️ SUBIDA A CLOUDINARY (Referencia/Evidencia inicial)
-  // =========================================================
-  let evidenciaUrlFinal = undefined;
-
-  if (archivoEvidencia) {
-    const formData = new FormData();
-    formData.append('file', archivoEvidencia);
-    formData.append('upload_preset', 'evidencias_app'); // Reutilizamos el preset
-
-    const response = await fetch('https://api.cloudinary.com/v1_1/dgd0apnro/image/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('No se pudo subir la imagen de referencia. Intenta con una más ligera.');
-    }
-
-    const data = await response.json();
-    evidenciaUrlFinal = data.secure_url;
-  }
-  // =========================================================
 
   // 1. CREACIÓN DE LA ACTIVIDAD
   const { data: nuevaActividad, error: actError } = await supabase
     .from('actividades')
     .insert([{
       ...actividad,
-      fecha_limite: fechaParaDB,
+      fecha_limite: limite.toISOString(),
       estado: 'pendiente' as EstadoActividad,
       created_by: user.id,
-      referencia_url: evidenciaUrlFinal // 👇 CORRECCIÓN: Guardamos en referencia_url
+      referencia_url: evidenciaUrlFinal 
     }])
     .select()
     .single()
 
   if (actError) throw new Error('Error al crear: ' + actError.message);
 
-  // 2. ASIGNACIÓN
+  // 2. ASIGNACIÓN (Bulk Insert - No requiere Promise.all porque ya inserta en lote)
   const filasAsignacion = empleadosIds
-    .map(id => parseInt(id))
+    .map(Number) // Forma más rápida de parsear enteros
     .filter(id => !isNaN(id))
     .map(empId => ({
         actividad_id: nuevaActividad.id,
@@ -147,6 +99,7 @@ export const crearNuevaActividad = async (
         .insert(filasAsignacion)
 
       if (asignError) {
+        // Rollback manual en caso de error
         await supabase.from('actividades').delete().eq('id', nuevaActividad.id);
         throw new Error('Error al asignar: ' + asignError.message);
       }
@@ -159,30 +112,13 @@ export const actualizarEstadoActividad = async (
   id: number,
   nuevoEstado: string,
   userId: string,
-  archivoEvidencia?: File | null // <-- Nuevo parámetro
+  archivoEvidencia?: File | null
 ) => {
-  let evidenciaUrlFinal = undefined;
+  // 🚀 Utilizamos el nuevo servicio
+  const evidenciaUrlFinal = archivoEvidencia 
+    ? await uploadImageToCloudinary(archivoEvidencia) 
+    : undefined;
 
-  // 1. Si enviaron una foto de evidencia, la subimos a Cloudinary
-  if (archivoEvidencia) {
-    const formData = new FormData();
-    formData.append('file', archivoEvidencia);
-    formData.append('upload_preset', 'evidencias_app'); // <-- El nuevo preset
-
-    const response = await fetch('https://api.cloudinary.com/v1_1/dgd0apnro/image/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('No se pudo subir la evidencia. Intenta con una imagen más ligera.');
-    }
-
-    const data = await response.json();
-    evidenciaUrlFinal = data.secure_url;
-  }
-
-  // 2. Preparamos los datos para actualizar la actividad
   const updateData: any = {
     estado: nuevoEstado,
     updated_at: new Date().toISOString(),
@@ -190,7 +126,7 @@ export const actualizarEstadoActividad = async (
   }
 
   if (nuevoEstado === 'completada' || nuevoEstado === 'no_realizada') {
-    updateData.fecha_completada = new Date().toISOString()
+    updateData.fecha_completada = updateData.updated_at
   } else {
     updateData.fecha_completada = null
   }
@@ -199,7 +135,6 @@ export const actualizarEstadoActividad = async (
     updateData.evidencia_url = evidenciaUrlFinal;
   }
 
-  // 3. Guardamos en Supabase
   const { error } = await supabase
     .from('actividades')
     .update(updateData)
@@ -209,11 +144,7 @@ export const actualizarEstadoActividad = async (
 }
 
 export const eliminarActividad = async (id: number) => {
-  const { error } = await supabase
-    .from('actividades')
-    .delete()
-    .eq('id', id)
-
+  const { error } = await supabase.from('actividades').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 

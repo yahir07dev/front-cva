@@ -4,24 +4,42 @@ import { useState, useRef } from 'react'
 import { 
   Type, ArrowLeft, Check, Save, Clock, Zap, CircleDot, AlertCircle, Calendar as CalendarIcon, ShieldAlert, Image as ImageIcon, X 
 } from 'lucide-react'
+
+// Hooks y Componentes
 import { useNuevaActividad } from '@/src/hooks/perfomance/useNuevaActividad'
 import SelectorEmpleados from '@/src/components/perfomance/actividades/SelectorEmpleados' 
 import DateTimePickerModal from './DateTimePickerModal' 
 import ModalAlerta from '@/src/components/shared/ModalAlerta' 
 
-export default function NuevaActividadClient() {
-  const { 
-    form, empleados, loading, success, userEstado,
-    alerta, cerrarAlerta, 
-    toggleEmpleado, handleChange, handleFileChange, handleSubmit, router // <-- Extraemos handleFileChange
-  } = useNuevaActividad()
+// Definición estricta de las props que vienen del SSR
+interface NuevaActividadClientProps {
+  initialEmpleados: any[] // Lista pre-filtrada y procesada en el servidor
+  userEstado: string      // Estado actual del usuario ('activo', 'baja', etc.)
+  userId: string          // ID de Supabase del usuario actual
+}
 
+export default function NuevaActividadClient({ 
+  initialEmpleados, 
+  userEstado, 
+  userId 
+}: NuevaActividadClientProps) {
+  
+  // 1. Inicialización del Hook de Lógica
+  const { 
+    form, loading, success, 
+    alerta, cerrarAlerta, 
+    toggleEmpleado, handleChange, handleFileChange, handleSubmit, router 
+  } = useNuevaActividad({ initialEmpleados, userEstado, userId })
+
+  // 2. Estados Locales de UI
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const isBaja = userEstado === 'baja'
-  const fileInputRef = useRef<HTMLInputElement>(null) // <-- Referencia para el input de archivo
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // 3. Helpers de Formateo
   const formatDateForDisplay = (isoString: string) => {
     if (!isoString) return 'Tocar para asignar fecha'
+    
     const date = new Date(isoString)
     if (isNaN(date.getTime())) return 'Fecha inválida'
     
@@ -35,10 +53,11 @@ export default function NuevaActividadClient() {
     }).format(date)
   }
 
+  // 4. Renderizado
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950 transition-colors duration-500 font-sans">
       
-      {/* 1. Header Fijo */}
+      {/* HEADER FIJO */}
       <header className="flex-none sticky top-0 z-20 bg-neutral-50/80 dark:bg-neutral-950/80 backdrop-blur-md border-b border-neutral-200/50 dark:border-0 px-4 py-4 sm:px-8">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -52,7 +71,9 @@ export default function NuevaActividadClient() {
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 Nueva tarea
               </h1>
-              <p className="hidden sm:block text-xs font-medium text-neutral-500">Define objetivos claros para el equipo</p>
+              <p className="hidden sm:block text-xs font-medium text-neutral-500">
+                Define objetivos claros para el equipo
+              </p>
             </div>
           </div>
           
@@ -61,17 +82,23 @@ export default function NuevaActividadClient() {
             disabled={loading || success || isBaja}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-black text-sm font-bold transition-all active:scale-95 disabled:opacity-30 shadow-xl shadow-black/10 dark:shadow-none hover:scale-105"
           >
-            {success ? <Check size={18} strokeWidth={3} /> : loading ? <div className="h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" /> : <Save size={18} strokeWidth={2.5} />}
+            {success ? (
+              <Check size={18} strokeWidth={3} />
+            ) : loading ? (
+              <div className="h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" />
+            ) : (
+              <Save size={18} strokeWidth={2.5} />
+            )}
             <span className="hidden xs:inline">{success ? '¡Hecho!' : 'Crear Tarea'}</span>
           </button>
         </div>
       </header>
 
-      {/* 2. Cuerpo SCROLLABLE */}
+      {/* CUERPO SCROLLABLE */}
       <main className="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-10 pb-40 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-800 hover:scrollbar-thumb-neutral-400 dark:hover:scrollbar-thumb-neutral-700">
         <div className="mx-auto max-w-5xl space-y-8">
           
-          {/* Alerta de Usuario Baja */}
+          {/* ALERTA: Usuario dado de baja */}
           {isBaja && (
             <div className="flex items-center gap-4 p-5 rounded-[24px] bg-rose-500/5 border border-rose-500/10 text-rose-600 dark:text-rose-400 animate-in fade-in slide-in-from-top-2">
               <ShieldAlert className="shrink-0" size={24} />
@@ -84,10 +111,9 @@ export default function NuevaActividadClient() {
 
           <div className={`grid gap-8 lg:grid-cols-3 transition-opacity duration-500 ${isBaja ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100'}`}>
             
-            {/* Columna Izquierda: Detalles y Selector */}
+            {/* COLUMNA IZQUIERDA: Detalles de la tarea y Selector de Empleados */}
             <div className="lg:col-span-2 space-y-8">
               
-              {/* Formulario Principal */}
               <section className="space-y-6 bg-white/40 dark:bg-transparent backdrop-blur-md rounded-[32px] p-6 border border-neutral-200/50 dark:border-0">
                 <div className="flex items-center gap-3 pb-2">
                   <Type size={20} className="text-orange-500" />
@@ -95,6 +121,7 @@ export default function NuevaActividadClient() {
                 </div>
                 
                 <div className="space-y-6">
+                  {/* Título */}
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest px-1">Título de actividad</label>
                     <input 
@@ -106,6 +133,7 @@ export default function NuevaActividadClient() {
                     />
                   </div>
 
+                  {/* Instrucciones */}
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest px-1">Instrucciones</label>
                     <textarea 
@@ -117,13 +145,14 @@ export default function NuevaActividadClient() {
                     />
                   </div>
 
-                  {/* 👇 NUEVA SECCIÓN: Evidencia Fotográfica (Referencia) */}
+                  {/* Evidencia Fotográfica (Referencia) */}
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest px-1 flex items-center justify-between">
                       <span>Imagen de Referencia</span>
                       <span className="text-neutral-400/50 font-medium lowercase">(Opcional)</span>
                     </label>
                     
+                    {/* Input oculto gestionado por referencia */}
                     <input 
                       type="file" 
                       ref={fileInputRef}
@@ -133,7 +162,6 @@ export default function NuevaActividadClient() {
                     />
 
                     {form.previewUrl ? (
-                      // Vista previa de la imagen seleccionada
                       <div className="relative w-full h-48 rounded-2xl overflow-hidden group border border-neutral-200 dark:border-white/10">
                         <img 
                           src={form.previewUrl} 
@@ -150,7 +178,6 @@ export default function NuevaActividadClient() {
                         </div>
                       </div>
                     ) : (
-                      // Botón para subir imagen
                       <button 
                         onClick={() => fileInputRef.current?.click()}
                         className="w-full border-2 border-dashed border-neutral-200 dark:border-white/10 hover:border-orange-500/50 dark:hover:border-orange-500/50 bg-neutral-50 dark:bg-white/[0.02] hover:bg-orange-500/5 transition-colors rounded-2xl p-8 flex flex-col items-center justify-center gap-3 group"
@@ -167,20 +194,18 @@ export default function NuevaActividadClient() {
                       </button>
                     )}
                   </div>
-                  {/* 👆 FIN SECCIÓN EVIDENCIA */}
-
                 </div>
               </section>
 
-              {/* Selector de Empleados Mejorado (con Áreas) */}
+              {/* Selector de Empleados - Recibe la lista procesada desde el SSR */}
               <SelectorEmpleados 
-                empleados={empleados} 
+                empleados={initialEmpleados} 
                 asignados={form.asignados} 
                 onToggle={toggleEmpleado} 
               />
             </div>
 
-            {/* Columna Derecha: Configuración */}
+            {/* COLUMNA DERECHA: Configuración (Prioridad y Fechas) */}
             <aside className="space-y-8">
               <section className="bg-white/40 dark:bg-transparent backdrop-blur-md rounded-[32px] p-6 border border-neutral-200/50 dark:border-0 sticky top-24">
                 <div className="flex items-center gap-3 mb-6">
@@ -189,7 +214,8 @@ export default function NuevaActividadClient() {
                 </div>
 
                 <div className="space-y-8">
-                  {/* Selector de Prioridad */}
+                  
+                  {/* Prioridad */}
                   <div className="space-y-4">
                     <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest px-1">Prioridad</label>
                     <div className="grid grid-cols-3 gap-2">
@@ -214,7 +240,7 @@ export default function NuevaActividadClient() {
                     </div>
                   </div>
 
-                  {/* Selector de Fecha */}
+                  {/* Fecha de Entrega */}
                   <div className="space-y-4">
                     <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest px-1">Plazo de entrega</label>
                     <button 
@@ -247,10 +273,12 @@ export default function NuevaActividadClient() {
                 </div>
               </section>
             </aside>
+
           </div>
         </div>
       </main>
 
+      {/* MODALES */}
       <DateTimePickerModal 
         isOpen={isPickerOpen} 
         onClose={() => setIsPickerOpen(false)} 

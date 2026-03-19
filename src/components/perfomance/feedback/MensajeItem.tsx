@@ -1,3 +1,4 @@
+//src/components/perfomance/feedback/MensajeItem.tsx
 'use client'
 
 import { CheckCircle2, AlertCircle, XCircle, MessageSquare, Trash2 } from 'lucide-react'

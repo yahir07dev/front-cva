@@ -1,9 +1,7 @@
+// src/hooks/perfomance/usePerformance.ts
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
-import { useSession } from '@/src/hooks/useSession' 
 import { ActividadConRelaciones } from '@/src/types/performance'
-import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
-import { hasPermission } from '@/src/app/auth/permissions' 
 import { isSameDay, subDays, startOfDay, parseISO, isValid } from 'date-fns'
 
 // 🛠️ HELPER EXTERNO: Calcula la racha para cualquier lista de actividades dada.
@@ -60,44 +58,40 @@ function calcularRachas(listaActividades: ActividadConRelaciones[], fechaActual:
   return { diasRegistrados: rachaDias, diasPerfectos: rachaPerfecta };
 }
 
-export function usePerformance(initialData?: ActividadConRelaciones[]) {
+interface UsePerformanceArgs {
+  initialData: ActividadConRelaciones[]
+  initialPermisos: string[]
+  sessionUser: any // Pasamos el usuario de Supabase directamente desde el SSR
+}
+
+export function usePerformance({ initialData, initialPermisos, sessionUser }: UsePerformanceArgs) {
   const [supabase] = useState(() => createClient())
+  
+  // Inicializamos directamente con los datos del servidor
   const [actividades, setActividades] = useState<ActividadConRelaciones[]>(initialData || [])
-  const [loading, setLoading] = useState(!initialData) 
   const [filtro, setFiltro] = useState('todas')
-  const [userPerms, setUserPerms] = useState<string[]>([]) 
   const [now, setNow] = useState(new Date())
 
-  const { session, loading: sessionLoading } = useSession() as any
-
+  // Reloj interno para actualizar estados relativos al tiempo (ej: vencimiento)
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    const loadUserPermissions = async () => {
-      const data = await getSessionUserWithPermissions()
-      if (data) setUserPerms(data.permissions)
-    }
-    if (session) loadUserPermissions()
-  }, [session])
-
-  // LÓGICA DE ROLES Y PERMISOS ACTUALIZADA
+  // LÓGICA DE ROLES Y PERMISOS SÍNCRONA
   const canManage = useMemo(() => {
-    return hasPermission(userPerms, ['actividades.update', 'acceso_total']);
-  }, [userPerms]);
+    return initialPermisos.includes('actividades.update') || initialPermisos.includes('acceso_total');
+  }, [initialPermisos]);
 
-  // Evaluamos si es Administrador total
   const isAdmin = useMemo(() => {
-    return hasPermission(userPerms, ['acceso_total']);
-  }, [userPerms]);
+    return initialPermisos.includes('acceso_total');
+  }, [initialPermisos]);
 
-  // Evaluamos si es Supervisor (puede crear/editar pero no es Admin)
   const isSupervisor = useMemo(() => {
     return canManage && !isAdmin;
   }, [canManage, isAdmin]);
   
+  // Función para recargar datos en cliente (usada para Realtime o tras mutaciones)
   const fetchActividades = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -116,8 +110,8 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       if (error) throw error;
       
       let datosProcesados = (data as unknown as ActividadConRelaciones[]) || [];
-      const currentUserId = session?.user?.id;
-      const googleAvatar = session?.user?.user_metadata?.avatar_url;
+      const currentUserId = sessionUser?.id;
+      const googleAvatar = sessionUser?.user_metadata?.avatar_url;
 
       datosProcesados = datosProcesados.map(actividad => ({
         ...actividad,
@@ -142,53 +136,52 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
       setActividades(datosProcesados)
     } catch (err) {
       console.error('Error fetching activities:', err)
-    } finally {
-      setLoading(false)
     }
-  }, [supabase, session])
+  }, [supabase, sessionUser])
 
+  // Suscripción a Realtime para mantener los datos vivos sin necesidad de refrescar
   useEffect(() => {
-    if (!initialData && session) fetchActividades()
-  }, [fetchActividades, initialData, session])
-
-  useEffect(() => {
-    if (!supabase || !session?.user?.id) return
-    const channel = supabase.channel(`perf-updates-${session.user.id}`) 
+    if (!supabase || !sessionUser?.id) return
+    const channel = supabase.channel(`perf-updates-${sessionUser.id}`) 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'actividades' }, () => fetchActividades())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_actividades' }, () => setTimeout(() => fetchActividades(), 500))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [supabase, session?.user?.id, fetchActividades])
+  }, [supabase, sessionUser?.id, fetchActividades])
 
+  // Filtrado de seguridad basado en permisos
   const actividadesSeguras = useMemo(() => {
       if (!actividades) return [];
-      if (!canManage && session?.user?.id) {
+      if (!canManage && sessionUser?.id) {
         return actividades.filter(act => 
             act.asignacion_actividades?.some((asig: any) => {
                 const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
-                return emp?.usuario_id === session.user.id
+                return emp?.usuario_id === sessionUser.id
             })
         );
       }
       return actividades;
-  }, [actividades, canManage, session]);
+  }, [actividades, canManage, sessionUser]);
 
+  // Actividades exclusivas del usuario (para cálculos personales)
   const actividadesSoloMias = useMemo(() => {
-      if (!session?.user?.id || !actividades) return [];
+      if (!sessionUser?.id || !actividades) return [];
       return actividades.filter(act => 
           act.asignacion_actividades?.some((asig: any) => {
               const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
-              return emp?.usuario_id === session.user.id
+              return emp?.usuario_id === sessionUser.id
           })
       );
-  }, [actividades, session]);
+  }, [actividades, sessionUser]);
 
+  // Cálculo de rachas
   const rachaData = useMemo(() => {
     const global = calcularRachas(actividadesSeguras, now);
     const personal = calcularRachas(actividadesSoloMias, now);
     return { global, personal };
   }, [actividadesSeguras, actividadesSoloMias, now]);
 
+  // Estadísticas globales del panel
   const stats = useMemo(() => {
     const source = actividadesSeguras;
     const ahoraMs = now.getTime();
@@ -227,6 +220,7 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
     };
   }, [actividadesSeguras, now, rachaData]);
 
+  // Aplicación del filtro seleccionado por el usuario en la UI
   const actividadesFiltradas = useMemo(() => {
     if (!actividadesSeguras) return [];
     if (filtro === 'todas') return actividadesSeguras;
@@ -251,10 +245,9 @@ export function usePerformance(initialData?: ActividadConRelaciones[]) {
   return {
     actividades: actividadesFiltradas,
     stats,
-    loading: loading || sessionLoading,
     canManage, 
-    isAdmin,      // NUEVO: Bandera para saber si es administrador absoluto
-    isSupervisor, // NUEVO: Bandera para saber si es supervisor
+    isAdmin,      
+    isSupervisor, 
     filtro,
     setFiltro,
     recargar: fetchActividades,

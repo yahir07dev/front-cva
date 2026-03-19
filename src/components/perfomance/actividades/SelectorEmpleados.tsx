@@ -1,3 +1,4 @@
+//src/components/perfomance/actividades/SelectorEmpleados.tsx
 'use client'
 
 import { useState } from 'react'

@@ -1,3 +1,4 @@
+//src/components/perfomance/reportes/RankingList.tsx
 'use client'
 
 import { AlertTriangle, Search, Trophy, ArrowDown } from 'lucide-react'

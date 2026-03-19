@@ -1,3 +1,4 @@
+//src/components/perfomance/feedback/ChatInput.tsx
 'use client'
 
 import { Send, Loader2 } from 'lucide-react'

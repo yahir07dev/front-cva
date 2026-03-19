@@ -1,5 +1,7 @@
+// src/components/perfomance/feedback/ListaEmpleados.tsx
 'use client'
 
+import { useMemo } from 'react' // <-- 1. Importamos useMemo
 import { Search, UserX } from 'lucide-react'
 
 interface ListaEmpleadosProps {
@@ -20,10 +22,16 @@ export default function ListaEmpleados({
   loading = false 
 }: ListaEmpleadosProps) {
 
-  const empleadosFiltrados = empleados.filter(emp => {
-    const nombreCompleto = `${emp.nombre} ${emp.apellidos}`.toLowerCase()
-    return nombreCompleto.includes(searchTerm.toLowerCase())
-  })
+  // 🚀 MICRO-OPTIMIZACIÓN: Memorizamos el filtro
+  const empleadosFiltrados = useMemo(() => {
+    if (!searchTerm) return empleados; // Si no hay búsqueda, retorna todo rápido
+    
+    const term = searchTerm.toLowerCase();
+    return empleados.filter(emp => {
+      const nombreCompleto = `${emp.nombre} ${emp.apellidos}`.toLowerCase()
+      return nombreCompleto.includes(term)
+    })
+  }, [empleados, searchTerm]) // <-- Solo recalcula si cambian los empleados o el texto
 
   return (
     <div className="
@@ -116,11 +124,11 @@ export default function ListaEmpleados({
                     : 'ring-1 ring-neutral-200/50 dark:ring-neutral-800/50 group-hover:ring-orange-400/40'}
                 `}>
                   {fotoUrl ? (
-                    /*Usamos la etiqueta <img> nativa */
                     <img 
                       src={fotoUrl} 
                       alt={emp.nombre} 
                       className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-xs font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 uppercase">

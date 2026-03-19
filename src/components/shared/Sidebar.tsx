@@ -192,11 +192,11 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
     { id: "dashboard", icon: <LayoutDashboard size={18} />, label: "Dashboard", path: "/dashboard" },
     {
       id: "personal", icon: <UserRound size={18} />, label: "Personal",
-      // 👇 Añadimos "superadmin" aquí para que la pestaña "Personal" no se oculte si SOLO tienen ese permiso
+      //  Añadimos "superadmin" aquí para que la pestaña "Personal" no se oculte si SOLO tienen ese permiso
       hasSubmenu: true, permission: ["empleados.update", "roles.update", "acceso_total", "superadmin"],
       submenu: [
         { icon: <UserPen size={16} />, label: "Empleados", path: "/dashboard/personal/empleados", permission: ["empleados.update", "acceso_total"] },
-        // 👇 AQUÍ ESTÁ EL APARTADO DE ROLES, PROTEGIDO CON STRICT 👇
+        //  AQUÍ ESTÁ EL APARTADO DE ROLES, PROTEGIDO CON STRICT 👇
         { icon: <ShieldAlert size={16} />, label: "Roles", path: "/dashboard/personal/roles", permission: "superadmin", strict: true }
       ],
     },
@@ -241,7 +241,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
   ];
 
   const filteredMenuItems = useMemo(() => {
-    // 👇 AQUÍ IMPLEMENTAMOS LA LÓGICA ESTRICTA 👇
+    // AQUÍ IMPLEMENTAMOS LA LÓGICA ESTRICTA 
     const checkAccess = (req?: string | string[], strict?: boolean) => {
       if (!req) return true;
       // Si NO es estricto, le dejamos pasar con acceso_total
@@ -332,7 +332,7 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
             const showSection = !collapsed && section && section !== lastSection;
             if (section) lastSection = section;
 
-            /* 👇 AQUÍ ES DONDE SUCEDIÓ LA MAGIA. 
+            /*  AQUÍ ES DONDE SUCEDIÓ LA MAGIA. 
                Ahora las clases de Tailwind están completas para que el compilador no las ignore.
             */
             const pillCls   = active

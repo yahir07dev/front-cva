@@ -1,23 +1,20 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/src/lib/supabase/client'
-import { crearNuevaActividad, getEmpleadosParaAsignacion } from '@/src/services/perfomance/performanceService'
+import { crearNuevaActividad } from '@/src/services/perfomance/performanceService'
 import { PrioridadActividad } from '@/src/types/performance'
-import { useSession } from '@/src/hooks/useSession'
-import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
-import { hasPermission } from '@/src/app/auth/permissions' 
 
-export function useNuevaActividad() {
+interface HookProps {
+  initialEmpleados: any[]
+  userEstado: string
+  userId: string
+}
+
+export function useNuevaActividad({ initialEmpleados, userEstado, userId }: HookProps) {
   const router = useRouter()
-  const { session } = useSession() as any
-  const supabase = createClient()
   
-  const [empleados, setEmpleados] = useState<any[]>([])
+  // Solo estados de UI y Mutación (Formulario)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [userPerms, setUserPerms] = useState<string[]>([]) 
-  const [userEstado, setUserEstado] = useState<string>('activo')
-
   const [alerta, setAlerta] = useState({
     isOpen: false,
     titulo: '',
@@ -25,7 +22,6 @@ export function useNuevaActividad() {
     variant: 'warning' as 'warning' | 'danger' | 'info' | 'success'
   })
 
-  // 👇 NUEVO: Agregamos archivoEvidencia y previewUrl al formulario
   const [form, setForm] = useState({
     titulo: '',
     descripcion: '',
@@ -42,78 +38,6 @@ export function useNuevaActividad() {
 
   const cerrarAlerta = () => setAlerta(prev => ({ ...prev, isOpen: false }))
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      const data = await getSessionUserWithPermissions()
-      if (data) {
-        setUserPerms(data.permissions)
-      }
-
-      if (session?.user?.id) {
-        const { data: emp } = await supabase
-          .from('empleados')
-          .select('estado')
-          .eq('usuario_id', session.user.id)
-          .single()
-        
-        if (emp) setUserEstado(emp.estado)
-      }
-    }
-
-    if (session) loadUserData()
-  }, [session, supabase])
-
-  const canCreate = useMemo(() => {
-    if (!session || userEstado === 'baja') return false; 
-    return hasPermission(userPerms, ['actividades.create', 'acceso_total']);
-  }, [userPerms, session, userEstado]);
-
-  const isAdmin = useMemo(() => {
-    return hasPermission(userPerms, ['acceso_total']);
-  }, [userPerms]);
-
-  const isSupervisor = useMemo(() => {
-    return canCreate && !isAdmin;
-  }, [canCreate, isAdmin]);
-
-  useEffect(() => {
-    let isMounted = true;
-    
-    const fetchEmpleados = async () => {
-        try {
-            const data = await getEmpleadosParaAsignacion();
-            if (isMounted && data) {
-                const currentUserId = session?.user?.id;
-                const googleAvatar = session?.user?.user_metadata?.avatar_url;
-
-                let empleadosProcesados = data.map((emp: any) => {
-                    const esElUsuarioActual = emp.usuario_id === currentUserId;
-                    const noTieneFotoBD = !emp.foto_perfil_url || emp.foto_perfil_url.trim() === '';
-
-                    if (esElUsuarioActual && noTieneFotoBD && googleAvatar) {
-                        return { ...emp, foto_perfil_url: googleAvatar };
-                    }
-                    return emp;
-                });
-
-                if (isSupervisor) {
-                  empleadosProcesados = empleadosProcesados.filter(
-                    (emp: any) => emp.roles?.nombre !== 'Contabilidad'
-                  );
-                }
-
-                setEmpleados(empleadosProcesados)
-            }
-        } catch (error) {
-            console.error("Error al cargar empleados:", error)
-        }
-    }
-
-    if (canCreate && session) fetchEmpleados()
-
-    return () => { isMounted = false; };
-  }, [canCreate, session, isSupervisor]);
-
   const toggleEmpleado = (id: string) => {
     setForm(prev => ({
       ...prev,
@@ -127,7 +51,6 @@ export function useNuevaActividad() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  // 👇 NUEVO: Función especializada para manejar la imagen
   const handleFileChange = (file: File | null) => {
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -146,15 +69,11 @@ export function useNuevaActividad() {
 
   const handleSubmit = async () => {
     if (userEstado === 'baja') {
-      return mostrarAlerta('Acceso Denegado', 'Tu cuenta no está activa. Contacta a recursos humanos.', 'danger')
-    }
-
-    if (!canCreate) {
-      return mostrarAlerta('Sin Permisos', 'No tienes los permisos necesarios para realizar esta acción.', 'danger')
+      return mostrarAlerta('Acceso Denegado', 'Tu cuenta no está activa.', 'danger')
     }
 
     if (!form.titulo || !form.fechaLimite) {
-      return mostrarAlerta('Campos Incompletos', 'Asegúrate de escribir un título y seleccionar la fecha límite de la tarea.', 'warning')
+      return mostrarAlerta('Campos Incompletos', 'Asegúrate de escribir un título y seleccionar la fecha límite.', 'warning')
     }
 
     if (form.asignados.length === 0) {
@@ -163,7 +82,7 @@ export function useNuevaActividad() {
 
     setLoading(true)
     try {
-      // 👇 NUEVO: Le pasamos el archivo al servicio
+      // Usamos el servicio que ya optimizamos con Cloudinary
       await crearNuevaActividad({
         titulo: form.titulo,
         descripcion: form.descripcion,
@@ -175,7 +94,7 @@ export function useNuevaActividad() {
       
       setTimeout(() => {
         router.push('/dashboard/rendimiento/actividades') 
-        router.refresh()
+        router.refresh() // Refresca el caché del SSR de la lista
       }, 1500)
     } catch (error: any) {
       mostrarAlerta('Error del Servidor', error.message, 'danger')
@@ -186,15 +105,13 @@ export function useNuevaActividad() {
 
   return {
     form,
-    empleados,
     loading,
     success,
-    userEstado,
     alerta,        
     cerrarAlerta,  
     toggleEmpleado,
     handleChange,
-    handleFileChange, // <-- Exponemos la función a la vista
+    handleFileChange,
     handleSubmit,
     router
   }

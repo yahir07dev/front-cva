@@ -1,3 +1,4 @@
+//src/components/perfomance/reportes/MiRendimientoDashboard.tsx
 'use client'
 
 import { useMemo } from 'react'

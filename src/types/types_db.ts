@@ -501,6 +501,7 @@ export type Database = {
         | "revision"
         | "completada"
         | "explicacion_requerida"
+        | "no_realizada"
       estado_individual_actividad:
         | "asignada"
         | "en_progreso"
@@ -642,6 +643,7 @@ export const Constants = {
         "revision",
         "completada",
         "explicacion_requerida",
+        "no_realizada",
       ],
       estado_individual_actividad: [
         "asignada",

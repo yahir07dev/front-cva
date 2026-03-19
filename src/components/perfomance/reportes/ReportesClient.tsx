@@ -1,47 +1,58 @@
+// src/components/perfomance/reportes/ReportesClient.tsx
 'use client'
 
 import { useMemo, useState } from 'react'
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer 
 } from 'recharts'
-import { Download, TrendingUp, Trophy, Users, UserCheck, ShieldAlert, User, Building } from 'lucide-react'
+import { 
+  Download, TrendingUp, Trophy, Users, UserCheck, ShieldAlert, User, Building 
+} from 'lucide-react'
+
+// Hooks y Componentes
 import { useReportesData } from '@/src/hooks/perfomance/useReportesData'
 import StatsCarousel from './StatsCarousel' 
 import RankingList from './RankingList'     
 import MiRendimientoDashboard from './MiRendimientoDashboard' 
 
+// Definición estricta de las props que inyecta el SSR
 interface ReportesClientProps {
-  actividades: any[]
-  comentarios: any[]
-  currentUserId?: string | number
+  topEmpleados: any[] 
+  datosGrafica: any[] 
+  currentUserId?: string
   isAdmin?: boolean
 }
 
-export default function ReportesClient({ actividades, comentarios, currentUserId, isAdmin }: ReportesClientProps) {
-  // ESTADO NUEVO: Controla si el Admin ve a la empresa o a sí mismo.
-  // Por defecto, si es admin ve 'empresa', si es empleado normal ve 'personal'
+export default function ReportesClient({ 
+  topEmpleados, 
+  datosGrafica, 
+  currentUserId, 
+  isAdmin 
+}: ReportesClientProps) {
+  
+  // ESTADO DE VISTA: Controla si el Admin ve la empresa o a sí mismo.
   const [vistaAdmin, setVistaAdmin] = useState<'empresa' | 'personal'>(isAdmin ? 'empresa' : 'personal')
   
+  // Hook de cliente solo para interacciones (búsqueda y PDF)
   const { 
-    topEmpleados, 
-    datosGrafica, 
+    listaFiltrada, 
     filtroNombre, 
     setFiltroNombre, 
     exportarPDF 
-  } = useReportesData(actividades, comentarios)
+  } = useReportesData(topEmpleados)
 
+  // 1. Filtrado para la tabla de ranking
   const listaVisible = useMemo(() => {
-    const myId = Number(currentUserId)
-    if (isAdmin) return topEmpleados
-    return topEmpleados.filter(emp => Number(emp.id) === myId)
-  }, [topEmpleados, isAdmin, currentUserId])
+    if (isAdmin) return listaFiltrada 
+    return listaFiltrada.filter(emp => emp.id === currentUserId)
+  }, [listaFiltrada, isAdmin, currentUserId])
 
-  // Extraemos los datos personales del usuario logueado
+  // 2. Datos personales para el dashboard individual
   const misDatos = useMemo(() => {
-    const myId = Number(currentUserId)
-    return topEmpleados.find(e => Number(e.id) === myId)
+    return topEmpleados.find(e => e.id === currentUserId)
   }, [topEmpleados, currentUserId])
 
+  // 3. Cálculos de estadísticas para las tarjetas superiores
   const statsList = useMemo(() => {
     const totalGlobal = topEmpleados.length
     const promedioScore = totalGlobal > 0 
@@ -53,12 +64,15 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
         { icon: UserCheck, label: "Total Evaluados", value: totalGlobal, accentColor: 'blue' },
         { icon: Trophy, label: "Mejor Score", value: topEmpleados[0]?.nombre?.split(' ')[0] || 'N/A', accentColor: 'green' }
     ]
-  }, [topEmpleados]) as any[]
+  }, [topEmpleados])
 
+  // --------------------------------------------------------
+  // RENDERIZADO DE LA VISTA
+  // --------------------------------------------------------
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       
-      {/* 1. Header Fijo con Controles de Vista */}
+      {/* 1. HEADER FIJO CON CONTROLES */}
       <div className="flex-none px-4 py-4 sm:px-8 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 z-10">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           
@@ -73,7 +87,7 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             
-            {/* SWITCH DE VISTAS (Solo visible para Admins/Supervisores) */}
+            {/* SWITCH DE VISTAS (Admins/Supervisores) */}
             {isAdmin && (
               <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl">
                 <button
@@ -99,7 +113,7 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
               </div>
             )}
 
-            {/* BOTÓN EXPORTAR (Solo en vista de empresa) */}
+            {/* BOTÓN EXPORTAR PDF */}
             {isAdmin && vistaAdmin === 'empresa' && (
               <button 
                 onClick={exportarPDF}
@@ -113,21 +127,22 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
         </div>
       </div>
 
-      {/* 2. Cuerpo Scrollable */}
+      {/* 2. CUERPO SCROLLABLE DINÁMICO */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 md:space-y-8 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
         
-        {/* Lógica de Renderizado: Mostramos Empresa o Personal según el estado */}
         {vistaAdmin === 'empresa' ? (
           // ==========================================
-          // VISTA DE LA EMPRESA (ADMIN/SUPERVISOR)
+          // VISTA DE LA EMPRESA (GLOBAL)
           // ==========================================
           <>
             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-                <StatsCarousel stats={statsList} />
+                {/* 👇 AQUÍ ESTÁ EL FIX: Usamos "as any" en la propiedad para evitar el conflicto de tipos de Lucide */}
+                <StatsCarousel stats={statsList as any} />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-20">
-              {/* GRÁFICA */}
+              
+              {/* GRÁFICA DE TENDENCIA */}
               <div className="xl:col-span-2 flex flex-col bg-white dark:bg-neutral-900 md:border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 sm:p-8 shadow-sm h-[350px] md:h-[450px]">
                 <div className="mb-6">
                   <h3 className="text-lg font-bold flex items-center gap-2 text-neutral-900 dark:text-white">
@@ -160,7 +175,7 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
                 </div>
               </div>
 
-              {/* RANKING LIST */}
+              {/* RANKING LIST DE EMPLEADOS */}
               <div className="h-[450px] xl:h-auto">
                 <RankingList 
                     empleados={listaVisible} 
@@ -173,7 +188,7 @@ export default function ReportesClient({ actividades, comentarios, currentUserId
           </>
         ) : (
           // ==========================================
-          // VISTA PERSONAL (EMPLEADO O ADMIN VIENDO SU PERFIL)
+          // VISTA PERSONAL DEL EMPLEADO
           // ==========================================
           <div className="max-w-4xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
              {misDatos ? (
