@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { createClient } from '@/src/lib/supabase/client'
 import { 
   X, Video, FileText, Users, Plus, Trash2, 
   CheckCircle2, AlertCircle, Save, ChevronRight, Search, Clock 
@@ -16,15 +15,15 @@ interface ModalProps {
   onSubmit: (cursoData: any, empleadosIds: number[]) => Promise<void>;
   onEdit?: (cursoId: number, cursoData: any, empleadosIds: number[]) => Promise<void>;
   cursoAEditar?: any | null;
+  // 🚀 NUEVO: Recibe los empleados desde el padre, eliminando la cascada de carga
+  empleadosLista: any[]; 
 }
 
-export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cursoAEditar }: ModalProps) {
-  const supabase = createClient()
+export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cursoAEditar, empleadosLista }: ModalProps) {
   
   const [activeTab, setActiveTab] = useState<'info' | 'examen' | 'asignacion'>('info')
   const [loading, setLoading] = useState(false)
   
-  const [empleados, setEmpleados] = useState<any[]>([])
   const [busquedaEmpleado, setBusquedaEmpleado] = useState('')
 
   // ESTADO PARA TU MODAL DE ALERTA 👇
@@ -53,20 +52,10 @@ export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cur
   const [preguntas, setPreguntas] = useState<any[]>([])
   const [asignados, setAsignados] = useState<number[]>([])
 
+  // 🚀 AL ELIMINAR EL FETCH, EL MODAL SE ABRE INSTANTÁNEAMENTE
   useEffect(() => {
     if (!isOpen) return;
 
-    const fetchEmpleados = async () => {
-      const { data } = await supabase
-        .from('empleados')
-        .select('id, nombre, apellidos, foto_perfil_url, roles(nombre)')
-        .eq('estado', 'activo')
-        .is('deleted_at', null)
-        .order('nombre', { ascending: true })
-      
-      if (data) setEmpleados(data)
-    }
-    fetchEmpleados();
     setActiveTab('info');
     setBusquedaEmpleado('');
 
@@ -111,14 +100,15 @@ export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cur
       }]);
       setAsignados([]);
     }
-  }, [isOpen, cursoAEditar, supabase]);
+  }, [isOpen, cursoAEditar]);
 
+  // Usamos empleadosLista (las props) en lugar del estado local
   const empleadosFiltrados = useMemo(() => {
-    if (!busquedaEmpleado) return empleados;
-    return empleados.filter(emp => 
+    if (!busquedaEmpleado) return empleadosLista;
+    return empleadosLista.filter(emp => 
       `${emp.nombre} ${emp.apellidos} ${emp.roles?.nombre}`.toLowerCase().includes(busquedaEmpleado.toLowerCase())
     );
-  }, [empleados, busquedaEmpleado]);
+  }, [empleadosLista, busquedaEmpleado]);
 
   // FUNCIÓN HELPER PARA DISPARAR LA ALERTA 👇
   const mostrarAlerta = (titulo: string, descripcion: string, variant: 'warning' | 'danger' | 'info' | 'success' = 'warning') => {
@@ -391,7 +381,7 @@ export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cur
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-neutral-900 sticky top-0 z-10 py-2">
                   <div>
                     <h3 className="text-xl font-bold text-neutral-900 dark:text-white">Participantes</h3>
-                    <p className="text-sm text-neutral-500">{asignados.length} seleccionados de {empleados.length}</p>
+                    <p className="text-sm text-neutral-500">{asignados.length} seleccionados de {empleadosLista.length}</p>
                   </div>
                   
                   <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -405,8 +395,8 @@ export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cur
                         className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500/20 focus:bg-white dark:focus:bg-neutral-950 transition-all"
                       />
                     </div>
-                    <button onClick={() => setAsignados(asignados.length === empleados.length ? [] : empleados.map(e => e.id))} className="text-sm font-bold text-rose-600 hover:text-rose-700 whitespace-nowrap bg-rose-50 dark:bg-rose-500/10 px-4 py-2 rounded-xl transition-colors">
-                      {asignados.length === empleados.length ? 'Desmarcar todos' : 'Marcar todos'}
+                    <button onClick={() => setAsignados(asignados.length === empleadosLista.length ? [] : empleadosLista.map(e => e.id))} className="text-sm font-bold text-rose-600 hover:text-rose-700 whitespace-nowrap bg-rose-50 dark:bg-rose-500/10 px-4 py-2 rounded-xl transition-colors">
+                      {asignados.length === empleadosLista.length ? 'Desmarcar todos' : 'Marcar todos'}
                     </button>
                   </div>
                 </div>
@@ -421,7 +411,7 @@ export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cur
                         <div key={emp.id} onClick={() => toggleEmpleado(emp.id)} className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${isSelected ? 'border-rose-500 bg-rose-50 dark:bg-rose-500/10 shadow-sm' : 'border-neutral-200 dark:border-neutral-800 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md'}`}>
                           <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex-shrink-0 overflow-hidden border border-neutral-300 dark:border-neutral-600">
                             {emp.foto_perfil_url ? (
-                              <img src={emp.foto_perfil_url} alt={emp.nombre} className="w-full h-full object-cover" />
+                              <img src={emp.foto_perfil_url} alt={emp.nombre} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-neutral-500 font-bold">{emp.nombre.charAt(0)}</div>
                             )}
@@ -465,7 +455,7 @@ export default function ModalCrearCurso({ isOpen, onClose, onSubmit, onEdit, cur
         </div>
       </div>
 
-      {/* AQUÍ RENDERIZAMOS TU MODAL DE ALERTA, POR ENCIMA DE TODO LO DEMÁS 👇 */}
+      {/* AQUÍ RENDERIZAMOS TU MODAL DE ALERTA 👇 */}
       <ModalAlerta 
         isOpen={alerta.isOpen}
         titulo={alerta.titulo}

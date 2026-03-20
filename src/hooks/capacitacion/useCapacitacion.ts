@@ -1,167 +1,95 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
-import { useSession } from '@/src/hooks/useSession' 
-import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
-import { hasPermission } from '@/src/app/auth/permissions' 
 import { 
-  getCursos, 
-  crearCursoCompleto, 
-  actualizarCursoCompleto, 
-  eliminarCurso, 
-  enviarEvaluacion, 
-  guardarProgresoBorrador,
-  getDetalleEvaluacion
-} from '@/src/services/capacitacion/capacitacionService'
+  getCursosAction, crearCursoAction, actualizarCursoAction, eliminarCursoAction, 
+  guardarProgresoBorradorAction, enviarEvaluacionAction, getDetalleEvaluacionAction 
+} from '@/src/actions/capacitacion/capacitacionActions'
 import { CursoCapacitacion } from '@/src/types/capacitacion'
 
-export function useCapacitacion(initialData?: any[]) {
+interface UseCapacitacionProps {
+  initialCursos: any[]
+  userId: string
+  empleadoId: number
+}
+
+export function useCapacitacion({ initialCursos, userId, empleadoId }: UseCapacitacionProps) {
   const [supabase] = useState(() => createClient())
-  const [cursos, setCursos] = useState<any[]>(initialData || [])
-  const [loading, setLoading] = useState(!initialData) 
+  const [cursos, setCursos] = useState<any[]>(initialCursos)
+  const [loading, setLoading] = useState(false) 
   const [filtro, setFiltro] = useState('todos')
-  const [userPerms, setUserPerms] = useState<string[]>([]) 
-  const [empleadoId, setEmpleadoId] = useState<number | null>(null)
 
-  const { session, loading: sessionLoading } = useSession() as any
-
-  // 1. Cargar Permisos y Datos del Empleado Actual
-  useEffect(() => {
-    const initData = async () => {
-      if (!session?.user?.id) return;
-
-      const data = await getSessionUserWithPermissions()
-      if (data) setUserPerms(data.permissions)
-
-      const { data: emp } = await supabase
-        .from('empleados')
-        .select('id')
-        .eq('usuario_id', session.user.id)
-        .single()
-      
-      if (emp) setEmpleadoId(emp.id)
-    }
-
-    if (session) initData()
-  }, [session, supabase])
-
-  // 2. Lógica de Roles
-  const canManage = useMemo(() => {
-    return hasPermission(userPerms, ['cursos.create', 'cursos.update', 'acceso_total']);
-  }, [userPerms]);
-
-  const isAdmin = useMemo(() => {
-    return hasPermission(userPerms, ['acceso_total']);
-  }, [userPerms]);
-  
-  // 3. Fetch Principal
-  const fetchCursosData = useCallback(async () => {
+  // 1. REALTIME SILENCIOSO
+  const reFetchCursos = useCallback(async () => {
     try {
-      // Evitamos pantalla de carga si ya hay cursos (para que el realtime no parpadee visualmente)
-      if (cursos.length === 0) setLoading(true);
-      const data = await getCursos()
+      const data = await getCursosAction()
       setCursos(data)
     } catch (err) {
-      console.error('Error fetching cursos:', err)
-    } finally {
-      setLoading(false)
+      console.error('Error re-fetching cursos:', err)
     }
-  }, [cursos.length])
+  }, [])
 
   useEffect(() => {
-    if (!initialData && session) fetchCursosData()
-  }, [fetchCursosData, initialData, session])
-
-  // 4. Suscripción en Tiempo Real (Mejorada para reaccionar al instante)
-  useEffect(() => {
-    if (!supabase || !session?.user?.id) return
-    const channel = supabase.channel(`cursos-updates-${session.user.id}`) 
-      // Escucha inserciones, actualizaciones y borrados de Cursos
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cursos' }, (payload) => {
-        console.log("⚡ Realtime detectó un cambio en CURSOS:", payload.eventType);
-        fetchCursosData();
-      })
-      // Escucha inserciones o actualizaciones de las asignaciones para que aparezca al vuelo
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_cursos' }, (payload) => {
-        console.log("⚡ Realtime detectó un cambio en ASIGNACIÓN:", payload.eventType);
-        setTimeout(() => fetchCursosData(), 100) 
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log("🟢 Conectado al servidor de Tiempo Real para Capacitación");
-        }
-      })
-    
+    const channel = supabase.channel(`cursos-updates-${userId}`) 
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cursos' }, () => reFetchCursos())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'asignacion_cursos' }, () => reFetchCursos())
+      .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [supabase, session?.user?.id, fetchCursosData])
+  }, [supabase, userId, reFetchCursos])
 
-  // 5. Filtros para la UI
+  // 2. FILTROS EN MEMORIA
   const cursosFiltrados = useMemo(() => {
-    if (!cursos) return [];
     if (filtro === 'todos') return cursos;
-
     return cursos.filter(curso => {
         const miAsignacion = curso.asignacion_cursos?.find((asig: any) => {
             const emp = Array.isArray(asig.empleados) ? asig.empleados[0] : asig.empleados;
-            return emp?.usuario_id === session?.user?.id;
+            return emp?.usuario_id === userId;
         });
-
         if (filtro === 'completados') return miAsignacion?.estado === 'completado';
         if (filtro === 'pendientes') return miAsignacion?.estado === 'asignado' || miAsignacion?.estado === 'en_progreso';
-        
         return true;
     });
-  }, [cursos, filtro, session?.user?.id]);
+  }, [cursos, filtro, userId]);
 
-  // 6. Funciones Wrapper para la UI
-  const handleCrearCurso = async (cursoData: CursoCapacitacion, empleadosIds: number[]) => {
-    if (!canManage) throw new Error("No tienes permisos para crear cursos.");
-    await crearCursoCompleto(cursoData, empleadosIds);
-    await fetchCursosData();
+  // 3. ENVOLTURAS PARA LAS SERVER ACTIONS (Mutaciones)
+  const crearCurso = async (cursoData: CursoCapacitacion, empleadosIds: number[]) => {
+    await crearCursoAction(cursoData, empleadosIds);
+    await reFetchCursos();
   };
 
-  const handleEditarCurso = async (cursoId: number, cursoData: CursoCapacitacion, empleadosIds: number[]) => {
-    if (!canManage) throw new Error("No tienes permisos para editar cursos.");
-    await actualizarCursoCompleto(cursoId, cursoData, empleadosIds);
-    await fetchCursosData();
+  const editarCurso = async (cursoId: number, cursoData: CursoCapacitacion, empleadosIds: number[]) => {
+    await actualizarCursoAction(cursoId, cursoData, empleadosIds);
+    await reFetchCursos();
   };
 
-  const handleEliminarCurso = async (cursoId: number) => {
-    if (!canManage) throw new Error("No tienes permisos para eliminar cursos.");
-    await eliminarCurso(cursoId);
-    // Ya no es estrictamente necesario el fetch manual porque el realtime lo atrapa, 
-    // pero lo dejamos por consistencia de UI.
-    await fetchCursosData();
+  const eliminarCurso = async (cursoId: number) => {
+    await eliminarCursoAction(cursoId);
+    setCursos(prev => prev.filter(c => c.id !== cursoId)); // Optimistic UI
   };
 
-  const handleGuardarProgreso = async (cursoId: number, progresoData: any) => {
-    if (!empleadoId) return;
-    await guardarProgresoBorrador(cursoId, empleadoId, progresoData);
+  const guardarProgreso = async (cursoId: number, progresoData: any) => {
+    await guardarProgresoBorradorAction(cursoId, empleadoId, progresoData);
   };
 
-  const handleEnviarExamen = async (cursoId: number, respuestas: any[], tiempoInicio: string) => {
-    const resultado = await enviarEvaluacion(cursoId, respuestas, tiempoInicio);
-    await fetchCursosData(); 
+  const enviarExamen = async (cursoId: number, respuestas: any[], tiempoInicio: string) => {
+    const resultado = await enviarEvaluacionAction(cursoId, respuestas, tiempoInicio);
+    await reFetchCursos(); 
     return resultado;
   };
 
-  const handleObtenerDetalles = async (cursoId: number) => {
-    if (!empleadoId) return null;
-    return await getDetalleEvaluacion(cursoId, empleadoId);
+  const obtenerDetallesEvaluacion = async (cursoId: number) => {
+    return await getDetalleEvaluacionAction(cursoId, empleadoId);
   };
 
   return {
     cursos: cursosFiltrados,
-    loading: loading || sessionLoading,
-    canManage, 
-    isAdmin,      
+    loading,
     filtro,
     setFiltro,
-    recargar: fetchCursosData,
-    crearCurso: handleCrearCurso,
-    editarCurso: handleEditarCurso,
-    eliminarCurso: handleEliminarCurso,
-    guardarProgreso: handleGuardarProgreso,
-    enviarExamen: handleEnviarExamen,
-    obtenerDetallesEvaluacion: handleObtenerDetalles
+    crearCurso,
+    editarCurso,
+    eliminarCurso,
+    guardarProgreso,
+    enviarExamen,
+    obtenerDetallesEvaluacion
   }
 }

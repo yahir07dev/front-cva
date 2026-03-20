@@ -1,3 +1,4 @@
+//src/components/capacitacion/admin/CardCursoAdmin.tsx
 import { CursoCapacitacion } from '@/src/types/capacitacion'
 import { Clock, Play, Edit3, Trash2, AlertCircle, CheckCircle2, Users, BarChart3 } from 'lucide-react'
 

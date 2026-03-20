@@ -2,7 +2,7 @@
 
 import { X, Award, Clock, AlertCircle, Search, User } from 'lucide-react'
 import { useState } from 'react'
-import { getDetalleEvaluacion } from '@/src/services/capacitacion/capacitacionService'
+import { getDetalleEvaluacionAction } from '@/src/actions/capacitacion/capacitacionActions'
 import ModalDetalleExamenAdmin from './ModalDetalleExamenAdmin'
 
 interface ReporteProps {
@@ -27,29 +27,27 @@ export default function ModalReporteCurso({ isOpen, onClose, curso }: ReportePro
     return nombreCompleto.includes(busqueda.toLowerCase());
   });
 
+  // 🚀 CONECTADO A LA SERVER ACTION 🚀
   const verRevisionExamen = async (asig: any, emp: any) => {
     const cursoId = curso?.id;
-    // ✅ Ahora usamos asig.empleado_id que sí viene en el select del servicio
     const empleadoId = asig?.empleado_id;
 
     if (!cursoId || !empleadoId) {
-      console.error("Faltan IDs críticos:", { cursoId, empleadoId });
       alert("No se puede cargar el detalle: ID de curso o empleado no encontrado.");
       return;
     }
 
     setLoadingDetalle(asig.id);
     try {
-      const data = await getDetalleEvaluacion(cursoId, empleadoId);
+      const data = await getDetalleEvaluacionAction(cursoId, empleadoId);
       if (data) {
         setDetalleExamen(data);
         setEmpleadoSeleccionado(emp);
       } else {
         alert("Este empleado terminó el curso pero no hay registro detallado de sus respuestas.");
       }
-    } catch (err) {
-      console.error("Error al obtener detalle:", err);
-      alert("Ocurrió un error al consultar los resultados en la base de datos.");
+    } catch (err: any) {
+      alert("Ocurrió un error: " + err.message);
     } finally {
       setLoadingDetalle(null);
     }
@@ -103,20 +101,16 @@ export default function ModalReporteCurso({ isOpen, onClose, curso }: ReportePro
                 const completado = asig.estado === 'completado';
                 const enProgreso = asig.estado === 'en_progreso';
 
-                // ✅ La calificación ahora viene directamente del servicio (inyectada desde evaluaciones_resultados)
                 const calificacion = typeof asig.calificacion === 'number' ? asig.calificacion : null;
                 const notaMostrada = calificacion !== null ? Math.round(calificacion) : null;
                 const aprobado = notaMostrada !== null && notaMostrada >= 80;
 
                 return (
-                  <div
-                    key={asig.id}
-                    className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800/40 rounded-[1.5rem] border border-neutral-100 dark:border-neutral-800/50 group transition-all hover:bg-white dark:hover:bg-neutral-800 shadow-sm hover:shadow-md"
-                  >
+                  <div key={asig.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800/40 rounded-[1.5rem] border border-neutral-100 dark:border-neutral-800/50 group transition-all hover:bg-white dark:hover:bg-neutral-800 shadow-sm hover:shadow-md">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-white dark:bg-neutral-700 flex items-center justify-center border border-neutral-200 dark:border-neutral-600 overflow-hidden shrink-0">
                         {emp?.foto_perfil_url ? (
-                          <img src={emp.foto_perfil_url} className="w-full h-full object-cover" alt="Avatar" />
+                          <img src={emp.foto_perfil_url} className="w-full h-full object-cover" alt="Avatar" referrerPolicy="no-referrer" />
                         ) : (
                           <User size={20} className="text-neutral-400" />
                         )}
@@ -125,42 +119,25 @@ export default function ModalReporteCurso({ isOpen, onClose, curso }: ReportePro
                         <p className="font-bold text-neutral-900 dark:text-white">
                           {emp?.nombre || 'Sin nombre'} {emp?.apellidos || ''}
                         </p>
-                        <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${
-                          completado ? 'text-emerald-500' : enProgreso ? 'text-blue-500' : 'text-neutral-400'
-                        }`}>
+                        <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${completado ? 'text-emerald-500' : enProgreso ? 'text-blue-500' : 'text-neutral-400'}`}>
                           {completado ? 'Completado' : enProgreso ? 'En Progreso' : 'Pendiente'}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      {/* Burbuja de Nota */}
-                      <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 transition-colors ${
-                        completado && notaMostrada !== null
-                          ? (aprobado
-                              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600'
-                              : 'bg-rose-500/10 border-rose-500 text-rose-600')
-                          : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-400'
-                      }`}>
+                      <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 transition-colors ${completado && notaMostrada !== null ? (aprobado ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600' : 'bg-rose-500/10 border-rose-500 text-rose-600') : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-400'}`}>
                         <span className="text-[9px] font-black uppercase leading-none mb-1">Nota</span>
-                        <span className="text-lg font-black">
-                          {completado && notaMostrada !== null ? notaMostrada : '—'}
-                        </span>
+                        <span className="text-lg font-black">{completado && notaMostrada !== null ? notaMostrada : '—'}</span>
                       </div>
 
-                      {/* Botón de Inspección */}
                       {completado && (
                         <button
                           onClick={() => verRevisionExamen(asig, emp)}
                           disabled={loadingDetalle === asig.id}
                           className="p-3.5 bg-white dark:bg-neutral-700 hover:bg-blue-600 dark:hover:bg-blue-600 hover:text-white rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-600 transition-all active:scale-90 disabled:opacity-50 group/btn"
-                          title="Ver examen detallado"
                         >
-                          {loadingDetalle === asig.id ? (
-                            <Clock className="animate-spin" size={20} />
-                          ) : (
-                            <Search size={20} className="group-hover/btn:scale-110 transition-transform" />
-                          )}
+                          {loadingDetalle === asig.id ? <Clock className="animate-spin" size={20} /> : <Search size={20} className="group-hover/btn:scale-110 transition-transform" />}
                         </button>
                       )}
                     </div>
@@ -173,23 +150,13 @@ export default function ModalReporteCurso({ isOpen, onClose, curso }: ReportePro
 
         {/* FOOTER */}
         <div className="p-6 bg-neutral-50 dark:bg-black/20 border-t border-neutral-100 dark:border-neutral-800 flex justify-end">
-          <button
-            onClick={onClose}
-            className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-10 py-3.5 rounded-2xl font-bold transition-all active:scale-95 shadow-xl hover:bg-black dark:hover:bg-neutral-100"
-          >
+          <button onClick={onClose} className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-10 py-3.5 rounded-2xl font-bold transition-all active:scale-95 shadow-xl hover:bg-black dark:hover:bg-neutral-100">
             Cerrar Reporte
           </button>
         </div>
       </div>
 
-      {/* MODAL DE DETALLE */}
-      <ModalDetalleExamenAdmin
-        isOpen={!!detalleExamen}
-        onClose={() => setDetalleExamen(null)}
-        examen={detalleExamen}
-        curso={curso}
-        empleado={empleadoSeleccionado}
-      />
+      <ModalDetalleExamenAdmin isOpen={!!detalleExamen} onClose={() => setDetalleExamen(null)} examen={detalleExamen} curso={curso} empleado={empleadoSeleccionado} />
     </div>
   );
 }
