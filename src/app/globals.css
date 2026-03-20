@@ -1,8 +1,181 @@
 @import "tailwindcss";
 
-html,
-body {
-  background-color: #121212;
-  color: white;
-  min-height: 100%;
+@plugin "@tailwindcss/typography";
+
+/* --- TRUCO PARA V4: Activar modo oscuro por CLASE manual --- */
+@variant dark (&:where(.dark, .dark *));
+
+/* =========================================================
+   PALETA "SOFT DARK MODERN"
+   ========================================================= */
+
+:root {
+  /* ----- LIGHT ----- */
+  --bg: #F4F6F8;
+  --card: #FFFFFF;
+  --border: #E5E7EB;
+  --text: #0F172A;
+  --muted: #64748B;
+  --hover: #F1F5F9;
+
+  --primary: #6366F1;
+  --primary-hover: #818CF8;
+  --primary-fg: #FFFFFF;
+
+  --bg-card: #ffffff;
+}
+
+.dark {
+  --bg: #0B0D10;
+  --card: #14161A;
+  --border: #1E2025;
+  --text: #EDEDED;
+  --muted: #9AA0A6;
+  --hover: #1B1E23;
+
+  --primary: #9B9EFF;
+  --primary-hover: #B3B7FF;
+  --primary-fg: #0B0D10;
+
+  --bg-card: #0B0D10;
+}
+
+/* --- CONEXIÓN CON TAILWIND V4 --- */
+@theme {
+  --color-background: var(--bg);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-text-main: var(--text);
+  --color-text-muted: var(--muted);
+  --color-hover-bg: var(--hover);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --shadow-card: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.dark {
+  --shadow-card: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* --- BASE --- */
+@layer base {
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+}
+
+/* =========================================================
+   SCROLLBAR NEUTRO (ESTILO GEMINI / MINIMALISTA)
+   ========================================================= */
+
+/* 1. Para Chrome, Safari y Edge (Webkit) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  /* Gris suave con transparencia en modo claro */
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  border: 2px solid transparent; /* Crea un efecto de margen */
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  /* Gris claro casi transparente en modo oscuro */
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* 2. Para Firefox */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+
+  .dark * {
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+}
+
+/* =========================================================
+   EFECTOS ADICIONALES
+   ========================================================= */
+
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-border {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+.neon-border-animated {
+  position: relative;
+  border: 3px solid transparent;
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    conic-gradient(
+      from var(--border-angle),
+      transparent 0%,
+      transparent 70%,
+      #7C83FF 85%,
+      #A78BFA 100%
+    ) border-box;
+  animation: rotate-border 4s linear infinite;
+  filter: drop-shadow(0 0 6px #7C83FF);
+}
+
+@theme {
+  --animate-bounce-subtle: bounce-subtle 3s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(-5%); }
+    50% { transform: translateY(0); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.1); }
+  }
+}
+
+/* OCULTAR SCROLLBAR - Limpio y cross-browser */
+*::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }

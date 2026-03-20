@@ -57,6 +57,7 @@ export async function updateSession(request: NextRequest) {
       .from("empleados")
       .select("id")
       .eq("usuario_id", user.id) // nmombre_columna, valor_buscado
+      .is("deleted_at", null) // Aseguramos que no esté marcado como eliminado
       .single();
 
     hasProfile = !!data;
