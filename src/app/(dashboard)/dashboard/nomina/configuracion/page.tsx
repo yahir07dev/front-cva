@@ -4,7 +4,6 @@ import AccessDenied from '@/src/components/shared/AccessDenied'
 import ConfigNominaClient from '@/src/components/nomina/configuracion/ConfigNominaClient'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 export default async function ConfigNominaPage() {
   const supabase = await createClient()
@@ -13,28 +12,35 @@ export default async function ConfigNominaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. BLINDAJE DE ESTADO: Verificar si el usuario que accede está ACTIVO
-  const { data: perfil } = await supabase
-    .from('empleados')
-    .select('estado')
-    .eq('usuario_id', user.id)
-    .single()
+  // 2. FETCH EN PARALELO (Cero Cascadas)
+  // Traemos el perfil, los permisos y la lista completa de nómina al mismo tiempo
+  const [perfilRes, permsRes, empleadosRes] = await Promise.all([
+    supabase.from('empleados').select('estado').eq('usuario_id', user.id).single(),
+    supabase.rpc('get_my_permissions_slugs'),
+    supabase.from('empleados')
+      .select(`
+        id, usuario_id, nombre, apellidos, foto_perfil_url, 
+        sueldo_base, dia_pago, recibe_pago_tarjeta, estado, 
+        roles ( nombre ), areas!empleados_area_id_fkey ( nombre )
+      `)
+      .eq('estado', 'activo')
+      .is('deleted_at', null)
+      .order('nombre', { ascending: true })
+  ])
 
-  // Si el usuario es "baja", lo sacamos de aquí inmediatamente
-  if (perfil?.estado === 'baja') {
+  // 3. BLINDAJE DE ESTADO
+  if (perfilRes.data?.estado === 'baja') {
     redirect('/login?error=cuenta_desactivada')
   }
 
-  // 3. VERIFICACIÓN DE PERMISOS DESDE EL SERVIDOR
-  // Obtenemos los slugs de permisos del usuario usando tu RPC
-  const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
-  const permisos = perms || []
+  // 4. VERIFICACIÓN DE PERMISOS
+  const permisos = permsRes.data || []
+  const isAdmin = permisos.includes('acceso_total')
+  
+  // Contabilidad lee (nomina.read), Admin o RRHH actualizan (nomina.update)
+  const canAccess = permisos.includes('nomina.read') || isAdmin
+  const canManage = permisos.includes('nomina.update') || isAdmin
 
-  // Para entrar aquí necesita ser Contabilidad (nomina.read) o Administrador (acceso_total)
-  const canAccess = permisos.includes('nomina.read') || permisos.includes('acceso_total')
-
-  // 4. SI NO TIENE PERMISO -> PANTALLA DE BLOQUEO TOTAL
-  // Esto deja fuera automáticamente a los Empleados (Rol 3) y Supervisores (Rol 5)
   if (!canAccess) {
     return (
       <AccessDenied 
@@ -43,12 +49,23 @@ export default async function ConfigNominaPage() {
     )
   }
 
-  // 5. RENDERIZADO
-  // Se aplicó el fondo dinámico para el tema Light/Dark y se unificó el padding (p-4 sm:p-6 lg:p-8)
-  // Esto permite que el componente hijo expanda su "Header" de lado a lado usando sus márgenes negativos.
+  // 5. PROCESAMIENTO DE DATOS EN SERVIDOR (Avatar de Google)
+  const googleAvatar = user.user_metadata?.avatar_url;
+  const empleadosProcesados = (empleadosRes.data || []).map((emp: any) => {
+    if (emp.usuario_id === user.id && (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '') && googleAvatar) {
+      return { ...emp, foto_perfil_url: googleAvatar }
+    }
+    return emp
+  })
+
+  // 6. RENDERIZADO INYECTANDO PROPS
   return (
     <div className="h-full p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
-      <ConfigNominaClient />
+      <ConfigNominaClient 
+        initialEmpleados={empleadosProcesados} 
+        canManage={canManage} 
+        currentUserId={user.id}
+      />
     </div>
   )
 }

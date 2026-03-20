@@ -1,127 +1,82 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
-import { useSession } from '@/src/hooks/useSession'
-import { getSessionUserWithPermissions } from '@/src/app/auth/getSessionUser'
-import { hasPermission } from '@/src/app/auth/permissions'
-import { getEmpleadosConfigNomina, actualizarConfigNominaEmpleado, NominaConfig } from '@/src/services/nomina/nominaService'
+import { actualizarConfigNominaEmpleado, NominaConfig } from '@/src/services/nomina/nominaService'
 
-export function useConfigNomina() {
+interface UseConfigNominaProps {
+  initialEmpleados: any[]
+  canManage: boolean
+}
+
+export function useConfigNomina({ initialEmpleados, canManage }: UseConfigNominaProps) {
   const [supabase] = useState(() => createClient())
   
-  // Estados de datos
-  const [empleados, setEmpleados] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  
-  // Estados de seguridad y sesión
-  const [userPerms, setUserPerms] = useState<string[]>([])
-  const [userEstado, setUserEstado] = useState<string>('activo')
-  const { session } = useSession() as any
+  // 1. Estados
+  const [empleados, setEmpleados] = useState<any[]>(initialEmpleados)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  // 1. CARGA DE PERMISOS Y ESTADO REAL (Blindaje)
-  useEffect(() => {
-    const loadUserData = async () => {
-      const data = await getSessionUserWithPermissions()
-      if (data) setUserPerms(data.permissions)
+  // 2. Búsqueda Optimizada (useMemo)
+  const empleadosFiltrados = useMemo(() => {
+    if (!searchTerm) return empleados
+    const term = searchTerm.toLowerCase()
+    return empleados.filter(emp => {
+      const nombreCompleto = `${emp.nombre} ${emp.apellidos}`.toLowerCase()
+      return nombreCompleto.includes(term)
+    })
+  }, [empleados, searchTerm])
 
-      if (session?.user?.id) {
-        const { data: emp } = await supabase
-          .from('empleados')
-          .select('estado')
-          .eq('usuario_id', session.user.id)
-          .single()
-        
-        if (emp) setUserEstado(emp.estado)
-      }
+  // 3. Suscripción Realtime (Para que Contabilidad vea cambios al instante)
+  const fetchEmpleadosUpdates = useCallback(async () => {
+    const { data } = await supabase
+      .from('empleados')
+      .select('id, sueldo_base, dia_pago, recibe_pago_tarjeta, estado')
+      .eq('estado', 'activo')
+      .is('deleted_at', null)
+
+    if (data) {
+      setEmpleados(prev => prev.map(emp => {
+        const actualizado = data.find(d => d.id === emp.id)
+        return actualizado ? { ...emp, ...actualizado } : emp
+      }))
     }
-    if (session) loadUserData()
-  }, [session, supabase])
+  }, [supabase])
 
-  // 2. LÓGICA DE PERMISOS
-  const canManage = useMemo(() => {
-    if (!session || userEstado === 'baja') return false;
-    // Solo el Administrador (acceso_total o nomina.update) puede modificar sueldos
-    return hasPermission(userPerms, ['nomina.update', 'acceso_total']);
-  }, [userPerms, session, userEstado]);
-
-  const canRead = useMemo(() => {
-    if (!session || userEstado === 'baja') return false;
-    // Contabilidad puede leer (nomina.read), Admin también
-    return hasPermission(userPerms, ['nomina.read', 'acceso_total']);
-  }, [userPerms, session, userEstado]);
-
-  // 3. OBTENER DATOS E INYECTAR FOTO DE GOOGLE
-  const fetchEmpleados = useCallback(async () => {
-    if (!canRead) return;
-
-    try {
-      setLoading(true)
-      const data = await getEmpleadosConfigNomina();
-      
-      const currentUserId = session?.user?.id;
-      const googleAvatar = session?.user?.user_metadata?.avatar_url;
-
-      const empleadosProcesados = data.map((emp: any) => {
-        const esElUsuarioActual = emp.usuario_id === currentUserId;
-        const noTieneFotoBD = !emp.foto_perfil_url || emp.foto_perfil_url.trim() === '';
-
-        if (esElUsuarioActual && noTieneFotoBD && googleAvatar) {
-            return { ...emp, foto_perfil_url: googleAvatar };
-        }
-        return emp;
-      });
-
-      setEmpleados(empleadosProcesados)
-    } catch (error) {
-      console.error("Error al cargar configuración de nómina:", error)
-    } finally {
-      setLoading(false)
-    }
-  }, [canRead, session]);
-
-  // Carga inicial
   useEffect(() => {
-    if (session) fetchEmpleados();
-  }, [fetchEmpleados, session]);
-
-  // 4. SUSCRIPCIÓN REALTIME (Opcional pero recomendado para que Contabilidad vea cambios en vivo)
-  useEffect(() => {
-    if (!supabase || !canRead) return;
-    
     const channel = supabase.channel('config-nomina-changes')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'empleados' }, () => {
-         // Si alguien actualiza un empleado, recargamos la lista
-         fetchEmpleados();
+         fetchEmpleadosUpdates()
       })
       .subscribe()
       
     return () => { supabase.removeChannel(channel) }
-  }, [supabase, canRead, fetchEmpleados])
+  }, [supabase, fetchEmpleadosUpdates])
 
-  // 5. ACCIÓN: ACTUALIZAR CONFIGURACIÓN
+  // 4. Acción Update con Optimistic UI
   const handleUpdateConfig = async (empleadoId: number, config: NominaConfig) => {
-    if (!canManage) throw new Error("No tienes permisos para modificar la configuración de nómina.");
-    if (userEstado === 'baja') throw new Error("Tu cuenta está desactivada.");
+    if (!canManage) throw new Error("No tienes permisos para modificar la configuración.")
+
+    // Guardamos el estado anterior en caso de que falle
+    const prevEmpleados = [...empleados]
 
     try {
-      // 1. Llamamos al servicio
-      await actualizarConfigNominaEmpleado(empleadoId, config);
-      
-      // 2. Actualización Optimista local (Para que la UI se sienta ultra rápida)
+      // 1. Actualización Optimista local (UI inmediata)
       setEmpleados(prev => prev.map(emp => 
         emp.id === empleadoId ? { ...emp, ...config } : emp
-      ));
+      ))
       
+      // 2. Llamada al Backend
+      await actualizarConfigNominaEmpleado(empleadoId, config)
     } catch (error) {
-      throw error; // Lanzamos el error para que el Cliente (UI) muestre un alert/toast
+      // Revertimos si hay error
+      setEmpleados(prevEmpleados)
+      throw error 
     }
   }
 
   return {
-    empleados,
-    loading,
+    empleados: empleadosFiltrados,
+    searchTerm,
+    setSearchTerm,
     canManage,
-    canRead,
-    handleUpdateConfig,
-    refreshData: fetchEmpleados
+    handleUpdateConfig
   }
 }

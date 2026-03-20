@@ -4,32 +4,29 @@ import AccessDenied from '@/src/components/shared/AccessDenied'
 import GenerarNominaClient from '@/src/components/nomina/generar/GenerarNominaClient'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 export default async function GenerarNominaPage() {
   const supabase = await createClient()
 
+  // 1. Verificación básica de sesión
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: perfil } = await supabase
-    .from('empleados')
-    .select('estado')
-    .eq('usuario_id', user.id)
-    .single()
+  // 2. Fetch en paralelo para eliminar la cascada inicial
+  const [perfilRes, permsRes] = await Promise.all([
+    supabase.from('empleados').select('estado').eq('usuario_id', user.id).single(),
+    supabase.rpc('get_my_permissions_slugs')
+  ])
 
-  if (perfil?.estado === 'baja') {
+  if (perfilRes.data?.estado === 'baja') {
     redirect('/login?error=cuenta_desactivada')
   }
 
-  const { data: perms } = await supabase.rpc('get_my_permissions_slugs')
-  const permisos = perms || []
-
-  // Permiso de lectura o escritura
-  const canAccess = permisos.includes('nomina.read') || permisos.includes('nomina.create') || permisos.includes('acceso_total')
+  const permisos = permsRes.data || []
+  const isAdmin = permisos.includes('acceso_total')
   
-  // Permiso solo de escritura (para bloquear la UI a los contadores)
-  const canManage = permisos.includes('nomina.create') || permisos.includes('acceso_total')
+  const canAccess = permisos.includes('nomina.read') || permisos.includes('nomina.create') || isAdmin
+  const canManage = permisos.includes('nomina.create') || isAdmin
 
   if (!canAccess) {
     return (

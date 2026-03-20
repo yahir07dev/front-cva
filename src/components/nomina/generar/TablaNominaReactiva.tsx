@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react' // AÑADIDO: useMemo
 import { RenglonNomina } from '@/src/services/nomina/generarNominaService'
 import { Calculator, Save, Lock, UserRound, Download, Loader2 } from 'lucide-react'
 import ModalCalculadora from './ModalCalculadora'
@@ -12,20 +12,30 @@ interface TablaProps {
   onChange: (id: number, campo: keyof RenglonNomina, valor: number) => void
   onCalculate: (id: number, valores: ValoresCalculadora) => void
   onSaveTarjeta: (id: number, monto: number) => void
-  totales: any
-  // NUEVAS PROPS PARA EL BOTÓN 👇
   onSaveAndDownload: () => Promise<void>
   descargarSoloPDF: () => void
   guardando: boolean
 }
 
 export default function TablaNominaReactiva({ 
-  renglones, isReadOnly, onChange, onCalculate, onSaveTarjeta, totales,
+  renglones, isReadOnly, onChange, onCalculate, onSaveTarjeta,
   onSaveAndDownload, descargarSoloPDF, guardando
 }: TablaProps) {
   const [empleadoCalculadora, setEmpleadoCalculadora] = useState<RenglonNomina | null>(null)
 
   const formatMoney = (num: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num || 0)
+
+  // 🚀 MEJORA DE RENDIMIENTO: Calculamos los totales aquí mismo en lugar de recibirlo por props.
+  // Esto evita que un cambio en "totales" fuerce un renderizado del padre (GenerarNominaClient) innecesariamente.
+  const totales = useMemo(() => {
+    return renglones.reduce((acc, curr) => ({
+      sueldosGenerados: acc.sueldosGenerados + curr.sueldo_calculado,
+      prestamos: acc.prestamos + curr.descuento_prestamo,
+      anticipos: acc.anticipos + curr.descuento_anticipo,
+      tarjetas: acc.tarjetas + curr.descuento_tarjeta,
+      pagoNetoEfectivo: acc.pagoNetoEfectivo + curr.pago_neto,
+    }), { sueldosGenerados: 0, prestamos: 0, anticipos: 0, tarjetas: 0, pagoNetoEfectivo: 0 })
+  }, [renglones])
 
   if (renglones.length === 0) return null
 
@@ -36,12 +46,11 @@ export default function TablaNominaReactiva({
         bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm
         border border-neutral-200/40 dark:border-neutral-800/50
         shadow-xl shadow-black/5 dark:shadow-black/30
-        h-full /* 👈 Ahora ocupa todo el espacio restante que le da el padre */
-        min-h-[400px]
+        h-full min-h-[400px]
         ${isReadOnly ? 'opacity-90' : ''}
       `}>
 
-        {/* AVISO DE CANDADO (Fijo arriba) */}
+        {/* AVISO DE CANDADO */}
         {isReadOnly && (
           <div className="shrink-0 w-full bg-emerald-900/10 dark:bg-emerald-950/30 p-3 px-4 sm:p-4 sm:px-6 border-b border-emerald-500/10 flex items-center gap-2 sm:gap-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400/90">
             <Lock size={14} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
@@ -49,12 +58,12 @@ export default function TablaNominaReactiva({
           </div>
         )}
 
-        {/* CONTENEDOR SCROLLABLE (Horizontal y Vertical) */}
+        {/* CONTENEDOR SCROLLABLE */}
         <div className="flex-1 overflow-auto w-full scrollbar-thin scrollbar-thumb-emerald-200/50 dark:scrollbar-thumb-emerald-900/50">
           <div className="min-w-[800px] w-full relative">
             <table className="w-full text-left border-separate border-spacing-y-2 sm:border-spacing-y-3 p-2 sm:p-3 md:p-4">
               
-              {/* HEADER DE TABLA (Pegajoso / Sticky) */}
+              {/* HEADER DE TABLA */}
               <thead className="sticky top-0 z-10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-t-xl before:content-[''] before:absolute before:inset-0 before:border-b before:border-neutral-200/40 dark:before:border-neutral-800/50">
                 <tr className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold relative">
                   <th className="px-3 sm:px-4 py-3 font-medium rounded-tl-xl">Empleado</th>
@@ -206,10 +215,9 @@ export default function TablaNominaReactiva({
           </div>
         </div>
 
-        {/* TOTALES (Integrado dentro de la tarjeta, fijo al fondo) */}
+        {/* TOTALES FINALES */}
         <div className="shrink-0 w-full bg-emerald-50/80 dark:bg-emerald-950/80 backdrop-blur-md border-t border-emerald-500/20 p-4 sm:p-5 z-20 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
           
-          {/* Scroll horizontal en móvil para los totales numéricos */}
           <div className="overflow-x-auto w-full md:w-auto scrollbar-none flex-1">
             <div className="flex gap-4 sm:gap-6 text-sm font-medium min-w-max justify-start md:justify-end">
               <div className="flex flex-col items-end">
@@ -237,18 +245,12 @@ export default function TablaNominaReactiva({
             </div>
           </div>
 
-          {/* BOTÓN DE ACCIÓN (Integrado a la derecha) */}
           <div className="w-full md:w-auto shrink-0 flex justify-end">
             {!isReadOnly ? (
               <button
                 onClick={onSaveAndDownload}
                 disabled={guardando}
-                className="
-                  w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500
-                  text-white shadow-lg shadow-emerald-600/20
-                  px-6 py-3 rounded-2xl font-bold text-sm transition-all
-                  flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95
-                "
+                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
               >
                 {guardando ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                 <span>Guardar y Descargar PDF</span>
@@ -256,19 +258,13 @@ export default function TablaNominaReactiva({
             ) : (
               <button
                 onClick={descargarSoloPDF}
-                className="
-                  w-full md:w-auto bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-100
-                  text-white dark:text-neutral-900 shadow-md
-                  px-6 py-3 rounded-2xl font-bold text-sm transition-all
-                  flex items-center justify-center gap-2 active:scale-95
-                "
+                className="w-full md:w-auto bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 shadow-md px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-95"
               >
                 <Download size={18} />
                 <span>Descargar PDF</span>
               </button>
             )}
           </div>
-
         </div>
       </div>
 

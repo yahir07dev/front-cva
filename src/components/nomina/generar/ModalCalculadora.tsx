@@ -1,3 +1,4 @@
+//src/components/nomina/generar/ModalCalculadora.tsx
 'use client'
 
 import { useState, useEffect } from 'react'

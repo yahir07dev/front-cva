@@ -1,13 +1,12 @@
-import { useState, useMemo, useEffect } from 'react'
+// src/hooks/nomina/useGenerarNomina.ts
+import { useState, useEffect } from 'react' // <- useMemo eliminado de los imports
+import { RenglonNomina } from '@/src/services/nomina/generarNominaService'
 import { 
-  getDatosPorDiaDePago, 
-  getEmpleadoParaAgregar, 
-  guardarTarjetaDefecto, 
-  getTodosEmpleadosExtras, 
-  guardarNominaMasiva,
-  getNominaGuardada,
-  RenglonNomina 
-} from '@/src/services/nomina/generarNominaService'
+  cargarNominaPorFechaAction, 
+  getEmpleadoExtraAction, 
+  guardarTarjetaAction, 
+  guardarNominaAction 
+} from '@/src/actions/nomina/generarActions'
 
 export interface ValoresCalculadora {
   diasNormales: number;
@@ -23,14 +22,12 @@ export function useGenerarNomina() {
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [renglones, setRenglones] = useState<RenglonNomina[]>([])
-  
   const [isReadOnly, setIsReadOnly] = useState(false)
-  
   const [empleadosDisponibles, setEmpleadosDisponibles] = useState<any[]>([])
   const [fechasDisponibles, setFechasDisponibles] = useState<{ fecha: string, diaSemana: string, etiqueta: string }[]>([])
-  
   const [fechaActual, setFechaActual] = useState<string>('')
 
+  // 1. Fechas pre-calculadas (Sábados y Domingos del mes anterior y actual)
   useEffect(() => {
     const fechas = [];
     const hoy = new Date();
@@ -51,70 +48,56 @@ export function useGenerarNomina() {
     setFechasDisponibles(fechas.reverse());
   }, []);
   
+  // 2. Carga principal de nómina desde el servidor (Action)
   const cargarGrupo = async (fechaPago: string) => {
     if (!fechaPago) return;
     setLoading(true);
     setFechaActual(fechaPago);
+    
     try {
       const fechaObj = new Date(fechaPago + 'T12:00:00'); 
       const diaString = fechaObj.getDay() === 6 ? 'Sábado' : 'Domingo';
 
-      const guardados = await getNominaGuardada(diaString, fechaPago);
-
-      if (guardados && guardados.length > 0) {
-        setRenglones(guardados);
-        setIsReadOnly(true);
-        setEmpleadosDisponibles([]);
-      } else {
-        const [datos, extras] = await Promise.all([
-          getDatosPorDiaDePago(diaString, fechaPago),
-          getTodosEmpleadosExtras(fechaPago)
-        ]);
-        setRenglones(datos);
-        setEmpleadosDisponibles(extras);
-        setIsReadOnly(false);
-      }
+      const res = await cargarNominaPorFechaAction(fechaPago, diaString);
+      
+      setRenglones(res.renglones);
+      setEmpleadosDisponibles(res.empleadosExtras);
+      setIsReadOnly(res.isReadOnly);
     } catch (error: any) {
-      alert(error.message);
+      alert("Error al cargar datos: " + error.message);
     } finally {
       setLoading(false);
     }
   }
 
+  // 3. Funciones de manipulación de la tabla
   const agregarEmpleadoExtra = async (empleadoId: number) => {
     if (renglones.find(r => r.empleado_id === empleadoId)) return alert("Ya está en la lista.");
     try {
-      const extra = await getEmpleadoParaAgregar(empleadoId);
+      const extra = await getEmpleadoExtraAction(empleadoId);
       setRenglones(prev => [...prev, extra]);
     } catch (e) {
       console.error(e);
     }
   }
 
-  // LÓGICA MATEMÁTICA CORREGIDA PARA EL MEDIO DESCANSO
   const calcularSueldoAsistencia = (sueldoBase: number, vals: ValoresCalculadora) => {
     const pagoDia = sueldoBase / 7;
     const pagoHora = pagoDia / 8;
-
     const totalNormales = vals.diasNormales * pagoDia;
-    
-    // CORRECCIÓN: Si el descanso es Medio (0.5), se le pagan 5 horas (igual que un medio turno) en lugar de 4.
-    let totalDescanso = 0;
-    if (vals.descanso === 1) {
-      totalDescanso = pagoDia;
-    } else if (vals.descanso === 0.5) {
-      totalDescanso = 5 * pagoHora; 
-    }
-
+    let totalDescanso = vals.descanso === 1 ? pagoDia : vals.descanso === 0.5 ? (5 * pagoHora) : 0;
     const totalDiasExtra = vals.diasExtra * pagoDia; 
     const totalMedios = vals.mediosTurnos * (5 * pagoHora); 
     const totalHoras = vals.horas * pagoHora; 
     const totalEspeciales = vals.diasEspeciales * vals.precioEspecial; 
 
     const totalBruto = totalNormales + totalDescanso + totalDiasExtra + totalMedios + totalHoras + totalEspeciales;
-    
-    // Regla de redondeo de 50 en 50
     return Math.round(totalBruto / 50) * 50; 
+  }
+
+  const recalcularRenglon = (renglon: RenglonNomina) => {
+    renglon.pago_neto = Number(renglon.sueldo_calculado) - Number(renglon.descuento_prestamo) - Number(renglon.descuento_anticipo) - Number(renglon.descuento_tarjeta);
+    return renglon;
   }
 
   const aplicarCalculadora = (empleadoId: number, valores: ValoresCalculadora) => {
@@ -136,14 +119,10 @@ export function useGenerarNomina() {
     }))
   }
 
-  const recalcularRenglon = (renglon: RenglonNomina) => {
-    renglon.pago_neto = Number(renglon.sueldo_calculado) - Number(renglon.descuento_prestamo) - Number(renglon.descuento_anticipo) - Number(renglon.descuento_tarjeta);
-    return renglon;
-  }
-
+  // 4. Acciones a la Base de Datos
   const guardarTarjeta = async (empleadoId: number, monto: number) => {
     try {
-      await guardarTarjetaDefecto(empleadoId, monto);
+      await guardarTarjetaAction(empleadoId, monto);
       alert("Monto de tarjeta guardado por defecto.");
     } catch (e) {
       alert("Error al guardar tarjeta.");
@@ -152,17 +131,16 @@ export function useGenerarNomina() {
 
   const handleGuardarNomina = async () => {
     if (!fechaActual || renglones.length === 0) return alert("No hay datos para guardar.");
-    
     setGuardando(true);
+    
     try {
       const fechaObj = new Date(fechaActual + 'T12:00:00');
       const diaString = fechaObj.getDay() === 6 ? 'Sábado' : 'Domingo';
-
       const finPeriodo = new Date(fechaObj);
       const inicioPeriodo = new Date(fechaObj);
       inicioPeriodo.setDate(inicioPeriodo.getDate() - 6);
 
-      await guardarNominaMasiva(
+      await guardarNominaAction(
         diaString,
         inicioPeriodo.toISOString().split('T')[0],
         finPeriodo.toISOString().split('T')[0],
@@ -170,8 +148,8 @@ export function useGenerarNomina() {
         renglones
       );
 
+      // Una vez guardada con éxito, la bloqueamos
       setIsReadOnly(true);
-
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -179,20 +157,21 @@ export function useGenerarNomina() {
     }
   }
 
-  const totales = useMemo(() => {
-    return renglones.reduce((acc, curr) => ({
-      sueldosGenerados: acc.sueldosGenerados + curr.sueldo_calculado,
-      prestamos: acc.prestamos + curr.descuento_prestamo,
-      anticipos: acc.anticipos + curr.descuento_anticipo,
-      tarjetas: acc.tarjetas + curr.descuento_tarjeta,
-      pagoNetoEfectivo: acc.pagoNetoEfectivo + curr.pago_neto,
-    }), { sueldosGenerados: 0, prestamos: 0, anticipos: 0, tarjetas: 0, pagoNetoEfectivo: 0 })
-  }, [renglones])
-
+  // 5. Retorno limpio
   return {
-    loading, guardando, renglones, totales, 
-    empleadosDisponibles, fechasDisponibles, fechaActual, isReadOnly,
-    cargarGrupo, agregarEmpleadoExtra, handleChangeCelda, 
-    aplicarCalculadora, guardarTarjeta, handleGuardarNomina
+    loading, 
+    guardando, 
+    renglones, 
+    // totales, <-- ELIMINADO DE AQUÍ
+    empleadosDisponibles, 
+    fechasDisponibles, 
+    fechaActual, 
+    isReadOnly,
+    cargarGrupo, 
+    agregarEmpleadoExtra, 
+    handleChangeCelda, 
+    aplicarCalculadora, 
+    guardarTarjeta, 
+    handleGuardarNomina
   }
 }

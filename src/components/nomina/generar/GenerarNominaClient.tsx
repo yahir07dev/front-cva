@@ -1,36 +1,58 @@
+// src/components/nomina/generar/GenerarNominaClient.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { Loader2, UserPlus, CalendarDays, ChevronDown, Check } from 'lucide-react'
 import { useGenerarNomina } from '@/src/hooks/nomina/useGenerarNomina'
 import TablaNominaReactiva from './TablaNominaReactiva'
-import { Loader2, UserPlus, CalendarDays, ChevronDown, Check } from 'lucide-react'
 import { generarPDFNomina } from '@/src/lib/utils/reporteNominaGenerator'
 
 export default function GenerarNominaClient({ canManage }: { canManage: boolean }) {
+  // 1. ESTADOS LOCALES DE UI
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('')
   const [extraId, setExtraId] = useState<string>('')
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false)
   const [isEmpMenuOpen, setIsEmpMenuOpen] = useState(false)
 
+  // 2. HOOK DE LÓGICA PRINCIPAL
   const {
-    loading, guardando, renglones, totales,
-    empleadosDisponibles, fechasDisponibles, fechaActual, isReadOnly,
-    cargarGrupo, agregarEmpleadoExtra, handleChangeCelda,
-    aplicarCalculadora, guardarTarjeta, handleGuardarNomina
+    loading, 
+    guardando, 
+    renglones, 
+    empleadosDisponibles, 
+    fechasDisponibles, 
+    fechaActual, 
+    isReadOnly,
+    cargarGrupo, 
+    agregarEmpleadoExtra, 
+    handleChangeCelda,
+    aplicarCalculadora, 
+    guardarTarjeta, 
+    handleGuardarNomina
   } = useGenerarNomina()
 
-  const empleadosParaAgregar = empleadosDisponibles.filter(
-    emp => !renglones.some(r => r.empleado_id === emp.id)
-  )
+  // 3. OPTIMIZACIONES CON USEMEMO
+  // Evitamos recalcular la lista de empleados extra en cada renderizado (tecleo, scroll, etc.)
+  const empleadosParaAgregar = useMemo(() => {
+    return empleadosDisponibles.filter(
+      emp => !renglones.some(r => r.empleado_id === emp.id)
+    )
+  }, [empleadosDisponibles, renglones])
 
   const candadoActivo = isReadOnly || !canManage
 
-  const onSaveAndDownload = async () => {
-    await handleGuardarNomina()
-    descargarSoloPDF()
-  }
+  const selectedDateLabel = useMemo(() => {
+    return fechasDisponibles.find(f => f.fecha === fechaSeleccionada)?.etiqueta || 'Selecciona un sábado o domingo...'
+  }, [fechasDisponibles, fechaSeleccionada])
 
-  const descargarSoloPDF = () => {
+  const selectedEmp = useMemo(() => {
+    return empleadosParaAgregar.find(e => e.id.toString() === extraId)
+  }, [empleadosParaAgregar, extraId])
+  
+  const selectedEmpLabel = selectedEmp ? `${selectedEmp.nombre} ${selectedEmp.apellidos}` : 'Buscar empleado extra...'
+
+  // 4. FUNCIONES DE ACCIÓN MEMORIZADAS (useCallback)
+  const descargarSoloPDF = useCallback(() => {
     const detalleParaPDF = renglones.map(r => ({
       ...r,
       total_percepciones: r.sueldo_calculado,
@@ -41,12 +63,14 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
       }
     }))
     generarPDFNomina(fechaActual, detalleParaPDF)
+  }, [renglones, fechaActual])
+
+  const onSaveAndDownload = async () => {
+    await handleGuardarNomina()
+    descargarSoloPDF()
   }
 
-  const selectedDateLabel = fechasDisponibles.find(f => f.fecha === fechaSeleccionada)?.etiqueta || 'Selecciona un sábado o domingo...'
-  const selectedEmp = empleadosParaAgregar.find(e => e.id.toString() === extraId)
-  const selectedEmpLabel = selectedEmp ? `${selectedEmp.nombre} ${selectedEmp.apellidos}` : 'Buscar empleado extra...'
-
+  // 5. RENDERIZADO
   return (
     <div className="w-full mx-auto flex flex-col h-[calc(100vh-8rem)] pb-4 sm:pb-8 relative">
 
@@ -215,14 +239,13 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col w-full">
-        {/* 👇 Le pasamos el estado de guardado y las funciones al componente de la tabla */}
+        {/* 👇 El componente Tabla recibe exactamente las funciones que necesita */}
         <TablaNominaReactiva
           renglones={renglones}
           isReadOnly={candadoActivo}
           onChange={handleChangeCelda}
           onCalculate={aplicarCalculadora}
           onSaveTarjeta={guardarTarjeta}
-          totales={totales}
           onSaveAndDownload={onSaveAndDownload}
           descargarSoloPDF={descargarSoloPDF}
           guardando={guardando}
