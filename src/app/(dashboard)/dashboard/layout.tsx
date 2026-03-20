@@ -4,7 +4,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { AuthProvider } from "@/src/context/AuthContext";
 
-// 🚀 IMPORTAMOS EL SIDEBAR CLIENTE (El que optimizamos sin el useEffect)
+// IMPORTAMOS EL SIDEBAR CLIENTE (El que optimizamos sin el useEffect)
 import SidebarClient from "@/src/components/sidebar/SidebarClient";
 import Header from "@/src/components/shared/Header";
 
