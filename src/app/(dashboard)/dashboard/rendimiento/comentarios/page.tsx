@@ -2,6 +2,13 @@ import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FeedbackClient from '@/src/components/perfomance/feedback/FeedbackClient' 
 import AccessDenied from '@/src/components/shared/AccessDenied'
+import { Metadata } from 'next'
+
+
+export const metadata: Metadata = {
+  title: 'Comentarios',
+  description: 'Gestión de comentarios y retroalimentación del sistema'
+}
 
 export const dynamic = 'force-dynamic'
 

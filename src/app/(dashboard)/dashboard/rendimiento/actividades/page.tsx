@@ -1,8 +1,15 @@
+import { Metadata } from 'next' // 👈 1. Importamos Metadata de Next.js
 import { createClient } from '@/src/lib/supabase/server'
 import ActividadesClient from '@/src/components/perfomance/actividades/ActividadesClient'
 import { ActividadConRelaciones } from '@/src/types/performance'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
+
+// 👇 2. Exportamos el objeto metadata
+export const metadata: Metadata = {
+  title: 'Actividades',
+  description: 'Gestión y seguimiento de actividades del personal.',
+}
 
 export const dynamic = 'force-dynamic'
 

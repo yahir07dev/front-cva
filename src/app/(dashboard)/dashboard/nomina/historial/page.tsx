@@ -3,6 +3,12 @@ import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
 import HistorialNominaClient from '@/src/components/nomina/historial/HistorialNominaClient'
 import { getHistorialResumenAction } from '@/src/actions/nomina/generarActions'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Historial de Nómina',
+  description: 'Revisa el historial de nóminas generadas, con detalles de cada periodo y su estado.'
+}
 
 export const dynamic = 'force-dynamic'
 

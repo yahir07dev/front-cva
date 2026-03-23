@@ -3,6 +3,12 @@ import { redirect } from 'next/navigation'
 import ReportesClient from '@/src/components/perfomance/reportes/ReportesClient'
 import AccessDenied from '@/src/components/shared/AccessDenied'
 import { calcularRankingData, calcularGraficaData } from '@/src/lib/utils/perfomanceCalculator'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Reportes de Rendimiento',
+  description: 'Visualiza tu rendimiento laboral a través de reportes detallados y gráficos interactivos.'
+}
 
 export const dynamic = 'force-dynamic'
 

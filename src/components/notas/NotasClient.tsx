@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Plus, Pin, Trash2, Save, Loader2, Search, ChevronLeft, MoreVertical, CheckCircle2 } from 'lucide-react'
+import { Plus, Pin, Trash2, Loader2, Search, MoreVertical, CheckCircle2 } from 'lucide-react'
 import { useNotasGlobales } from '@/src/hooks/notas/useNotasGlobales'
 import NotaEditor from './NotaEditor'
 import { createClient } from '@/src/lib/supabase/client'
-import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion' // <-- IMPORTANTE: Ajusta la ruta si es diferente
+import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion'
 
 import { generateHTML } from '@tiptap/html'
 import StarterKit from '@tiptap/starter-kit'
@@ -40,19 +40,26 @@ function isDark(hex: string) {
   return (r * 299 + g * 587 + b * 114) / 1000 < 128
 }
 
-export default function NotasClient() {
+interface NotasClientProps {
+  initialNotas: any[]
+  permissions: { canManage: boolean, canCreate: boolean, canDelete: boolean }
+  userId: string
+}
+
+export default function NotasClient({ initialNotas, permissions, userId }: NotasClientProps) {
   const supabase = useMemo(() => createClient(), [])
+  const { canManage, canCreate, canDelete } = permissions;
+
   const {
-    notas, loading, canManage, canCreate, canDelete,
+    notas,
     handleCreate, handleUpdate, handleDelete, handleTogglePin,
-  } = useNotasGlobales()
+  } = useNotasGlobales({ initialNotas, userId })
 
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'idle'|'saving'|'saved'>('idle')
 
-  // 👇 NUEVOS ESTADOS PARA EL MODAL DE ELIMINAR 👇
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -67,6 +74,7 @@ export default function NotasClient() {
   }, [notas, search])
 
   const openCreateModal = async () => {
+    if (!canCreate) return;
     try {
       const nuevaNota = await handleCreate('', '', BG_COLORS[0]) 
       setCurrentNota({
@@ -149,12 +157,8 @@ export default function NotasClient() {
   }, [currentNota, notas, modalOpen, handleUpdate]);
 
 
-  // 👇 LÓGICA DE ELIMINAR CON MODAL 👇
   const triggerDelete = (id: string, e?: React.SyntheticEvent) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
+    if (e) { e.stopPropagation(); e.preventDefault(); }
     setNoteToDelete(id);
     setDeleteModalOpen(true);
     setShowMoreMenu(false);
@@ -166,10 +170,7 @@ export default function NotasClient() {
     try {
       await handleDelete(noteToDelete);
       setDeleteModalOpen(false);
-      // Si la nota que borramos es la que está abierta actualmente, cerramos el editor
-      if (currentNota?.id === noteToDelete) {
-        setModalOpen(false);
-      }
+      if (currentNota?.id === noteToDelete) setModalOpen(false);
       setNoteToDelete(null);
     } catch (e) {
       alert("Error al eliminar la nota.");
@@ -178,9 +179,7 @@ export default function NotasClient() {
     }
   }
 
-
-  if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-[#25C2FF]" size={32} /></div>
-  if (!canManage && !canCreate) return <div className="flex h-full items-center justify-center text-neutral-500">No tienes permisos para ver las notas.</div>
+  // No necesitamos IF LOADING, nace renderizado
 
   const noteBgColor  = currentNota?.colorFondo || BG_COLORS[0]
   const noteDark     = isDark(noteBgColor)
@@ -242,7 +241,6 @@ export default function NotasClient() {
                   </div>
                 </div>
 
-                {/* 👇 BOTÓN ELIMINAR: Visible en móvil siempre (opacity-100), oculto en PC (sm:opacity-0) hasta hacer hover 👇 */}
                 {canDelete && (
                   <button 
                     onClick={e => triggerDelete(nota.id, e)} 
@@ -298,7 +296,6 @@ export default function NotasClient() {
                   </button>
                 )}
 
-                {/* BOTÓN MENÚ ELIMINAR */}
                 {currentNota.id && canDelete && (
                   <div className="relative">
                     <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="p-2 rounded-full hover:bg-[rgba(128,128,128,0.2)] active:scale-95 transition-all">
@@ -311,7 +308,6 @@ export default function NotasClient() {
                         <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl border border-neutral-100 dark:border-neutral-700 py-1.5 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                           <button
                             type="button"
-                            // 👇 Disparamos triggerDelete en vez de window.confirm 👇
                             onPointerDown={(e) => triggerDelete(currentNota.id!, e)}
                             className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 font-bold transition-colors"
                           >
@@ -362,13 +358,9 @@ export default function NotasClient() {
         </div>
       )}
 
-      {/* ── MODAL DE CONFIRMACIÓN DE ELIMINACIÓN ─────────────────────────── */}
       <ModalConfirmacion
         isOpen={deleteModalOpen}
-        onClose={() => {
-          setDeleteModalOpen(false);
-          setNoteToDelete(null);
-        }}
+        onClose={() => { setDeleteModalOpen(false); setNoteToDelete(null); }}
         onConfirm={executeDelete}
         titulo="Eliminar Nota"
         descripcion="¿Estás seguro de que quieres eliminar esta nota? Esta acción no se puede deshacer y desaparecerá para todos los administradores."
