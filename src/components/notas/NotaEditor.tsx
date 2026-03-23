@@ -1,3 +1,4 @@
+//src/components/notas/NotaEditor.tsx
 'use client'
 
 import { useRef, useState, useCallback } from 'react'

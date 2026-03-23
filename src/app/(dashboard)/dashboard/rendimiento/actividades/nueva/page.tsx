@@ -2,6 +2,13 @@ import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
 import NuevaActividadClient from '@/src/components/perfomance/actividades/NuevaActividadClient'
+import { Metadata } from 'next'
+
+  
+export const metadata: Metadata = {
+  title: 'Nueva Actividad',
+  description: 'Crear nueva actividad en el sistema'
+}
 
 export const dynamic = 'force-dynamic'
 

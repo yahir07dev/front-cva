@@ -2,6 +2,12 @@ import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
 import PrestamosClient from '@/src/components/nomina/prestamos/PrestamosClient'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Préstamos',
+  description: 'Gestiona los préstamos otorgados a los empleados, con detalles de pagos y saldos.'
+}
 
 export const dynamic = 'force-dynamic'
 

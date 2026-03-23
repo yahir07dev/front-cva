@@ -2,6 +2,12 @@ import { createClient } from '@/src/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
 import ConfigNominaClient from '@/src/components/nomina/configuracion/ConfigNominaClient'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Configuración de Nómina',
+  description: 'Administra la nómina, sueldos y detalles de pago del personal.'
+}
 
 export const dynamic = 'force-dynamic'
 

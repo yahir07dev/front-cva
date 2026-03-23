@@ -1,74 +1,85 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, LayoutGrid } from 'lucide-react'
+import { Plus, Search, LayoutGrid, Loader2 } from 'lucide-react'
 import { useAreasData } from '@/src/hooks/organizacion/useAreasData'
 import AreaCard from './AreaCard'
 import AreaModal from './AreaModal'
 import AreaStats from './AreaStats'
 import AreaAssignment from './AreaAssignment'
-import SkeletonLoader from '@/src/components/shared/SkeletonLoader'
-import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion' // <-- NUEVO MODAL IMPORTADO
+import ModalConfirmacion from '@/src/components/shared/ModalConfirmacion'
 
 interface AreasClientProps {
   initialAreas: any[]
   initialEmpleados: any[]
+  canManage: boolean
 }
 
-export default function AreasClient({ initialAreas, initialEmpleados }: AreasClientProps) {
+export default function AreasClient({ initialAreas, initialEmpleados, canManage }: AreasClientProps) {
   const { 
-    areas, empleados, loading, canManage, 
+    areas, empleados, 
     handleCrear, handleEditar, handleEliminar, handleAsignar 
-  } = useAreasData(initialAreas, initialEmpleados)
+  } = useAreasData(initialAreas, initialEmpleados, canManage)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [areaToEdit, setAreaToEdit] = useState<any>(null)
   const [filter, setFilter] = useState('')
 
-  // ESTADOS PARA EL MODAL DE ELIMINACIÓN
   const [areaToDelete, setAreaToDelete] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const areasFiltradas = areas.filter(a => 
     a.nombre.toLowerCase().includes(filter.toLowerCase())
   )
 
-  if (loading && areas.length === 0) return <SkeletonLoader type="grid" />
-
-  // Al pasarle esto a AreaCard, si no eres Admin, simplemente no renderizará los botones de edición/borrado.
   const permisosParaCard = { canUpdate: canManage, canDelete: canManage }
 
   const handleModalSubmit = async (nombre: string, descripcion: string, encargadoId: number | null) => {
+    setIsSaving(true)
     try {
       if (areaToEdit) await handleEditar(areaToEdit.id, nombre, descripcion, encargadoId)
       else await handleCrear(nombre, descripcion, encargadoId)
       setIsModalOpen(false); setAreaToEdit(null)
-    } catch (error) { console.error(error) }
+    } catch (error: any) { 
+      alert("Error al guardar: " + error.message) 
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  // FUNCIÓN PARA CONFIRMAR LA ELIMINACIÓN CON EL NUEVO MODAL
   const confirmDelete = async () => {
     if (!areaToDelete) return;
     setIsDeleting(true);
     try {
       await handleEliminar(areaToDelete);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      alert("Error al eliminar: " + error.message);
     } finally {
       setIsDeleting(false);
       setAreaToDelete(null);
     }
   }
 
+  // Se ha removido el SkeletonLoader (if loading return Skeleton) ya que ahora todo lo hace el SSR
+  // El componente nunca nace "loading", nace listo con los initialAreas.
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 bg-neutral-50 dark:bg-neutral-950 min-h-screen">
+    <div className="space-y-6 animate-in fade-in duration-500 bg-neutral-50 dark:bg-neutral-950 min-h-screen relative">
       
-      {/* 1. Estadísticas - Ahora se integra con el fondo */}
+      {/* OVERLAY DE GUARDADO (opcional pero ayuda a la percepción de rapidez) */}
+      {isSaving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm cursor-wait">
+          <Loader2 className="animate-spin text-blue-500" size={32} />
+        </div>
+      )}
+
+      {/* 1. Estadísticas */}
       <div className="px-6 pt-6">
         <AreaStats empleados={empleados} areas={areas} />
       </div>
 
-      {/* 2. Buscador y Botón - Integrado sin bordes */}
+      {/* 2. Buscador y Botón */}
       <div className="sticky top-0 z-10 bg-neutral-50/80 dark:bg-neutral-950/80 backdrop-blur-md py-4 px-6">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
           <div className="relative w-full sm:max-w-md group">
@@ -94,11 +105,10 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
         </div>
       </div>
 
-      {/* 3. Grid de Contenido - Sin fondos adicionales */}
+      {/* 3. Grid de Contenido */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-6 pb-6">
         
-        {/* Asignación - Componente con su propio fondo */}
-        {/* Usamos opacity y pointer-events para ocultar o bloquear la asignación si no es admin */}
+        {/* Asignación */}
         <div className={`lg:col-span-4 order-1 lg:order-2 transition-opacity ${!canManage ? 'opacity-50 pointer-events-none hidden lg:block' : ''}`}>
           <div className="max-h-[500px] lg:max-h-none flex flex-col h-full">
             <AreaAssignment 
@@ -109,8 +119,7 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
           </div>
         </div>
 
-        {/* Catálogo de Áreas - Grid de cards */}
-        {/* Si no es admin, la cuadrícula toma el 100% del ancho para no dejar un hueco en blanco */}
+        {/* Catálogo de Áreas */}
         <div className={`${canManage ? 'lg:col-span-8' : 'lg:col-span-12'} order-2 lg:order-1`}>
           {areasFiltradas.length > 0 ? (
             <div className={`grid grid-cols-1 gap-4 ${canManage ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
@@ -120,7 +129,7 @@ export default function AreasClient({ initialAreas, initialEmpleados }: AreasCli
                   area={area} 
                   permisos={permisosParaCard}
                   onEdit={(a) => { setAreaToEdit(a); setIsModalOpen(true); }}
-                  onDelete={(id) => setAreaToDelete(id)} // <-- AHORA ABRE NUESTRO MODAL EN VEZ DEL BROWSER ALERT
+                  onDelete={(id) => setAreaToDelete(id)} 
                 />
               ))}
             </div>

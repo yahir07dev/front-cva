@@ -3,6 +3,12 @@ import { redirect } from 'next/navigation'
 import AccessDenied from '@/src/components/shared/AccessDenied'
 import CapacitacionClient from '@/src/components/capacitacion/admin/CapacitacionClient'
 import { getCursosAction } from '@/src/actions/capacitacion/capacitacionActions'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Academia de Capacitación',
+  description: 'Accede a cursos y capacitaciones para mejorar tus habilidades laborales.'
+}
 
 export const dynamic = 'force-dynamic'
 
