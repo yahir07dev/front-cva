@@ -1,19 +1,29 @@
 import { Metadata } from "next";
 import { createClient } from "@/src/lib/supabase/server";
 import EmpleadosTable from "@/src/components/employees/EmployeesTable";
-import AccessDenied from "@/src/components/shared/AccessDenied"; // Importamos el componente de bloqueo
+import AccessDenied from "@/src/components/shared/AccessDenied";
 
 export const metadata: Metadata = {
   title: "Empleados",
   description: "Resumen general",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function EmpleadosPage() {
   const supabase = await createClient();
 
-  // 1. Validar Permisos explícitamente
-  const { data: perms } = await supabase.rpc('get_my_permissions_slugs');
-  const permisos = perms || [];
+  // 1. Validar Permisos y Cargar Datos en PARALELO
+  const [permsRes, empleadosRes] = await Promise.all([
+    supabase.rpc('get_my_permissions_slugs'),
+    supabase.from("empleados")
+      .select("id, nombre, apellidos, estado, fecha_ingreso, rol:roles!empleados_rol_id_fkey(nombre), area:areas!empleados_area_id_fkey(nombre)")
+      .eq("estado", "activo")
+      .order("created_at", { ascending: false })
+  ]);
+
+  const permisos = permsRes.data || [];
+  const empleadosData = empleadosRes.data || [];
   
   // 2. Le damos pase libre si tiene acceso total, lectura de empleados o actualización
   const tieneAcceso = permisos.includes('acceso_total') || 
@@ -24,15 +34,17 @@ export default async function EmpleadosPage() {
     return <AccessDenied message="No tienes permisos para ver el módulo de Empleados." />
   }
 
-  // 3. Obtenemos solo el conteo para el indicador del header
-  const { count } = await supabase
-    .from("empleados")
-    .select("*", { count: "exact", head: true })
-    .eq("estado", "activo");
+  // 3. Formateamos los datos para la tabla
+  const empleadosNormalizados = empleadosData.map((emp: any) => ({
+    ...emp,
+    rol: Array.isArray(emp.rol) ? (emp.rol[0] ?? null) : (emp.rol ?? null),
+    area: Array.isArray(emp.area) ? (emp.area[0] ?? null) : (emp.area ?? null),
+  }));
+
+  const count = empleadosNormalizados.length;
 
   return (
     <div className="w-full min-h-screen bg-transparent transition-colors duration-300">
-      {/* Header de la sección */}
       <header className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900 dark:text-white">
@@ -43,17 +55,16 @@ export default async function EmpleadosPage() {
           </p>
         </div>
 
-        {/* ETIQUETA CORREGIDA: Cambia de fondo y borde según el tema */}
         <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-white/70 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-xl shadow-sm">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
             <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {count || 0} Activos
+            {count} Activos
           </span>
         </div>
       </header>
 
-      {/* Tabla */}
-      <EmpleadosTable />
+      {/* Tabla (Se le inyectan los datos) */}
+      <EmpleadosTable initialEmpleados={empleadosNormalizados} />
     </div>
   );
 }

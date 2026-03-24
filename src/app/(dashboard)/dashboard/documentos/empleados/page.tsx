@@ -1,3 +1,4 @@
+//src/app/(dashboard)/dashboard/documentos/empleados/page.tsx
 import { Metadata } from "next";
 import { createClient } from "@/src/lib/supabase/server";
 import EmpleadoGrid from "@/src/components/documents/EmployeesGrid";
