@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Onest } from "next/font/google";
 import "./globals.css";
 
+
 const onest = Onest({
   variable: "--font-onest",
   subsets: ["latin"],
@@ -18,9 +19,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+    icons: {
+    icon: '/icon2.png',
+  },
   title: {
     template: "%s | CVA",
     default: "SIGE | CVA",
+
   },
   description: "Sistema Integral de Gestión Empresarial",
 };
