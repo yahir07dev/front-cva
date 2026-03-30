@@ -24,6 +24,7 @@ import {
   UserCog,
   Newspaper,
   Timer,
+  ChartSpline,
 } from "lucide-react";
 
 // Definimos interfaces
@@ -179,48 +180,28 @@ export default function Sidebar({ permissions = [] }: SidebarProps) {
       ],
       //path: "/dashboard/documentos",
     },
-    {
-      id: "rendimiento",
-      icon: <TrendingUp size={20} />,
-      label: "Rendimiento",
-      hasSubmenu: true,
-      permission: [
-        "rendimiento.create",
-        "actividades.create",
-        "asignaciones.create",
-      ],
-      // Si no tiene 'permission', es público (o depende solo de sus hijos)
-      submenu: [
-        {
-          icon: <TrendingUp size={18} />,
-          label: "Actividades",
-          path: "/dashboard/rendimiento/actividades",
-        },
-        {
-          icon: <Users size={18} />,
-          label: "Feedback",
-          path: "/dashboard/rendimiento/comentarios",
-        },
-        {
-          icon: <BarChart3 size={18} strokeWidth={2} />,
-          label: "Analítica",
-          path: "/dashboard/rendimiento/reportes",
-        },
-      ],
-    },
-    {
-      id: "nomina",
-      icon: <Banknote size={20} />,
-      label: "Nómina",
-      path: "/dashboard/nomina",
-      // Ejemplo: si quisieras restringir nomina:
-      // permission: "nomina.view"
-    },
+
     {
       id: "asistencia",
       icon: <Timer size={20} />,
       label: "Asistencia",
+      hasSubmenu: true,
+      permission: "asistencia.read",
       path: "/dashboard/asistencia",
+      submenu: [
+        {
+          icon: <ChartSpline size={18} />,
+          label: "Analitica",
+          permission: "asistencia.read",
+          path: "/dashboard/asistencia/analitica",
+        },
+        {
+          icon: <UserPen size={18} />,
+          label: "Generar Reportes",
+          permission: "asistencia.create",
+          path: "/dashboard/asistencia/reportes",
+        },
+      ],
     },
   ];
 

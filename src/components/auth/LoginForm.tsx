@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/src/lib/supabase";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Lógica para Login con Correo
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -32,7 +34,8 @@ export default function LoginPage() {
           .eq("usuario_id", data.user.id)
           .single();
 
-        if (!empleado || empleado.estado === "baja" || empleado.deleted_at) {
+        if (!empleado) {
+        } else if (empleado.estado === "baja" || empleado.deleted_at) {
           await supabase.auth.signOut();
           alert("Tu cuenta ha sido desactivada :(");
           return;
@@ -159,14 +162,34 @@ export default function LoginPage() {
                 <label className="block mb-2 text-sm font-medium text-gray-400">
                   Contraseña
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#2a2a2a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-white placeholder-gray-500"
-                  placeholder="••••••••••"
-                  required
-                />
+
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#2a2a2a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-white placeholder-gray-500 pr-12"
+                    placeholder="••••••••••"
+                    required
+                  />
+
+                  {/* Botón del ojo */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus:outline-none"
+                  >
+                    {showPassword ? (
+                      <span>
+                        <EyeOff size={24}></EyeOff>
+                      </span> // Aquí puedes poner un icono como <EyeOff size={20} />
+                    ) : (
+                      <span>
+                        <Eye size={24}></Eye>
+                      </span> // Aquí puedes poner un icono como <Eye size={20} />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button

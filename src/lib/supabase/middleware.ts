@@ -52,6 +52,10 @@ export async function updateSession(request: NextRequest) {
   // validar si tiene perfil de empleado usuario
   let hasProfile = false;
 
+  // si tiene usuario pero no perfil de empleado, significa que es el perfil nuevo
+  if (user) {
+  }
+
   if (user) {
     const { data } = await supabase
       .from("empleados")
