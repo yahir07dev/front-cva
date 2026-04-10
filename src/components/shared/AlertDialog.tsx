@@ -1,22 +1,22 @@
 "use client";
 
-import { BadgeCheck } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
-interface SuccessDialogProps {
+interface AlertDialogProps {
   open: boolean;
-  title?: string;
+  title: string;
   description?: string;
   buttonText?: string;
   onClose: () => void;
 }
 
-export default function SuccessDialog({
+export default function AlertDialog({
   open,
-  title = "Guardado con éxito",
-  description = "Los cambios se guardaron correctamente.",
+  title,
+  description,
   buttonText = "Aceptar",
   onClose,
-}: SuccessDialogProps) {
+}: AlertDialogProps) {
   if (!open) return null;
 
   return (
@@ -27,8 +27,8 @@ export default function SuccessDialog({
         <div className="flex flex-col items-center text-center">
           
           {/* Contenedor del Icono Modernizado */}
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-4 ring-emerald-50/50 dark:ring-emerald-500/5">
-            <BadgeCheck className="h-8 w-8" strokeWidth={2} />
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-4 ring-rose-50/50 dark:ring-rose-500/5">
+            <AlertTriangle className="h-8 w-8" strokeWidth={2} />
           </div>
 
           {/* Título */}
@@ -37,14 +37,16 @@ export default function SuccessDialog({
           </h2>
 
           {/* Descripción */}
-          <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-8 leading-relaxed px-2">
-            {description}
-          </p>
+          {description && (
+            <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-8 leading-relaxed px-2">
+              {description}
+            </p>
+          )}
 
           {/* Botón de Acción */}
           <button
             onClick={onClose}
-            className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 dark:shadow-emerald-500/10 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 dark:focus:ring-offset-neutral-900 active:scale-[0.97]"
+            className="w-full py-3.5 px-4 rounded-2xl bg-rose-600 text-white font-bold hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600 shadow-lg shadow-rose-500/25 dark:shadow-rose-500/10 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:ring-offset-2 dark:focus:ring-offset-neutral-900 active:scale-[0.97]"
           >
             {buttonText}
           </button>
