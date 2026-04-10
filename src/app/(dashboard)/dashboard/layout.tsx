@@ -22,33 +22,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // 2. FETCH EN PARALELO: Permisos y Perfil del Empleado (Destruyendo la cascada)
-  const [permissionsRes, empRes] = await Promise.all([
-    supabase.rpc("get_my_permissions_slugs"),
-    supabase.from("empleados").select("id").eq("usuario_id", user.id).single()
-  ]);
-
-  const permissions = permissionsRes.data || [];
-  
-  // 3. Lógica calculada en el Servidor para el Sidebar
-  const canManageCourses = 
-    permissions.includes("acceso_total") || 
-    permissions.includes("cursos.create") || 
-    permissions.includes("cursos.update");
-
-  let hasAssignedCourses = false;
-
-  // Si el usuario no es admin de cursos, verificamos rápidamente si tiene cursos pendientes
-  // Esto evita que el Sidebar muestre la pestaña de "Capacitación" vacía.
-  if (empRes.data && !canManageCourses) {
-    const { count } = await supabase
-      .from("asignacion_cursos")
-      .select("*", { count: "exact", head: true })
-      .eq("empleado_id", empRes.data.id)
-      .neq("estado", "completado"); // Solo contamos los cursos que aún no termina
-      
-    hasAssignedCourses = (count ?? 0) > 0;
-  }
+  // 2. FETCH DE PERMISOS (Ultra optimizado: 1 sola llamada a la BD)
+  const { data: permissionsRes } = await supabase.rpc("get_my_permissions_slugs");
+  const permissions = permissionsRes || [];
 
   return (
     <ThemeProvider>
@@ -64,10 +40,7 @@ export default async function DashboardLayout({
         >
           <div className="flex-none z-50">
             {/* 👇 El Sidebar ahora es puramente visual y renderiza instantáneamente */}
-            <SidebarClient 
-              permissions={permissions} 
-              hasAssignedCourses={hasAssignedCourses}
-            />
+            <SidebarClient permissions={permissions} />
           </div>
 
           {/* MAIN: flex-1 asegura que tome el resto del ancho, h-full el alto total */}

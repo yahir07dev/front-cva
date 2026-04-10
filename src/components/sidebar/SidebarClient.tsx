@@ -33,14 +33,12 @@ interface SubMenuItem { icon: JSX.Element; label: string; path: string; permissi
 interface MenuItem {
   id: string; icon: JSX.Element; label: string; path?: string;
   hasSubmenu?: boolean; submenu?: SubMenuItem[];
-  permission?: string | string[]; isCapacitacion?: boolean;
+  permission?: string | string[];
   strict?: boolean;
 }
 
-// 🚀 ACEPTAMOS PROPS DESDE EL SERVIDOR (Adiós Waterfall)
 interface SidebarProps { 
   permissions: string[];
-  hasAssignedCourses: boolean;
 }
 
 /* ──────────────────────────────────────────────────────── ACCENT TOKENS */
@@ -126,7 +124,7 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 /* ──────────────────────────────────────────────────────── COMPONENT */
-export default function SidebarClient({ permissions = [], hasAssignedCourses }: SidebarProps) {
+export default function SidebarClient({ permissions = [] }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { toggleTheme } = useTheme();
@@ -139,9 +137,6 @@ export default function SidebarClient({ permissions = [], hasAssignedCourses }: 
   const [openMenus, setOpenMenus]       = useState<string[]>([]);
   const [optimisticPath, setOptimisticPath] = useState<string>(pathname);
   const [isPending, startTransition]    = useTransition();
-
-  // 🚀 CÁLCULO SINCRÓNICO (Instantáneo)
-  const canManageCourses = permissions.includes("acceso_total") || permissions.includes("cursos.create") || permissions.includes("cursos.update");
 
   useEffect(() => { setMobileOpen(false); setOptimisticPath(pathname); }, [pathname]);
 
@@ -202,7 +197,7 @@ export default function SidebarClient({ permissions = [], hasAssignedCourses }: 
         { icon: <BarChart3 size={16} />, label: "Reportes", path: "/dashboard/rendimiento/reportes", permission: ["reportes.read_all","acceso_total","actividades.read"] },
       ],
     },
-    { id: "capacitacion", icon: <GraduationCap size={18} />, label: "Capacitación", path: "/dashboard/capacitacion", isCapacitacion: true },
+    { id: "capacitacion", icon: <GraduationCap size={18} />, label: "Capacitación", path: "/dashboard/capacitacion" },
     {
       id: "nomina", icon: <Banknote size={18} />, label: "Nómina",
       hasSubmenu: true, permission: ["nomina.read","nomina.create","nomina.update","prestamos.read","acceso_total"],
@@ -225,9 +220,7 @@ export default function SidebarClient({ permissions = [], hasAssignedCourses }: 
     };
 
     return rawMenuItems.reduce((acc, item) => {
-      if (item.isCapacitacion) {
-        if (!canManageCourses && !hasAssignedCourses) return acc;
-      } else if (!checkAccess(item.permission, item.strict)) return acc;
+      if (!checkAccess(item.permission, item.strict)) return acc;
 
       let finalSubmenu = item.submenu;
       if (item.submenu) {
@@ -237,7 +230,7 @@ export default function SidebarClient({ permissions = [], hasAssignedCourses }: 
       acc.push({ ...item, submenu: finalSubmenu });
       return acc;
     }, [] as MenuItem[]);
-  }, [permissions, canManageCourses, hasAssignedCourses]);
+  }, [permissions]);
 
   const isActive = (path?: string) => path && optimisticPath === path;
   const isSectionActive = (hasSubmenu?: boolean, id?: string, itemPath?: string) => {

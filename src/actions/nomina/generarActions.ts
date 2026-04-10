@@ -1,3 +1,4 @@
+//src/actions/nomina/generarActions.ts
 'use server'
 
 import { createClient } from '@/src/lib/supabase/server'

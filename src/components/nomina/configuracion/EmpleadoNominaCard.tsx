@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Edit2, Save, CreditCard, Banknote, Loader2, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Edit2, Save, CreditCard, Banknote, Loader2, X, DollarSign } from 'lucide-react'
 import { NominaConfig } from '@/src/services/nomina/nominaService'
 
 interface EmpleadoNominaCardProps {
@@ -14,10 +14,21 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Estados locales del formulario
+  // 1. Estados locales del formulario (Incluimos el nuevo campo)
   const [sueldo, setSueldo] = useState<number | ''>(empleado.sueldo_base || '')
   const [diaPago, setDiaPago] = useState<'Sábado' | 'Domingo' | ''>(empleado.dia_pago || '')
   const [conTarjeta, setConTarjeta] = useState<boolean>(empleado.recibe_pago_tarjeta || false)
+  const [montoTarjeta, setMontoTarjeta] = useState<number | ''>(empleado.monto_tarjeta_defecto || '')
+
+  // Sincronizar estados si los datos del empleado cambian (Realtime)
+  useEffect(() => {
+    if (!isEditing) {
+      setSueldo(empleado.sueldo_base || '')
+      setDiaPago(empleado.dia_pago || '')
+      setConTarjeta(empleado.recibe_pago_tarjeta || false)
+      setMontoTarjeta(empleado.monto_tarjeta_defecto || '')
+    }
+  }, [empleado, isEditing])
 
   const handleSave = async () => {
     setLoading(true)
@@ -25,7 +36,9 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
       await onSave(empleado.id, {
         sueldo_base: sueldo === '' ? null : Number(sueldo),
         dia_pago: diaPago,
-        recibe_pago_tarjeta: conTarjeta
+        recibe_pago_tarjeta: conTarjeta,
+        // 🚀 NUEVO: Enviamos el monto de la tarjeta al guardar
+        monto_tarjeta_defecto: conTarjeta ? (montoTarjeta === '' ? 0 : Number(montoTarjeta)) : 0
       })
       setIsEditing(false)
     } finally {
@@ -37,10 +50,12 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
     setSueldo(empleado.sueldo_base || '')
     setDiaPago(empleado.dia_pago || '')
     setConTarjeta(empleado.recibe_pago_tarjeta || false)
+    setMontoTarjeta(empleado.monto_tarjeta_defecto || '')
     setIsEditing(false)
   }
 
   const getInitials = (n: string, a: string) => `${n?.[0] || ''}${a?.[0] || ''}`.toUpperCase()
+  const formatMoney = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n)
 
   return (
     <div className={`
@@ -58,15 +73,10 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
 
         {/* INFO EMPLEADO */}
-        <div className="flex items-center gap-4 lg:w-1/3 min-w-0">
+        <div className="flex items-center gap-4 lg:w-1/4 min-w-0">
           <div className="relative h-14 w-14 shrink-0 rounded-full overflow-hidden ring-2 ring-white dark:ring-neutral-950 shadow-md transition-transform duration-500 group-hover:scale-105">
             {empleado.foto_perfil_url ? (
-              <img
-                src={empleado.foto_perfil_url}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+              <img src={empleado.foto_perfil_url} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="h-full w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center text-neutral-500 font-bold text-lg">
                 {getInitials(empleado.nombre, empleado.apellidos)}
@@ -84,41 +94,41 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
         </div>
 
         {/* CONTROLES Y DATOS */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-6 lg:gap-10 lg:w-2/3 lg:justify-end">
+        <div className="flex-1 flex flex-wrap items-center gap-y-6 gap-x-4 sm:gap-x-8 lg:gap-x-12 justify-start lg:justify-end">
 
           {/* Sueldo Base */}
-          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+          <div className="flex flex-col gap-1.5 min-w-[120px]">
             <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-1">Sueldo Base</label>
             {isEditing ? (
               <div className="relative group/input">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 font-bold group-focus-within/input:text-emerald-500 transition-colors">$</span>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 font-bold group-focus-within/input:text-emerald-500 transition-colors">$</span>
                 <input
                   type="number"
                   value={sueldo}
                   onChange={e => setSueldo(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full sm:w-36 pl-8 pr-4 py-3 rounded-2xl bg-neutral-100 dark:bg-white/5 border-0 focus:bg-white dark:focus:bg-neutral-900 focus:ring-2 focus:ring-emerald-500/50 text-sm font-bold text-neutral-900 dark:text-white outline-none transition-all tabular-nums placeholder:text-neutral-400"
+                  className="w-full sm:w-32 pl-7 pr-3 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/5 border-0 focus:bg-white dark:focus:bg-neutral-900 focus:ring-2 focus:ring-emerald-500/50 text-sm font-bold text-neutral-900 dark:text-white outline-none"
                   placeholder="0.00"
                 />
               </div>
             ) : (
-              <p className="text-lg font-black text-neutral-900 dark:text-white tabular-nums px-1">
-                ${empleado.sueldo_base?.toFixed(2) || '0.00'}
+              <p className="text-base font-black text-neutral-900 dark:text-white tabular-nums px-1">
+                {formatMoney(Number(empleado.sueldo_base || 0))}
               </p>
             )}
           </div>
 
           {/* Día de Pago */}
-          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+          <div className="flex flex-col gap-1.5 min-w-[120px]">
             <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-1">Día de Pago</label>
             {isEditing ? (
               <select
                 value={diaPago}
                 onChange={e => setDiaPago(e.target.value as any)}
-                className="w-full sm:w-36 px-4 py-3 rounded-2xl bg-neutral-100 dark:bg-white/5 border-0 focus:bg-white dark:focus:bg-neutral-900 focus:ring-2 focus:ring-emerald-500/50 text-sm font-bold text-neutral-900 dark:text-white outline-none cursor-pointer transition-all appearance-none"
+                className="w-full sm:w-32 px-3 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/5 border-0 focus:bg-white dark:focus:bg-neutral-900 focus:ring-2 focus:ring-emerald-500/50 text-sm font-bold text-neutral-900 dark:text-white outline-none cursor-pointer appearance-none"
               >
-                <option value="" className="text-neutral-500">Seleccionar...</option>
-                <option value="Sábado" className="text-neutral-900 dark:text-white">Sábado</option>
-                <option value="Domingo" className="text-neutral-900 dark:text-white">Domingo</option>
+                <option value="">Seleccionar...</option>
+                <option value="Sábado">Sábado</option>
+                <option value="Domingo">Domingo</option>
               </select>
             ) : (
               <p className="text-sm font-bold text-neutral-900 dark:text-white py-1 px-1">
@@ -127,38 +137,63 @@ export default function EmpleadoNominaCard({ empleado, canManage, onSave }: Empl
             )}
           </div>
 
-          {/* Método de Pago */}
-          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-            <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-1">Método</label>
-            {isEditing ? (
-              <button
-                onClick={() => setConTarjeta(!conTarjeta)}
-                className={`relative inline-flex h-8 w-16 items-center rounded-full transition-all duration-300 py-1 ${conTarjeta ? 'bg-emerald-500' : 'bg-neutral-200 dark:bg-neutral-700'} shadow-inner`}
-              >
-                <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ${conTarjeta ? 'translate-x-9' : 'translate-x-1'}`} />
-              </button>
-            ) : (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-colors ${empleado.recibe_pago_tarjeta ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'}`}>
-                {empleado.recibe_pago_tarjeta ? <CreditCard size={14} /> : <Banknote size={14} />}
-                <span>{empleado.recibe_pago_tarjeta ? 'Tarjeta' : 'Efectivo'}</span>
+          {/* Método y Monto Tarjeta */}
+          <div className="flex items-end gap-4 min-w-[180px]">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest px-1">Método</label>
+              {isEditing ? (
+                <button
+                  onClick={() => setConTarjeta(!conTarjeta)}
+                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-300 ${conTarjeta ? 'bg-blue-500' : 'bg-neutral-200 dark:bg-neutral-700'}`}
+                >
+                  <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ${conTarjeta ? 'translate-x-7' : 'translate-x-1'}`} />
+                </button>
+              ) : (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${empleado.recibe_pago_tarjeta ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'}`}>
+                  {empleado.recibe_pago_tarjeta ? <CreditCard size={12} /> : <Banknote size={12} />}
+                  <span>{empleado.recibe_pago_tarjeta ? 'Tarjeta' : 'Efectivo'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 🚀 CAMPO DINÁMICO: MONTO TARJETA */}
+            {(conTarjeta || empleado.recibe_pago_tarjeta) && (
+              <div className="flex flex-col gap-1.5 animate-in slide-in-from-left-2 duration-300">
+                <label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest px-1">Monto Tarjeta</label>
+                {isEditing ? (
+                  <div className="relative group/input">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-400 font-bold">$</span>
+                    <input
+                      type="number"
+                      value={montoTarjeta}
+                      onChange={e => setMontoTarjeta(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full sm:w-28 pl-7 pr-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/10 border-0 focus:ring-2 focus:ring-blue-500/50 text-sm font-bold text-blue-700 dark:text-blue-300 outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-base font-black text-blue-600 dark:text-blue-400 tabular-nums px-1">
+                    {formatMoney(Number(empleado.monto_tarjeta_defecto || 0))}
+                  </p>
+                )}
               </div>
             )}
           </div>
 
           {/* Acciones */}
           {canManage && (
-            <div className="flex items-center justify-end gap-2 sm:ml-2 pt-2 sm:pt-0">
+            <div className="flex items-center justify-end gap-2 sm:ml-4">
               {isEditing ? (
                 <>
-                  <button onClick={cancelEdit} disabled={loading} className="p-3 rounded-2xl text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all active:scale-95" title="Cancelar">
+                  <button onClick={cancelEdit} disabled={loading} className="p-2.5 rounded-xl text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all active:scale-95">
                     <X size={20} />
                   </button>
-                  <button onClick={handleSave} disabled={loading} className="p-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50" title="Guardar Cambios">
+                  <button onClick={handleSave} disabled={loading} className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-95">
                     {loading ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
                   </button>
                 </>
               ) : (
-                <button onClick={() => setIsEditing(true)} className="p-3 rounded-2xl text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all active:scale-95 opacity-100 lg:opacity-0 group-hover:opacity-100" title="Editar">
+                <button onClick={() => setIsEditing(true)} className="p-2.5 rounded-xl text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all active:scale-95 opacity-100 lg:opacity-0 group-hover:opacity-100">
                   <Edit2 size={20} />
                 </button>
               )}

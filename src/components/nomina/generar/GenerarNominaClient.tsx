@@ -26,8 +26,7 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
     cargarGrupo, 
     agregarEmpleadoExtra, 
     handleChangeCelda,
-    aplicarCalculadora, 
-    guardarTarjeta, 
+    aplicarCalculadora,  
     handleGuardarNomina
   } = useGenerarNomina()
 
@@ -239,13 +238,12 @@ export default function GenerarNominaClient({ canManage }: { canManage: boolean 
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col w-full">
-        {/* 👇 El componente Tabla recibe exactamente las funciones que necesita */}
+        {/*  El componente Tabla recibe exactamente las funciones que necesita */}
         <TablaNominaReactiva
           renglones={renglones}
           isReadOnly={candadoActivo}
           onChange={handleChangeCelda}
           onCalculate={aplicarCalculadora}
-          onSaveTarjeta={guardarTarjeta}
           onSaveAndDownload={onSaveAndDownload}
           descargarSoloPDF={descargarSoloPDF}
           guardando={guardando}

@@ -6,7 +6,7 @@ import { Metadata } from 'next'
 import { getRolesConPermisosAction, getCatalogoPermisosAction } from '@/src/actions/roles/rolesActions'
 
 export const metadata: Metadata = {
-  title: 'Gestión de Roles', // Modificado para que haga match con tu layout automático
+  title: 'Gestión de Roles',
   description: 'Administración de roles y permisos del sistema.',
 }
 

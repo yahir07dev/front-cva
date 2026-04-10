@@ -44,8 +44,11 @@ export default async function EmpleadosPage() {
   const count = empleadosNormalizados.length;
 
   return (
-    <div className="w-full min-h-screen bg-transparent transition-colors duration-300">
-      <header className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+    // 👇 1. CAMBIO AQUÍ: 'h-full flex flex-col min-h-0' en lugar de 'min-h-screen'
+    <div className="w-full h-full flex flex-col min-h-0 bg-transparent transition-colors duration-300">
+      
+      {/* 👇 2. CAMBIO AQUÍ: Agregamos 'shrink-0' y reducimos el mb-10 a mb-8 para ajustar mejor */}
+      <header className="shrink-0 flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900 dark:text-white">
             Empleados
@@ -63,8 +66,10 @@ export default async function EmpleadosPage() {
         </div>
       </header>
 
-      {/* Tabla (Se le inyectan los datos) */}
-      <EmpleadosTable initialEmpleados={empleadosNormalizados} />
+      {/* 👇 3. CAMBIO AQUÍ: Envolvemos la tabla para que tome el espacio restante dinámicamente */}
+      <div className="flex-1 min-h-0">
+        <EmpleadosTable initialEmpleados={empleadosNormalizados} />
+      </div>
     </div>
   );
 }

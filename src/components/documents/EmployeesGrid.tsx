@@ -1,4 +1,3 @@
-//src/components/documents/EmployeesGrid.tsx
 "use client";
 
 import { useState } from "react";
@@ -15,17 +14,14 @@ interface Empleado {
 export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
   const [search, setSearch] = useState("");
 
-  // Filtrado en tiempo real
   const filteredEmpleados = empleados.filter((e) => {
     const fullSearch = `${e.nombre} ${e.apellidos}`.toLowerCase();
     return fullSearch.includes(search.toLowerCase());
   });
 
   return (
-    // Se agregó h-full flex flex-col min-h-0 para permitir que el hijo haga scroll
     <div className="w-full h-full flex flex-col min-h-0 space-y-6 animate-in fade-in duration-700">
       
-      {/* Barra de búsqueda premium (shrink-0 para que no se aplaste) */}
       <div className="relative w-full max-w-3xl mx-auto group shrink-0">
         <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-neutral-400 group-focus-within:text-cyan-500 transition-colors duration-300" />
@@ -46,11 +42,7 @@ export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
         />
       </div>
 
-      {/* CONTENEDOR CON SCROLL PARA LAS TARJETAS */}
-      {/* flex-1 min-h-0 permite que ocupe el resto del espacio y haga scroll */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-24 pr-2 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
-        
-        {/* Grid responsivo de tarjetas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-2">
           {filteredEmpleados.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500">
@@ -78,7 +70,6 @@ export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
                   hover:-translate-y-1 hover:scale-[1.01] transition-all duration-500
                 "
               >
-                {/* Badge de Documento Superior Derecho */}
                 <div className="
                   absolute top-5 right-5 p-2.5 rounded-2xl 
                   bg-cyan-50/80 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400
@@ -89,10 +80,8 @@ export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
                   <FileText className="w-5 h-5" />
                 </div>
 
-                {/* Resplandor de fondo en hover */}
                 <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-32 h-32 bg-cyan-500/10 dark:bg-cyan-500/20 blur-[50px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
-                {/* Avatar Redondo */}
                 <div className="relative mb-5 z-10">
                   <div className="
                     w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden 
@@ -114,7 +103,6 @@ export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
                   </div>
                 </div>
 
-                {/* Textos */}
                 <div className="text-center space-y-1.5 w-full z-10 mb-6">
                   <h3 className="
                     text-lg md:text-xl font-bold text-neutral-900 dark:text-white 
@@ -128,7 +116,6 @@ export default function EmpleadoGrid({ empleados }: { empleados: Empleado[] }) {
                   </p>
                 </div>
 
-                {/* Botón Inferior Integrado */}
                 <div className="
                   w-full pt-5 mt-auto border-t border-neutral-100 dark:border-neutral-800/50 
                   flex items-center justify-center gap-2 text-cyan-600 dark:text-cyan-400 

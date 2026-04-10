@@ -1,12 +1,10 @@
-// src/hooks/nomina/useGenerarNomina.ts
-import { useState, useEffect } from 'react' // <- useMemo eliminado de los imports
+import { useState, useEffect } from 'react'
 import { RenglonNomina } from '@/src/services/nomina/generarNominaService'
 import { 
   cargarNominaPorFechaAction, 
   getEmpleadoExtraAction, 
-  guardarTarjetaAction, 
   guardarNominaAction 
-} from '@/src/actions/nomina/generarActions'
+} from '@/src/actions/nomina/generarActions' // 👈 ELIMINADO: guardarTarjetaAction
 
 export interface ValoresCalculadora {
   diasNormales: number;
@@ -27,7 +25,6 @@ export function useGenerarNomina() {
   const [fechasDisponibles, setFechasDisponibles] = useState<{ fecha: string, diaSemana: string, etiqueta: string }[]>([])
   const [fechaActual, setFechaActual] = useState<string>('')
 
-  // 1. Fechas pre-calculadas (Sábados y Domingos del mes anterior y actual)
   useEffect(() => {
     const fechas = [];
     const hoy = new Date();
@@ -48,18 +45,14 @@ export function useGenerarNomina() {
     setFechasDisponibles(fechas.reverse());
   }, []);
   
-  // 2. Carga principal de nómina desde el servidor (Action)
   const cargarGrupo = async (fechaPago: string) => {
     if (!fechaPago) return;
     setLoading(true);
     setFechaActual(fechaPago);
-    
     try {
       const fechaObj = new Date(fechaPago + 'T12:00:00'); 
       const diaString = fechaObj.getDay() === 6 ? 'Sábado' : 'Domingo';
-
       const res = await cargarNominaPorFechaAction(fechaPago, diaString);
-      
       setRenglones(res.renglones);
       setEmpleadosDisponibles(res.empleadosExtras);
       setIsReadOnly(res.isReadOnly);
@@ -70,7 +63,6 @@ export function useGenerarNomina() {
     }
   }
 
-  // 3. Funciones de manipulación de la tabla
   const agregarEmpleadoExtra = async (empleadoId: number) => {
     if (renglones.find(r => r.empleado_id === empleadoId)) return alert("Ya está en la lista.");
     try {
@@ -90,7 +82,6 @@ export function useGenerarNomina() {
     const totalMedios = vals.mediosTurnos * (5 * pagoHora); 
     const totalHoras = vals.horas * pagoHora; 
     const totalEspeciales = vals.diasEspeciales * vals.precioEspecial; 
-
     const totalBruto = totalNormales + totalDescanso + totalDiasExtra + totalMedios + totalHoras + totalEspeciales;
     return Math.round(totalBruto / 50) * 50; 
   }
@@ -119,36 +110,16 @@ export function useGenerarNomina() {
     }))
   }
 
-  // 4. Acciones a la Base de Datos
-  const guardarTarjeta = async (empleadoId: number, monto: number) => {
-    try {
-      await guardarTarjetaAction(empleadoId, monto);
-      alert("Monto de tarjeta guardado por defecto.");
-    } catch (e) {
-      alert("Error al guardar tarjeta.");
-    }
-  }
-
   const handleGuardarNomina = async () => {
     if (!fechaActual || renglones.length === 0) return alert("No hay datos para guardar.");
     setGuardando(true);
-    
     try {
       const fechaObj = new Date(fechaActual + 'T12:00:00');
       const diaString = fechaObj.getDay() === 6 ? 'Sábado' : 'Domingo';
       const finPeriodo = new Date(fechaObj);
       const inicioPeriodo = new Date(fechaObj);
       inicioPeriodo.setDate(inicioPeriodo.getDate() - 6);
-
-      await guardarNominaAction(
-        diaString,
-        inicioPeriodo.toISOString().split('T')[0],
-        finPeriodo.toISOString().split('T')[0],
-        fechaActual,
-        renglones
-      );
-
-      // Una vez guardada con éxito, la bloqueamos
+      await guardarNominaAction(diaString, inicioPeriodo.toISOString().split('T')[0], finPeriodo.toISOString().split('T')[0], fechaActual, renglones);
       setIsReadOnly(true);
     } catch (error: any) {
       alert(error.message);
@@ -157,21 +128,8 @@ export function useGenerarNomina() {
     }
   }
 
-  // 5. Retorno limpio
   return {
-    loading, 
-    guardando, 
-    renglones, 
-    // totales, <-- ELIMINADO DE AQUÍ
-    empleadosDisponibles, 
-    fechasDisponibles, 
-    fechaActual, 
-    isReadOnly,
-    cargarGrupo, 
-    agregarEmpleadoExtra, 
-    handleChangeCelda, 
-    aplicarCalculadora, 
-    guardarTarjeta, 
-    handleGuardarNomina
+    loading, guardando, renglones, empleadosDisponibles, fechasDisponibles, fechaActual, isReadOnly,
+    cargarGrupo, agregarEmpleadoExtra, handleChangeCelda, aplicarCalculadora, handleGuardarNomina
   }
 }

@@ -58,9 +58,11 @@ export default function EmpleadosTable({ initialEmpleados }: EmpleadosTableProps
   };
 
   return (
-    <div className="w-full space-y-8 pb-24 animate-in fade-in duration-700">
+    // 1. Cambiamos el contenedor padre para que sea un Flex vertical que toma todo el 100% de la altura (h-full)
+    <div className="w-full h-full flex flex-col min-h-0 space-y-6 animate-in fade-in duration-700">
       
-      <div className="relative max-w-3xl mx-auto group">
+      {/* 2. Aseguramos que la barra de búsqueda no se aplaste usando shrink-0 */}
+      <div className="relative w-full max-w-3xl mx-auto group shrink-0">
         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-neutral-400 group-focus-within:text-indigo-500 transition-colors duration-300" />
         </div>
@@ -73,64 +75,67 @@ export default function EmpleadosTable({ initialEmpleados }: EmpleadosTableProps
         />
       </div>
 
-      <div className="w-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/60 dark:border-neutral-800/60 rounded-3xl overflow-hidden shadow-md">
-        <div className="overflow-auto max-h-[65vh] scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
-          <table className="w-full text-left whitespace-nowrap border-collapse relative">
-            <thead className="sticky top-0 z-10">
-              <tr className="border-b border-neutral-200/50 dark:border-neutral-800/50 bg-neutral-50/95 dark:bg-neutral-950/95 backdrop-blur-sm">
-                <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Nombre Completo</th>
-                <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Rol</th>
-                <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Área</th>
-                <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Ingreso</th>
-                <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100/50 dark:divide-neutral-800/50">
-              {filteredEmpleados.map((emp) => (
-                <tr key={emp.id} className="group hover:bg-neutral-50/80 dark:hover:bg-neutral-950/50 transition-all duration-200">
-                  <td className="px-6 py-5"><div className="font-semibold text-sm text-neutral-900 dark:text-white capitalize">{emp.nombre} {emp.apellidos}</div></td>
-                  <td className="px-6 py-5">
-                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 shadow-sm">
-                      {emp.estado ?? "-"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5 text-sm font-medium text-neutral-600 dark:text-neutral-400 capitalize">{emp.rol?.nombre ?? "-"}</td>
-                  <td className="px-6 py-5 text-sm font-medium text-neutral-600 dark:text-neutral-400 capitalize">{emp.area?.nombre ?? "-"}</td>
-                  <td className="px-6 py-5 text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                    {emp.fecha_ingreso ? new Date(emp.fecha_ingreso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : "-"}
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                      <button onClick={() => router.push(`/dashboard/personal/empleados/${emp.id}`)} className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 transition-colors shadow-sm" title="Editar Perfil">
-                        <Pencil size={18} />
-                      </button>
-                      <button onClick={() => handleOpenDelete(emp)} className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 transition-colors shadow-sm" title="Dar de baja">
-                        <Trash size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredEmpleados.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 text-center animate-in zoom-in-95 duration-500">
-            <div className="relative mb-6">
-              <div className="absolute inset-0 bg-indigo-500/5 rounded-full blur-3xl animate-pulse-slow" />
-              <ShieldAlert className="relative h-20 w-20 text-indigo-400 dark:text-indigo-500 drop-shadow-md" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-4">
-              No se encontraron empleados
-            </h2>
-            <p className="text-lg text-neutral-500 dark:text-neutral-400 max-w-md leading-relaxed">
-              Intenta con otros términos de búsqueda o verifica que haya empleados activos en el sistema.
-            </p>
+      {/* 3. Lógica condicional limpia */}
+      {filteredEmpleados.length === 0 ? (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-12 text-center animate-in zoom-in-95 duration-500">
+          <div className="relative mb-6">
+            <div className="absolute inset-0 bg-indigo-500/5 rounded-full blur-3xl animate-pulse-slow" />
+            <ShieldAlert className="relative h-20 w-20 text-indigo-400 dark:text-indigo-500 drop-shadow-md" />
           </div>
-        )}
-      </div>
+          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-4">
+            No se encontraron empleados
+          </h2>
+          <p className="text-lg text-neutral-500 dark:text-neutral-400 max-w-md leading-relaxed">
+            Intenta con otros términos de búsqueda o verifica que haya empleados activos en el sistema.
+          </p>
+        </div>
+      ) : (
+        // 4. El Wrapper de la tabla recibe flex-1 min-h-0 para expandirse dinámicamente hasta abajo
+        <div className="flex-1 min-h-0 w-full flex flex-col bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/60 dark:border-neutral-800/60 rounded-3xl overflow-hidden shadow-md">
+          {/* 5. El interior de la tabla es el que hace el scroll, y le ponemos un pb-4 para que la última fila tenga espacio */}
+          <div className="flex-1 min-h-0 overflow-auto pb-4 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
+            <table className="w-full text-left whitespace-nowrap border-collapse relative">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-neutral-200/50 dark:border-neutral-800/50 bg-neutral-50/95 dark:bg-neutral-950/95 backdrop-blur-sm">
+                  <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Nombre Completo</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Rol</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Área</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Ingreso</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100/50 dark:divide-neutral-800/50">
+                {filteredEmpleados.map((emp) => (
+                  <tr key={emp.id} className="group hover:bg-neutral-50/80 dark:hover:bg-neutral-950/50 transition-all duration-200">
+                    <td className="px-6 py-5"><div className="font-semibold text-sm text-neutral-900 dark:text-white capitalize">{emp.nombre} {emp.apellidos}</div></td>
+                    <td className="px-6 py-5">
+                      <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 shadow-sm">
+                        {emp.estado ?? "-"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-sm font-medium text-neutral-600 dark:text-neutral-400 capitalize">{emp.rol?.nombre ?? "-"}</td>
+                    <td className="px-6 py-5 text-sm font-medium text-neutral-600 dark:text-neutral-400 capitalize">{emp.area?.nombre ?? "-"}</td>
+                    <td className="px-6 py-5 text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                      {emp.fecha_ingreso ? new Date(emp.fecha_ingreso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : "-"}
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
+                        <button onClick={() => router.push(`/dashboard/personal/empleados/${emp.id}`)} className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 transition-colors shadow-sm" title="Editar Perfil">
+                          <Pencil size={18} />
+                        </button>
+                        <button onClick={() => handleOpenDelete(emp)} className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 transition-colors shadow-sm" title="Dar de baja">
+                          <Trash size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={openConfirm}

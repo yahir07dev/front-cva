@@ -1,5 +1,3 @@
-// Ahora este archivo es puramente para definiciones de TypeScript.
-// Toda la lógica de negocio pesada se movió a src/actions/nomina/generarActions.ts
 
 export interface RenglonNomina {
   empleado_id: number;

@@ -80,7 +80,8 @@ export default function FileEmployees({
         tipo: tipo,
         nombre_archivo: file.name,
         url: publicUrl,
-        fecha_carga: new Date().toLocaleDateString("es-MX"),
+        // 👇 SOLUCIÓN: Formato YYYY-MM-DD compatible con PostgreSQL
+        fecha_carga: new Date().toISOString().split('T')[0], 
       },
       { onConflict: "empleado_id, tipo" },
     );

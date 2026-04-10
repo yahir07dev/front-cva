@@ -15,7 +15,7 @@ export const getRolesConPermisosAction = async () => {
   return data || []
 }
 
-// LECTURA DE CATÁLOGO (Solo para Superadmins)
+// LECTURA DE CATÁLOGO
 export const getCatalogoPermisosAction = async () => {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -54,12 +54,13 @@ export const crearRolAction = async (rol: { nombre: string; descripcion: string 
   return nuevoRol
 }
 
-// ACTUALIZAR ROL
+// ACTUALIZAR ROL (CORREGIDO - ESTRATEGIA DIFF)
 export const actualizarRolAction = async (id: number, rol: { nombre: string; descripcion: string }, permisosIds: number[]) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Sesión no válida.')
 
+  // 1. Actualizamos el nombre y descripción del rol
   const { error: rolError } = await supabase
     .from('roles')
     .update({ nombre: rol.nombre, descripcion: rol.descripcion, updated_at: new Date().toISOString(), updated_by: user.id })
@@ -67,12 +68,25 @@ export const actualizarRolAction = async (id: number, rol: { nombre: string; des
 
   if (rolError) throw new Error('Error al actualizar el rol: ' + rolError.message)
 
-  await supabase.from('rol_permisos').delete().eq('rol_id', id)
+  // 2. Obtenemos los permisos que tiene actualmente el rol
+  const { data: currentPerms } = await supabase.from('rol_permisos').select('permiso_id').eq('rol_id', id);
+  const currentPermsIds = currentPerms?.map(p => p.permiso_id) || [];
 
-  if (permisosIds.length > 0) {
-    const filasPermisos = permisosIds.map(permisoId => ({ rol_id: id, permiso_id: permisoId, created_by: user.id }))
-    const { error: asigError } = await supabase.from('rol_permisos').insert(filasPermisos)
-    if (asigError) throw new Error('Error al actualizar permisos: ' + asigError.message)
+  // 3. Calculamos la diferencia (Cuáles agregar y cuáles quitar)
+  const toAdd = permisosIds.filter(pid => !currentPermsIds.includes(pid));
+  const toDelete = currentPermsIds.filter(pid => !permisosIds.includes(pid));
+
+  // 4. AGREGAMOS PRIMERO (Para que RLS no te cierre la puerta en la cara si eres superadmin)
+  if (toAdd.length > 0) {
+    const filasAdd = toAdd.map(permisoId => ({ rol_id: id, permiso_id: permisoId, created_by: user.id }))
+    const { error: addError } = await supabase.from('rol_permisos').insert(filasAdd)
+    if (addError) throw new Error('Error al agregar nuevos permisos: ' + addError.message)
+  }
+
+  // 5. ELIMINAMOS DESPUÉS
+  if (toDelete.length > 0) {
+    const { error: delError } = await supabase.from('rol_permisos').delete().eq('rol_id', id).in('permiso_id', toDelete);
+    if (delError) throw new Error('Error al remover permisos: ' + delError.message)
   }
 }
 
