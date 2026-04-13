@@ -1,3 +1,4 @@
+//src/components/nomina/configuracion/EmpleadoNominaCard.tsx
 'use client'
 
 import { useState, useEffect } from 'react'

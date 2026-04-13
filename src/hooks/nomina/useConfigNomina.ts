@@ -1,3 +1,4 @@
+//src/hooks/nomina/useConfigNomina.ts
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/src/lib/supabase/client'
 import { actualizarConfigNominaEmpleado, NominaConfig } from '@/src/services/nomina/nominaService'

@@ -18,16 +18,24 @@ export default async function ConfigNominaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. FETCH EN PARALELO (Cero Cascadas)
-  // Traemos el perfil, los permisos y la lista completa de nómina al mismo tiempo
+  // 2. FETCH EN PARALELO (Cero Cascadas) - Query Limpio sin comentarios
   const [perfilRes, permsRes, empleadosRes] = await Promise.all([
     supabase.from('empleados').select('estado').eq('usuario_id', user.id).single(),
     supabase.rpc('get_my_permissions_slugs'),
     supabase.from('empleados')
       .select(`
-        id, usuario_id, nombre, apellidos, foto_perfil_url, 
-        sueldo_base, dia_pago, recibe_pago_tarjeta, estado, 
-        roles ( nombre ), areas!empleados_area_id_fkey ( nombre )
+        id, 
+        usuario_id, 
+        nombre, 
+        apellidos, 
+        foto_perfil_url, 
+        sueldo_base, 
+        dia_pago, 
+        recibe_pago_tarjeta, 
+        monto_tarjeta_defecto,
+        estado, 
+        roles ( nombre ), 
+        areas!empleados_area_id_fkey ( nombre )
       `)
       .eq('estado', 'activo')
       .is('deleted_at', null)
@@ -43,7 +51,6 @@ export default async function ConfigNominaPage() {
   const permisos = permsRes.data || []
   const isAdmin = permisos.includes('acceso_total')
   
-  // Contabilidad lee (nomina.read), Admin o RRHH actualizan (nomina.update)
   const canAccess = permisos.includes('nomina.read') || isAdmin
   const canManage = permisos.includes('nomina.update') || isAdmin
 
@@ -55,7 +62,7 @@ export default async function ConfigNominaPage() {
     )
   }
 
-  // 5. PROCESAMIENTO DE DATOS EN SERVIDOR (Avatar de Google)
+  // 5. PROCESAMIENTO DE DATOS
   const googleAvatar = user.user_metadata?.avatar_url;
   const empleadosProcesados = (empleadosRes.data || []).map((emp: any) => {
     if (emp.usuario_id === user.id && (!emp.foto_perfil_url || emp.foto_perfil_url.trim() === '') && googleAvatar) {
@@ -64,9 +71,9 @@ export default async function ConfigNominaPage() {
     return emp
   })
 
-  // 6. RENDERIZADO INYECTANDO PROPS
+  // 6. RENDERIZADO INYECTANDO PROPS - Color Fucsia en el contenedor
   return (
-    <div className="h-full p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-500">
+    <div className="h-full p-4 sm:p-6 lg:p-8 bg-neutral-50 dark:bg-neutral-950 transition-colors duration-500">
       <ConfigNominaClient 
         initialEmpleados={empleadosProcesados} 
         canManage={canManage} 

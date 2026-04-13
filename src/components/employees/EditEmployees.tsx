@@ -184,7 +184,7 @@ export default function EditEmpleadoPage({ empleadoId, initialData, rolesList, a
                   <label className={fieldLabelStyle}>Apellidos</label>
                   <div className="relative">
                     <User className={iconWrapperStyle} />
-                    <input placeholder="Ej. Toledo Villegas" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className={inputStyle} required />
+                    <input placeholder="Ej. Apellido1 Apellido2" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className={inputStyle} required />
                   </div>
                 </div>
               </div>
@@ -194,7 +194,7 @@ export default function EditEmpleadoPage({ empleadoId, initialData, rolesList, a
               <h2 className={sectionLabelStyle}><Briefcase className="text-indigo-500" /> Rol y Salario</h2>
               <div className="space-y-6">
                 
-                {/* 👇 AQUI USAMOS NUESTRO CUSTOM SELECT PARA EL ROL 👇 */}
+                {/*  AQUI USAMOS NUESTRO CUSTOM SELECT PARA EL ROL  */}
                 <div className="group">
                   <label className={fieldLabelStyle}>Rol / Puesto</label>
                   <CustomSelect 
@@ -206,7 +206,7 @@ export default function EditEmpleadoPage({ empleadoId, initialData, rolesList, a
                   />
                 </div>
 
-                {/* 👇 AQUI USAMOS NUESTRO CUSTOM SELECT PARA EL ÁREA 👇 */}
+                {/* AQUI USAMOS NUESTRO CUSTOM SELECT PARA EL ÁREA  */}
                 <div className="group">
                   <label className={fieldLabelStyle}>Área / Departamento</label>
                   <CustomSelect 
