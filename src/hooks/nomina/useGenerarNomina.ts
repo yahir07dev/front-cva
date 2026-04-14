@@ -4,7 +4,7 @@ import {
   cargarNominaPorFechaAction, 
   getEmpleadoExtraAction, 
   guardarNominaAction 
-} from '@/src/actions/nomina/generarActions' // 👈 ELIMINADO: guardarTarjetaAction
+} from '@/src/actions/nomina/generarActions'
 
 export interface ValoresCalculadora {
   diasNormales: number;
@@ -14,6 +14,7 @@ export interface ValoresCalculadora {
   horas: number;
   diasEspeciales: number;
   precioEspecial: number;
+  diasFeriados: number; // 🚀 NUEVO CAMPO
 }
 
 export function useGenerarNomina() {
@@ -73,21 +74,55 @@ export function useGenerarNomina() {
     }
   }
 
+  const quitarEmpleado = (empleadoId: number) => {
+    const empleadoQuitado = renglones.find(r => r.empleado_id === empleadoId);
+    if (!empleadoQuitado) return;
+
+    setRenglones(prev => prev.filter(r => r.empleado_id !== empleadoId));
+
+    setEmpleadosDisponibles(prev => [
+      ...prev, 
+      {
+        id: empleadoQuitado.empleado_id,
+        nombre: empleadoQuitado.nombre_completo.split(' ')[0], 
+        apellidos: empleadoQuitado.nombre_completo.split(' ').slice(1).join(' ').replace(' (Extra)', ''),
+        dia_pago: 'Reasignado' 
+      }
+    ]);
+  }
+
   const calcularSueldoAsistencia = (sueldoBase: number, vals: ValoresCalculadora) => {
     const pagoDia = sueldoBase / 7;
     const pagoHora = pagoDia / 8;
     const totalNormales = vals.diasNormales * pagoDia;
     let totalDescanso = vals.descanso === 1 ? pagoDia : vals.descanso === 0.5 ? (5 * pagoHora) : 0;
     const totalDiasExtra = vals.diasExtra * pagoDia; 
+    
+    // 🚀 LÓGICA DE DÍA FERIADO: 
+    // Por ley, si trabajan en feriado se paga su sueldo normal + un día extra (el doble)
+    // Entonces sumamos los días feriados trabajados multiplicados por el pago de un día.
+    const totalFeriados = (vals.diasFeriados || 0) * pagoDia; 
+
     const totalMedios = vals.mediosTurnos * (5 * pagoHora); 
     const totalHoras = vals.horas * pagoHora; 
     const totalEspeciales = vals.diasEspeciales * vals.precioEspecial; 
-    const totalBruto = totalNormales + totalDescanso + totalDiasExtra + totalMedios + totalHoras + totalEspeciales;
+    
+    const totalBruto = totalNormales + totalDescanso + totalDiasExtra + totalFeriados + totalMedios + totalHoras + totalEspeciales;
     return Math.round(totalBruto / 50) * 50; 
   }
 
   const recalcularRenglon = (renglon: RenglonNomina) => {
-    renglon.pago_neto = Number(renglon.sueldo_calculado) - Number(renglon.descuento_prestamo) - Number(renglon.descuento_anticipo) - Number(renglon.descuento_tarjeta);
+    const percepciones = Number(renglon.sueldo_calculado) + Number(renglon.bonos || 0);
+    const deducciones = Number(renglon.descuento_prestamo) + Number(renglon.otros_descuentos || 0) + Number(renglon.descuento_tarjeta);
+    const netoReal = percepciones - deducciones;
+
+    if (netoReal < 0) {
+      renglon.pago_neto = 0;
+      renglon.deuda_generada = Math.abs(netoReal);
+    } else {
+      renglon.pago_neto = netoReal;
+      renglon.deuda_generada = 0;
+    }
     return renglon;
   }
 
@@ -130,6 +165,6 @@ export function useGenerarNomina() {
 
   return {
     loading, guardando, renglones, empleadosDisponibles, fechasDisponibles, fechaActual, isReadOnly,
-    cargarGrupo, agregarEmpleadoExtra, handleChangeCelda, aplicarCalculadora, handleGuardarNomina
+    cargarGrupo, agregarEmpleadoExtra, quitarEmpleado, handleChangeCelda, aplicarCalculadora, handleGuardarNomina
   }
 }

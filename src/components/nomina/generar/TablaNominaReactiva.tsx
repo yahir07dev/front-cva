@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { RenglonNomina } from '@/src/services/nomina/generarNominaService'
-import { Calculator, Save, Lock, UserRound, Download, Loader2 } from 'lucide-react'
+import { Calculator, Save, Lock, UserRound, Download, Loader2, AlertCircle, X } from 'lucide-react'
 import ModalCalculadora from './ModalCalculadora'
 import { ValoresCalculadora } from '@/src/hooks/nomina/useGenerarNomina'
 
@@ -11,14 +11,14 @@ interface TablaProps {
   isReadOnly: boolean
   onChange: (id: number, campo: keyof RenglonNomina, valor: number) => void
   onCalculate: (id: number, valores: ValoresCalculadora) => void
-  // onSaveTarjeta eliminado de las props 
+  onRemove: (id: number) => void
   onSaveAndDownload: () => Promise<void>
   descargarSoloPDF: () => void
   guardando: boolean
 }
 
 export default function TablaNominaReactiva({ 
-  renglones, isReadOnly, onChange, onCalculate, 
+  renglones, isReadOnly, onChange, onCalculate, onRemove,
   onSaveAndDownload, descargarSoloPDF, guardando
 }: TablaProps) {
   const [empleadoCalculadora, setEmpleadoCalculadora] = useState<RenglonNomina | null>(null)
@@ -28,11 +28,12 @@ export default function TablaNominaReactiva({
   const totales = useMemo(() => {
     return renglones.reduce((acc, curr) => ({
       sueldosGenerados: acc.sueldosGenerados + curr.sueldo_calculado,
+      extras: acc.extras + (curr.bonos || 0),
       prestamos: acc.prestamos + curr.descuento_prestamo,
-      anticipos: acc.anticipos + curr.descuento_anticipo,
+      descuentos: acc.descuentos + (curr.otros_descuentos || 0),
       tarjetas: acc.tarjetas + curr.descuento_tarjeta,
       pagoNetoEfectivo: acc.pagoNetoEfectivo + curr.pago_neto,
-    }), { sueldosGenerados: 0, prestamos: 0, anticipos: 0, tarjetas: 0, pagoNetoEfectivo: 0 })
+    }), { sueldosGenerados: 0, extras: 0, prestamos: 0, descuentos: 0, tarjetas: 0, pagoNetoEfectivo: 0 })
   }, [renglones])
 
   if (renglones.length === 0) return null
@@ -49,14 +50,17 @@ export default function TablaNominaReactiva({
         )}
 
         <div className="flex-1 overflow-auto w-full scrollbar-thin scrollbar-thumb-emerald-200/50 dark:scrollbar-thumb-emerald-900/50">
-          <div className="min-w-[800px] w-full relative">
+          <div className="min-w-[900px] w-full relative">
             <table className="w-full text-left border-separate border-spacing-y-2 sm:border-spacing-y-3 p-2 sm:p-3 md:p-4">
               <thead className="sticky top-0 z-10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-t-xl before:content-[''] before:absolute before:inset-0 before:border-b before:border-neutral-200/40 dark:before:border-neutral-800/50">
                 <tr className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-semibold relative">
-                  <th className="px-3 sm:px-4 py-3 font-medium rounded-tl-xl">Empleado</th>
+                  {/* 🚀 CORRECCIÓN: Sin comentarios fuera de las etiquetas th */}
+                  <th className="px-3 sm:px-4 py-3 font-medium rounded-tl-xl w-8"></th>
+                  <th className="px-1 sm:px-2 py-3 font-medium">Empleado</th>
                   <th className="px-3 sm:px-4 py-3 text-right font-medium">Sueldo</th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-amber-600/80 font-medium">Extra</th>
                   <th className="px-3 sm:px-4 py-3 text-right text-emerald-600/80 font-medium">Préstamo</th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-rose-600/80 font-medium">Anticipo</th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-rose-600/80 font-medium">Descuento</th>
                   <th className="px-3 sm:px-4 py-3 text-right text-blue-600/80 font-medium">Tarjeta</th>
                   <th className="px-3 sm:px-4 py-3 text-right text-emerald-600 font-medium rounded-tr-xl">A Pagar</th>
                 </tr>
@@ -65,7 +69,20 @@ export default function TablaNominaReactiva({
               <tbody>
                 {renglones.map((renglon) => (
                   <tr key={renglon.empleado_id} className={`group transition-all duration-200 bg-white/40 dark:bg-neutral-950/40 hover:bg-white/70 dark:hover:bg-neutral-900/60 ${!isReadOnly ? 'hover:shadow-md hover:scale-[1.002]' : ''} rounded-xl sm:rounded-2xl w-full`}>
-                    <td className="p-2.5 sm:p-3 md:p-4 rounded-l-xl sm:rounded-l-2xl w-[30%]">
+                    
+                    <td className="p-2 sm:p-3 rounded-l-xl sm:rounded-l-2xl">
+                      {!isReadOnly && (
+                        <button
+                          onClick={() => onRemove(renglon.empleado_id)}
+                          title="Remover de esta nómina"
+                          className="p-1.5 sm:p-2 rounded-lg text-neutral-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400 transition-colors"
+                        >
+                          <X size={16} strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </td>
+
+                    <td className="p-2.5 sm:p-3 md:p-4 w-[25%]">
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full overflow-hidden ring-1 ring-emerald-200/50 dark:ring-emerald-900/40 shadow-sm shrink-0">
                           {renglon.foto_perfil_url ? (
@@ -88,44 +105,63 @@ export default function TablaNominaReactiva({
                         )}
                         <span className="text-emerald-600/70 dark:text-emerald-500/70 font-semibold text-xs sm:text-sm">$</span>
                         {isReadOnly ? (
-                          <span className="text-sm sm:text-base md:text-lg tabular-nums">{renglon.sueldo_calculado}</span>
+                          <span className="text-sm sm:text-base tabular-nums">{renglon.sueldo_calculado}</span>
                         ) : (
-                          <input type="number" value={renglon.sueldo_calculado || ''} onChange={e => onChange(renglon.empleado_id, 'sueldo_calculado', Number(e.target.value))} className="w-20 sm:w-24 md:w-28 text-right bg-transparent border-b-2 border-transparent focus:border-emerald-500 text-sm sm:text-base md:text-lg font-bold outline-none transition-all tabular-nums" />
+                          <input type="number" value={renglon.sueldo_calculado || ''} onChange={e => onChange(renglon.empleado_id, 'sueldo_calculado', Number(e.target.value))} className="w-16 sm:w-20 text-right bg-transparent border-b-2 border-transparent focus:border-emerald-500 text-sm sm:text-base font-bold outline-none transition-all tabular-nums" />
                         )}
                       </div>
                     </td>
 
                     <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
-                      <span className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-white/70 dark:bg-neutral-900/60 border border-emerald-200/40 dark:border-emerald-900/30 ${renglon.descuento_prestamo > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-400'}`}>- {formatMoney(renglon.descuento_prestamo)}</span>
+                      <div className="flex items-center justify-end gap-1 font-semibold text-amber-600 dark:text-amber-500">
+                        <span className="text-amber-400/70 font-normal text-xs sm:text-sm">+ $</span>
+                        {isReadOnly ? (
+                          <span className="tabular-nums text-xs sm:text-sm">{renglon.bonos || 0}</span>
+                        ) : (
+                          <input type="number" value={renglon.bonos || ''} onChange={e => onChange(renglon.empleado_id, 'bonos', Number(e.target.value))} className="w-14 sm:w-16 text-right bg-white/60 dark:bg-neutral-900/50 px-2 py-1 rounded-lg border border-amber-200/40 focus:border-amber-500 outline-none transition-all tabular-nums text-xs sm:text-sm" />
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-semibold bg-white/70 dark:bg-neutral-900/60 border border-emerald-200/40 dark:border-emerald-900/30 ${renglon.descuento_prestamo > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-400'}`}>- {formatMoney(renglon.descuento_prestamo)}</span>
                     </td>
 
                     <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1 font-semibold text-rose-600 dark:text-rose-400">
                         <span className="text-rose-400/70 font-normal text-xs sm:text-sm">- $</span>
                         {isReadOnly ? (
-                          <span className="tabular-nums text-xs sm:text-sm">{renglon.descuento_anticipo || 0}</span>
+                          <span className="tabular-nums text-xs sm:text-sm">{renglon.otros_descuentos || 0}</span>
                         ) : (
-                          <input type="number" value={renglon.descuento_anticipo || ''} onChange={e => onChange(renglon.empleado_id, 'descuento_anticipo', Number(e.target.value))} className="w-16 sm:w-20 md:w-24 text-right bg-white/60 dark:bg-neutral-900/50 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-rose-200/40 dark:border-rose-900/30 focus:border-rose-500 outline-none transition-all tabular-nums text-xs sm:text-sm" />
+                          <input type="number" value={renglon.otros_descuentos || ''} onChange={e => onChange(renglon.empleado_id, 'otros_descuentos', Number(e.target.value))} className="w-14 sm:w-16 text-right bg-white/60 dark:bg-neutral-900/50 px-2 py-1 rounded-lg border border-rose-200/40 focus:border-rose-500 outline-none transition-all tabular-nums text-xs sm:text-sm" />
                         )}
                       </div>
                     </td>
 
-                    {/* Tarjeta: 🚀 AHORA ES AUTOMÁTICA (SOLO LECTURA) 🚀 */}
                     <td className="p-2.5 sm:p-3 md:p-4 text-right whitespace-nowrap">
                       {renglon.recibe_pago_tarjeta ? (
                         <div className="flex items-center justify-end gap-1.5 font-semibold text-blue-600 dark:text-blue-400">
                           <span className="text-blue-400/70 font-normal text-xs sm:text-sm">- $</span>
-                          <span className="tabular-nums text-sm sm:text-base">{renglon.descuento_tarjeta || 0}</span>
-                          {/* El botón de guardar y el input editable han sido eliminados aquí 👈 */}
+                          <span className="tabular-nums text-sm">{renglon.descuento_tarjeta || 0}</span>
                         </div>
                       ) : (
-                        <span className="text-[10px] sm:text-xs font-medium text-neutral-500 italic px-2 py-1 sm:px-4 sm:py-1.5 bg-neutral-100/70 dark:bg-neutral-800/40 rounded-lg whitespace-nowrap">Efectivo</span>
+                        <span className="text-[10px] font-medium text-neutral-500 italic px-2 py-1 bg-neutral-100/70 dark:bg-neutral-800/40 rounded-lg">Efectivo</span>
                       )}
                     </td>
 
                     <td className="p-2.5 sm:p-3 md:p-4 text-right rounded-r-xl sm:rounded-r-2xl bg-emerald-50/40 dark:bg-emerald-950/30 border-l border-emerald-500/20 whitespace-nowrap">
-                      <span className="text-base sm:text-xl md:text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">{formatMoney(renglon.pago_neto)}</span>
+                      <div className="flex flex-col items-end justify-center">
+                        <span className="text-base sm:text-xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
+                          {formatMoney(renglon.pago_neto)}
+                        </span>
+                        {renglon.deuda_generada !== undefined && renglon.deuda_generada > 0 && (
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-rose-600 mt-1 bg-rose-100 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md">
+                            <AlertCircle size={10} /> Deuda: {formatMoney(renglon.deuda_generada)}
+                          </div>
+                        )}
+                      </div>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -133,20 +169,24 @@ export default function TablaNominaReactiva({
           </div>
         </div>
 
-        <div className="shrink-0 w-full bg-emerald-50/80 dark:bg-emerald-950/80 backdrop-blur-md border-t border-emerald-500/20 p-4 sm:p-5 z-20 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
-          <div className="overflow-x-auto w-full md:w-auto flex-1">
-            <div className="flex gap-4 sm:gap-6 text-sm font-medium min-w-max justify-start md:justify-end">
+        <div className="shrink-0 w-full bg-emerald-50/80 dark:bg-emerald-950/80 backdrop-blur-md border-t border-emerald-500/20 p-4 sm:p-5 z-20 flex flex-col xl:flex-row items-center justify-between gap-4 md:gap-6">
+          <div className="overflow-x-auto w-full xl:w-auto flex-1">
+            <div className="flex gap-4 sm:gap-6 text-sm font-medium min-w-max justify-start xl:justify-end">
               <div className="flex flex-col items-end">
-                <span className="text-[9px] text-neutral-500 uppercase">Generado</span>
+                <span className="text-[9px] text-neutral-500 uppercase">Sueldos</span>
                 <span className="text-neutral-800 dark:text-neutral-200 tabular-nums">{formatMoney(totales.sueldosGenerados)}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] text-amber-600/80 uppercase">Extras</span>
+                <span className="text-amber-600 dark:text-amber-500 tabular-nums">+ {formatMoney(totales.extras)}</span>
               </div>
               <div className="flex flex-col items-end">
                 <span className="text-[9px] text-emerald-600/80 uppercase">Préstamos</span>
                 <span className="text-emerald-700 dark:text-emerald-400 tabular-nums">- {formatMoney(totales.prestamos)}</span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[9px] text-rose-600/80 uppercase">Anticipos</span>
-                <span className="text-rose-600 tabular-nums">- {formatMoney(totales.anticipos)}</span>
+                <span className="text-[9px] text-rose-600/80 uppercase">Descuentos</span>
+                <span className="text-rose-600 tabular-nums">- {formatMoney(totales.descuentos)}</span>
               </div>
               <div className="flex flex-col items-end">
                 <span className="text-[9px] text-blue-600/80 uppercase">Tarjetas</span>
@@ -159,19 +199,18 @@ export default function TablaNominaReactiva({
             </div>
           </div>
 
-          <div className="w-full md:w-auto shrink-0 flex justify-end">
+          <div className="w-full xl:w-auto shrink-0 flex justify-end">
             {!isReadOnly ? (
-              <button onClick={onSaveAndDownload} disabled={guardando} className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={onSaveAndDownload} disabled={guardando} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg px-6 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                 {guardando ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                 <span>Guardar y Descargar PDF</span>
               </button>
             ) : (
-              <button onClick={descargarSoloPDF} className="w-full md:w-auto bg-neutral-900 hover:bg-black dark:bg-white text-white dark:text-neutral-900 shadow-md px-6 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"><Download size={18} /><span>Descargar PDF</span></button>
+              <button onClick={descargarSoloPDF} className="w-full sm:w-auto bg-neutral-900 hover:bg-black dark:bg-white text-white dark:text-neutral-900 shadow-md px-6 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"><Download size={18} /><span>Descargar PDF</span></button>
             )}
           </div>
         </div>
       </div>
-
       <ModalCalculadora isOpen={empleadoCalculadora !== null} onClose={() => setEmpleadoCalculadora(null)} empleadoNombre={empleadoCalculadora?.nombre_completo || ''} onApply={(valores) => { if (empleadoCalculadora) onCalculate(empleadoCalculadora.empleado_id, valores) }} />
     </>
   )

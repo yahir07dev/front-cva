@@ -2,78 +2,195 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export const generarPDFNomina = (fecha: string, registros: any[]) => {
-  const doc = new jsPDF('l', 'mm', 'a4'); // 'l' para Horizontal (paisaje)
-  const formatMoney = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const formatMoney = (n: number) => new Intl.NumberFormat('es-MX', { 
+    style: 'currency', 
+    currency: 'MXN' 
+  }).format(n || 0);
 
-  // 1. Encabezado
-  doc.setFontSize(18);
-  doc.text('REPORTE GENERAL DE NÓMINA', 14, 20);
+  // 1. SEPARACIÓN Y ORDENAMIENTO (De mayor a menor SUELDO BASE)
+  const registrosTarjeta = registros
+    .filter(r => r.recibe_pago_tarjeta)
+    .sort((a, b) => (b.sueldo_base || 0) - (a.sueldo_base || 0));
+
+  const registrosEfectivo = registros
+    .filter(r => !r.recibe_pago_tarjeta)
+    .sort((a, b) => (b.sueldo_base || 0) - (a.sueldo_base || 0));
+
+  // 2. ENCABEZADO PRINCIPAL (Negro Neutral)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.setTextColor(0, 0, 0); 
+  doc.text('Comercial V.A.', 14, 15);
   
-  doc.setFontSize(11);
-  doc.setTextColor(100);
-  doc.text(`Fecha de Pago: ${new Date(fecha + 'T12:00:00').toLocaleDateString('es-MX', { dateStyle: 'full' })}`, 14, 28);
-  doc.text(`Periodo: Semanal`, 14, 34);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text('REPORTE DE NÓMINA SEPARADO POR MÉTODO DE PAGO', 14, 21);
+  
+  const fechaFormateada = new Date(fecha + 'T12:00:00').toLocaleDateString('es-MX', { 
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
+  }).toUpperCase();
+  doc.text(`FECHA DE PAGO: ${fechaFormateada}`, 14, 26);
 
-  // 2. Tabla de Datos
-  const tableRows = registros.map(r => {
-    // Formato para Préstamo: ej. -$500 (1/4)
-    let prestamoStr = '- $0.00';
-    if (Number(r.descuento_prestamo) > 0) {
-      // Verificamos si viene la info de los pagos, si no, solo ponemos el monto
-      if (r.prestamo_numero_pagos !== undefined) {
-        // Le sumamos 1 a los realizados, porque este es el pago que se le está cobrando AHORA
-        const pagoActual = (r.prestamo_pagos_realizados || 0) + 1;
-        prestamoStr = `- ${formatMoney(r.descuento_prestamo)} (${pagoActual}/${r.prestamo_numero_pagos})`;
-      } else {
-        prestamoStr = `- ${formatMoney(r.descuento_prestamo)}`;
-      }
-    }
+  // --- FUNCIÓN AUXILIAR PARA MAPEAR FILAS ---
+  const mapearFilas = (lista: any[]) => lista.map(r => {
+    const pagoActual = (r.prestamo_pagos_realizados || 0) + 1;
+    const fraccion = (Number(r.descuento_prestamo) > 0 && r.prestamo_numero_pagos) 
+      ? `(${pagoActual}/${r.prestamo_numero_pagos})` 
+      : "";
 
-    // Formato para Anticipo: ej. -$300 (1/1)
-    let anticipoStr = '- $0.00';
-    if (Number(r.descuento_anticipo) > 0) {
-      anticipoStr = `- ${formatMoney(r.descuento_anticipo)} (1/1)`;
-    }
+    const textoSombra = fraccion ? `${formatMoney(r.descuento_prestamo)}      ` : formatMoney(r.descuento_prestamo);
 
-    // Quitamos "Área" y mapeamos los valores
     return [
-      r.empleados ? `${r.empleados.nombre} ${r.empleados.apellidos}` : r.nombre_completo,
+      r.nombre_completo || `${r.empleados?.nombre} ${r.empleados?.apellidos}`,
       formatMoney(r.sueldo_base),
-      formatMoney(r.total_percepciones || r.sueldo_calculado),
-      prestamoStr,
-      anticipoStr,
       formatMoney(r.descuento_tarjeta),
-      formatMoney(r.pago_neto)
+      formatMoney(r.bonos || 0),           
+      textoSombra,                         
+      formatMoney(r.otros_descuentos || 0),
+      formatMoney(r.pago_neto),
+      fraccion,             
+      r.descuento_prestamo  
     ];
   });
 
-  autoTable(doc, {
-    startY: 45,
-    // Quitamos Área de la cabecera
-    head: [['Empleado', 'Sueldo Base', 'Generado', 'Préstamo', 'Anticipo', 'Tarjeta', 'Neto Efectivo']],
-    body: tableRows,
+  // --- CONFIGURACIÓN DE TABLA ---
+  const tableConfig: any = {
     theme: 'grid',
-    headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
-    // Alineamos los números a la derecha para que parezca reporte contable real
+    headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 2, valign: 'middle' },
     columnStyles: {
-      0: { halign: 'left' },
-      1: { halign: 'right' },
-      2: { halign: 'right' },
-      3: { halign: 'right', textColor: [200, 80, 0] }, // Color sutil naranja
-      4: { halign: 'right', textColor: [200, 0, 0] },  // Color sutil rojo
-      5: { halign: 'right', textColor: [0, 80, 200] }, // Color sutil azul
-      6: { halign: 'right', fontStyle: 'bold', fillColor: [240, 255, 240] } // El Neto ahora es índice 6
+      0: { fontStyle: 'bold', cellWidth: 45 },          // Nombre
+      1: { halign: 'right', cellWidth: 22 },            // Sueldo Base
+      2: { halign: 'right', textColor: [0, 80, 180], cellWidth: 22 }, // Tarjeta
+      3: { halign: 'right', textColor: [0, 100, 0], cellWidth: 50 },  // Extra (Concepto) - 50mm
+      4: { halign: 'right', cellWidth: 28 },            // Préstamo
+      5: { halign: 'right', textColor: [180, 0, 0], cellWidth: 50 },  // 🚀 DESCUENTO (Motivo) - Ampliado a 50mm
+      6: { halign: 'right', fontStyle: 'bold', fillColor: [245, 245, 245] } // Neto
+    }
+  };
+
+  // 3. TABLA 1: PAGOS POR TARJETA
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text('I. PERSONAL CON PAGO POR TARJETA', 14, 34);
+
+  const bodyTarjeta = mapearFilas(registrosTarjeta);
+  autoTable(doc, {
+    ...tableConfig,
+    startY: 37,
+    head: [['EMPLEADO', 'SUELDO BASE', 'DEP. TARJETA', 'EXTRA (CONCEPTO)', 'PRÉSTAMO', 'DESCUENTO (MOTIVO)', 'NETO A PAGAR']],
+    body: bodyTarjeta.map(r => r.slice(0, 7)),
+    willDrawCell: (data) => {
+      if (data.column.index === 4 && data.cell.section === 'body' && bodyTarjeta[data.row.index][7]) {
+        data.cell.text = []; 
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.column.index === 4 && data.cell.section === 'body') {
+        const fraccion = bodyTarjeta[data.row.index][7];
+        const montoStr = formatMoney(bodyTarjeta[data.row.index][8]); 
+
+        if (fraccion) {
+          doc.setFontSize(8);
+          const anchoMonto = doc.getTextWidth(montoStr);
+          doc.setFontSize(5);
+          const anchoFraccion = doc.getTextWidth(fraccion);
+          const xFinCelda = data.cell.x + data.cell.width - 2; 
+          const xInicioMonto = xFinCelda - anchoFraccion - anchoMonto - 0.5;
+
+          doc.setFontSize(8);
+          doc.setTextColor(0, 0, 0);
+          doc.text(montoStr, xInicioMonto, data.cell.y + (data.cell.height / 2) + 1);
+          doc.setFontSize(5);
+          doc.setTextColor(180, 0, 0); 
+          doc.text(fraccion, xInicioMonto + anchoMonto + 0.5, data.cell.y + (data.cell.height / 2) - 1.2);
+          doc.setTextColor(0, 0, 0); 
+        }
+      }
     },
     foot: [[
-      'TOTALES', '', '', 
-      formatMoney(registros.reduce((s, r) => s + Number(r.descuento_prestamo), 0)),
-      formatMoney(registros.reduce((s, r) => s + Number(r.descuento_anticipo), 0)),
-      formatMoney(registros.reduce((s, r) => s + Number(r.descuento_tarjeta), 0)),
-      formatMoney(registros.reduce((s, r) => s + Number(r.pago_neto), 0))
+      'SUBTOTAL TARJETA', 
+      formatMoney(registrosTarjeta.reduce((s, r) => s + Number(r.sueldo_base), 0)),
+      formatMoney(registrosTarjeta.reduce((s, r) => s + Number(r.descuento_tarjeta), 0)),
+      formatMoney(registrosTarjeta.reduce((s, r) => s + (r.bonos || 0), 0)),
+      formatMoney(registrosTarjeta.reduce((s, r) => s + Number(r.descuento_prestamo), 0)),
+      formatMoney(registrosTarjeta.reduce((s, r) => s + (r.otros_descuentos || 0), 0)),
+      formatMoney(registrosTarjeta.reduce((s, r) => s + Number(r.pago_neto), 0))
     ]],
     footStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' }
   });
 
-  // 3. Guardar
-  doc.save(`Nomina_${fecha}.pdf`);
+  // 4. TABLA 2: PAGOS EN EFECTIVO
+  let finalY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFont("helvetica", "bold");
+  doc.text('II. PERSONAL CON PAGO EN EFECTIVO', 14, finalY);
+
+  const bodyEfectivo = mapearFilas(registrosEfectivo);
+  autoTable(doc, {
+    ...tableConfig,
+    startY: finalY + 3,
+    head: [['EMPLEADO', 'SUELDO BASE', 'DEP. TARJETA', 'EXTRA (CONCEPTO)', 'PRÉSTAMO', 'DESCUENTO (MOTIVO)', 'NETO A PAGAR']],
+    body: bodyEfectivo.map(r => r.slice(0, 7)),
+    willDrawCell: (data) => {
+      if (data.column.index === 4 && data.cell.section === 'body' && bodyEfectivo[data.row.index][7]) {
+        data.cell.text = []; 
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.column.index === 4 && data.cell.section === 'body') {
+        const fraccion = bodyEfectivo[data.row.index][7];
+        const montoStr = formatMoney(bodyEfectivo[data.row.index][8]);
+
+        if (fraccion) {
+          doc.setFontSize(8);
+          const anchoMonto = doc.getTextWidth(montoStr);
+          doc.setFontSize(5);
+          const anchoFraccion = doc.getTextWidth(fraccion);
+          const xFinCelda = data.cell.x + data.cell.width - 2;
+          const xInicioMonto = xFinCelda - anchoFraccion - anchoMonto - 0.5;
+
+          doc.setFontSize(8);
+          doc.setTextColor(0, 0, 0);
+          doc.text(montoStr, xInicioMonto, data.cell.y + (data.cell.height / 2) + 1);
+          doc.setFontSize(5);
+          doc.setTextColor(180, 0, 0); 
+          doc.text(fraccion, xInicioMonto + anchoMonto + 0.5, data.cell.y + (data.cell.height / 2) - 1.2);
+          doc.setTextColor(0, 0, 0); 
+        }
+      }
+    },
+    foot: [[
+      'SUBTOTAL EFECTIVO', 
+      formatMoney(registrosEfectivo.reduce((s, r) => s + Number(r.sueldo_base), 0)),
+      formatMoney(registrosEfectivo.reduce((s, r) => s + Number(r.descuento_tarjeta), 0)),
+      formatMoney(registrosEfectivo.reduce((s, r) => s + (r.bonos || 0), 0)),
+      formatMoney(registrosEfectivo.reduce((s, r) => s + Number(r.descuento_prestamo), 0)),
+      formatMoney(registrosEfectivo.reduce((s, r) => s + (r.otros_descuentos || 0), 0)),
+      formatMoney(registrosEfectivo.reduce((s, r) => s + Number(r.pago_neto), 0))
+    ]],
+    footStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' }
+  });
+
+  // 5. TOTAL GENERAL FINAL
+  finalY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFillColor(0, 0, 0);
+  doc.rect(170, finalY, 112, 12, 'F');
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
+  doc.text('TOTAL GENERAL DE NÓMINA:', 175, finalY + 7.5);
+  doc.text(formatMoney(registros.reduce((s, r) => s + Number(r.pago_neto), 0)), 280, finalY + 7.5, { align: 'right' });
+
+  // Paginación
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(`Página ${i} de ${pageCount} - Comercial V.A.`, 280, 205, { align: 'right' });
+  }
+
+  doc.save(`Nomina_Consolidada_${fecha}.pdf`);
 };

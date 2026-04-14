@@ -1,4 +1,3 @@
-//src/actions/nomina/generarActions.ts
 'use server'
 
 import { createClient } from '@/src/lib/supabase/server'
@@ -22,14 +21,17 @@ export async function cargarNominaPorFechaAction(fechaPago: string, diaString: s
       nombre_completo: `${r.empleados.nombre} ${r.empleados.apellidos}`,
       foto_perfil_url: r.empleados.foto_perfil_url, 
       sueldo_base: Number(r.sueldo_base),
-      sueldo_calculado: Number(r.total_percepciones),
+      sueldo_calculado: Number(r.total_percepciones) - Number(r.bonos || 0), // Restamos el bono para obtener el calculado real
+      bonos: Number(r.bonos || 0), // 🚀 NUEVO: Extra
       recibe_pago_tarjeta: r.empleados.recibe_pago_tarjeta,
       monto_tarjeta_defecto: Number(r.empleados.monto_tarjeta_defecto),
       prestamo_activo_id: null,
       descuento_prestamo: Number(r.descuento_prestamo),
-      descuento_anticipo: Number(r.descuento_anticipo),
+      otros_descuentos: Number(r.otros_descuentos || 0), // 🚀 NUEVO: Descuento por daños/errores
+      descuento_anticipo: 0, // Lo dejamos en 0 ya que migramos a otros_descuentos
       descuento_tarjeta: Number(r.descuento_tarjeta),
       pago_neto: Number(r.pago_neto),
+      deuda_generada: 0 // Si ya está guardada, la deuda ya se procesó
     })) as RenglonNomina[];
 
     return { renglones: renglonesGuardados, empleadosExtras: [], isReadOnly: true };
@@ -88,15 +90,18 @@ export async function cargarNominaPorFechaAction(fechaPago: string, diaString: s
       foto_perfil_url: emp.foto_perfil_url,
       sueldo_base: sueldo,
       sueldo_calculado: sueldo,
+      bonos: 0, // 🚀 NUEVO: Iniciamos en 0
       recibe_pago_tarjeta: emp.recibe_pago_tarjeta || false,
       monto_tarjeta_defecto: tarjetaDefecto,
       prestamo_activo_id: prestamo ? prestamo.id : null,
       prestamo_pagos_realizados: prestamo ? prestamo.pagos_realizados : 0,
       prestamo_numero_pagos: prestamo ? prestamo.numero_pagos : 0,
       descuento_prestamo: cuotaPrestamo,
+      otros_descuentos: 0, // 🚀 NUEVO: Iniciamos en 0
       descuento_anticipo: 0,
       descuento_tarjeta: emp.recibe_pago_tarjeta ? tarjetaDefecto : 0,
       pago_neto: sueldo - cuotaPrestamo - (emp.recibe_pago_tarjeta ? tarjetaDefecto : 0),
+      deuda_generada: 0, // 🚀 NUEVO: Escudo antinóminas
     };
   });
 
@@ -125,15 +130,18 @@ export async function getEmpleadoExtraAction(empleadoId: number) {
     foto_perfil_url: emp.foto_perfil_url,
     sueldo_base: sueldo,
     sueldo_calculado: sueldo,
+    bonos: 0, // 🚀 NUEVO
     recibe_pago_tarjeta: emp.recibe_pago_tarjeta || false,
     monto_tarjeta_defecto: tj,
     prestamo_activo_id: prestamo ? prestamo.id : null,
     prestamo_pagos_realizados: prestamo ? prestamo.pagos_realizados : 0,
     prestamo_numero_pagos: prestamo ? prestamo.numero_pagos : 0,
     descuento_prestamo: cuota,
+    otros_descuentos: 0, // 🚀 NUEVO
     descuento_anticipo: 0,
     descuento_tarjeta: emp.recibe_pago_tarjeta ? tj : 0,
     pago_neto: sueldo - cuota - (emp.recibe_pago_tarjeta ? tj : 0),
+    deuda_generada: 0 // 🚀 NUEVO
   } as RenglonNomina;
 }
 
@@ -144,7 +152,7 @@ export async function guardarTarjetaAction(empleadoId: number, monto: number) {
   if (error) throw new Error(error.message);
 }
 
-// 4. GUARDAR NÓMINA MASIVA (Adaptado a Server Action)
+// 4. GUARDAR NÓMINA MASIVA (Con Escudo Anti-Deudas)
 export async function guardarNominaAction(
   diaPago: string, 
   periodoInicio: string, 
@@ -156,6 +164,7 @@ export async function guardarNominaAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sesión no válida.');
 
+  // Preparamos los datos para insertar
   const registrosAGuardar = renglones.map(r => ({
     empleado_id: r.empleado_id,
     plantilla_id: null, 
@@ -163,17 +172,20 @@ export async function guardarNominaAction(
     periodo_fin: periodoFin,
     fecha_pago: fechaPago,
     sueldo_base: r.sueldo_base,
-    total_percepciones: r.sueldo_calculado, 
+    bonos: r.bonos || 0, // 🚀 NUEVO
+    total_percepciones: r.sueldo_calculado + (r.bonos || 0), // 🚀 Sumamos los extras al total percibido
     descuento_prestamo: r.descuento_prestamo,
-    descuento_anticipo: r.descuento_anticipo,
+    descuento_anticipo: 0, // Ya no se usa, lo dejamos en 0
     descuento_tarjeta: r.descuento_tarjeta,
-    otros_descuentos: 0,
-    total_deducciones: r.descuento_prestamo + r.descuento_anticipo + r.descuento_tarjeta,
-    pago_neto: r.pago_neto,
+    otros_descuentos: r.otros_descuentos || 0, // 🚀 NUEVO: Reemplaza a anticipo
+    total_deducciones: r.descuento_prestamo + (r.otros_descuentos || 0) + r.descuento_tarjeta,
+    pago_neto: r.pago_neto, // Esto ya viene topado a $0.00 desde el Front
     estado: 'aprobado',
     aprobado_por_id: user.id,
     fecha_aprobacion: new Date().toISOString(),
-    observaciones: r.sueldo_calculado !== r.sueldo_base ? 'Sueldo ajustado por faltas/medios turnos' : '',
+    observaciones: (r.deuda_generada && r.deuda_generada > 0) 
+      ? `⚠️ Alerta: Generó saldo en contra de $${r.deuda_generada}` 
+      : (r.sueldo_calculado !== r.sueldo_base ? 'Sueldo ajustado por faltas/medios turnos' : ''),
     created_by: user.id
   }));
 
@@ -184,33 +196,31 @@ export async function guardarNominaAction(
 
   if (nominaError) throw new Error('Error al guardar la nómina: ' + nominaError.message);
 
+  // Procesar deducciones y crear nuevas deudas
   for (const renglon of renglones) {
-    if (renglon.prestamo_activo_id) {
+    
+    // 1. DESCONTAR DEL PRÉSTAMO ACTUAL (Si existía uno)
+    if (renglon.prestamo_activo_id && renglon.descuento_prestamo > 0) {
       const nominaGenerada = nominasInsertadas?.find(n => n.empleado_id === renglon.empleado_id);
       const { data: prestamo } = await supabase.from('prestamos').select('saldo_restante, pagos_realizados, omitir_siguiente_nomina').eq('id', renglon.prestamo_activo_id).single();
 
       if (prestamo) {
-        let nuevoSaldo = prestamo.saldo_restante;
-        let pagoRealizadoExitoso = false;
-
-        if (renglon.descuento_prestamo > 0) {
-          nuevoSaldo = prestamo.saldo_restante - renglon.descuento_prestamo;
-          pagoRealizadoExitoso = true;
-          await supabase.from('pagos_prestamo').insert([{
-            prestamo_id: renglon.prestamo_activo_id,
-            nomina_id: nominaGenerada?.id,
-            monto_pagado: renglon.descuento_prestamo,
-            saldo_anterior: prestamo.saldo_restante,
-            saldo_nuevo: nuevoSaldo,
-            fecha_pago: fechaPago,
-            created_by: user.id
-          }]);
-        }
+        const nuevoSaldo = prestamo.saldo_restante - renglon.descuento_prestamo;
+        
+        await supabase.from('pagos_prestamo').insert([{
+          prestamo_id: renglon.prestamo_activo_id,
+          nomina_id: nominaGenerada?.id,
+          monto_pagado: renglon.descuento_prestamo,
+          saldo_anterior: prestamo.saldo_restante,
+          saldo_nuevo: nuevoSaldo,
+          fecha_pago: fechaPago,
+          created_by: user.id
+        }]);
 
         await supabase.from('prestamos')
           .update({
             saldo_restante: nuevoSaldo,
-            pagos_realizados: prestamo.pagos_realizados + (pagoRealizadoExitoso ? 1 : 0),
+            pagos_realizados: prestamo.pagos_realizados + 1,
             estado: nuevoSaldo <= 0 ? 'completado' : 'activo',
             fecha_finalizacion_real: nuevoSaldo <= 0 ? new Date().toISOString().split('T')[0] : null,
             omitir_siguiente_nomina: false 
@@ -218,19 +228,31 @@ export async function guardarNominaAction(
           .eq('id', renglon.prestamo_activo_id);
       }
     }
+
+    // 2. 🚀 CREACIÓN AUTOMÁTICA DE DEUDA (Si la nómina fue negativa)
+    if (renglon.deuda_generada && renglon.deuda_generada > 0) {
+      await supabase.from('prestamos').insert({
+        empleado_id: renglon.empleado_id,
+        monto_total: renglon.deuda_generada,
+        saldo_restante: renglon.deuda_generada,
+        cuota_semanal: renglon.deuda_generada, // Se cobra en automático la siguiente semana
+        numero_pagos: 1, // Es a 1 solo pago porque es por daños/errores
+        pagos_realizados: 0,
+        fecha_otorgamiento: fechaPago,
+        estado: 'activo',
+        observaciones: `⚠️ SALDO EN CONTRA: Cobro automático de deuda superada en nómina del ${fechaPago}`,
+        created_by: user.id
+      });
+    }
   }
 }
 
 /**
  * Obtiene un resumen de las nóminas pagadas agrupadas por fecha (Server Action).
  */
-/**
- * Obtiene un resumen de las nóminas pagadas agrupadas por fecha (Server Action).
- */
 export async function getHistorialResumenAction() {
   const supabase = await createClient();
   
-  // 🚀 OPTIMIZACIÓN DE PAYLOAD: Solo traemos las dos columnas exactas que usa el .reduce
   const { data, error } = await supabase
     .from('registros_nomina')
     .select('fecha_pago, pago_neto') 
@@ -240,7 +262,6 @@ export async function getHistorialResumenAction() {
   if (error) throw new Error(error.message);
   if (!data) return [];
 
-  // Al correr esto en el backend, el navegador del usuario no tiene que iterar miles de filas
   const grupos = data.reduce((acc: any, curr) => {
     const fecha = curr.fecha_pago;
     if (!acc[fecha]) {

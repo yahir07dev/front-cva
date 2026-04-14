@@ -51,7 +51,6 @@ export default async function NotasPage() {
   // 5. Renderizamos el cliente enviando las notas y permisos pre-procesados
   return (
     <div className="h-[100dvh] md:h-full flex flex-col p-0 pb-20 md:p-6 lg:p-8 overflow-hidden animate-in fade-in duration-500">
-      <div className="flex-1 min-h-0 bg-white dark:bg-neutral-900 md:rounded-3xl overflow-hidden md:border border-neutral-200 dark:border-0 shadow-sm relative">
         <NotasClient 
           initialNotas={notasData}
           permissions={{
@@ -62,6 +61,5 @@ export default async function NotasPage() {
           userId={user.id}
         />
       </div>
-    </div>
   )
 }

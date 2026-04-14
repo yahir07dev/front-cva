@@ -1,4 +1,3 @@
-//src/components/nomina/generar/ModalCalculadora.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -20,18 +19,16 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
   const [horas, setHoras] = useState(0)
   const [diasEspeciales, setDiasEspeciales] = useState(0)
   const [precioEspecial, setPrecioEspecial] = useState(250)
+  const [diasFeriados, setDiasFeriados] = useState(0) // 🚀 NUEVO ESTADO
 
-  // NUEVO: Estado para abrir/cerrar el selector personalizado
   const [isDescansoOpen, setIsDescansoOpen] = useState(false)
 
-  // Opciones del selector de descanso
   const opcionesDescanso = [
     { value: 1, label: 'Pagado (100%)' },
     { value: 0.5, label: 'Medio (50%)' },
     { value: 0, label: 'Sin Pagar' }
   ]
 
-  // Encontrar el texto de la opción seleccionada
   const descansoLabel = opcionesDescanso.find(opt => opt.value === descanso)?.label
 
   useEffect(() => {
@@ -43,11 +40,11 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
       setHoras(0)
       setDiasEspeciales(0)
       setPrecioEspecial(250)
-      setIsDescansoOpen(false) // Cerrar si estaba abierto al volver a abrir
+      setDiasFeriados(0) // 🚀 REINICIAR
+      setIsDescansoOpen(false) 
     }
   }, [isOpen])
 
-  // Cerrar con Escape
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     if (isOpen) window.addEventListener('keydown', handleEsc)
@@ -64,7 +61,7 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
         onClick={onClose}
       />
 
-      {/* Modal: bottom sheet en móvil, centered en desktop */}
+      {/* Modal */}
       <div className="
         relative w-full sm:max-w-md
         bg-white dark:bg-neutral-900
@@ -74,12 +71,11 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
         max-h-[92dvh] sm:max-h-[88vh]
         animate-in slide-in-from-bottom sm:zoom-in-95 fade-in duration-200
       ">
-        {/* Indicador de arrastre (solo móvil) */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
         </div>
 
-        {/* Header fijo */}
+        {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
@@ -102,7 +98,7 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
           </button>
         </div>
 
-        {/* Cuerpo con scroll interno */}
+        {/* Cuerpo */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 sm:py-5 space-y-5 sm:space-y-6">
 
           {/* 1. Asistencia Regular */}
@@ -121,12 +117,11 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
                 />
               </div>
               
-              {/* SELECTOR DE DESCANSO PERSONALIZADO 👇 */}
+              {/* SELECTOR DE DESCANSO */}
               <div className="flex justify-between items-center p-3 sm:p-4 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 relative">
                 <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-200">Día Descanso</span>
                 
                 <div className="relative min-w-[130px] sm:min-w-[150px]">
-                  {/* Botón Trigger */}
                   <div
                     onClick={() => setIsDescansoOpen(!isDescansoOpen)}
                     className={`
@@ -142,10 +137,8 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
                     <ChevronDown size={14} className={`text-neutral-400 transition-transform duration-300 shrink-0 ${isDescansoOpen ? 'rotate-180' : ''}`} />
                   </div>
 
-                  {/* Menú Desplegable */}
                   {isDescansoOpen && (
                     <>
-                      {/* Capa invisible para cerrar al hacer clic afuera */}
                       <div 
                         className="fixed inset-0 z-40" 
                         onClick={() => setIsDescansoOpen(false)} 
@@ -191,13 +184,14 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
             </h4>
             <div className="space-y-2">
               {[
+                { label: 'Días Feriados Trabajados', desc: 'Se paga doble el día (Ley)', val: diasFeriados, set: setDiasFeriados, accent: 'text-rose-600 dark:text-rose-400' }, // 🚀 AÑADIDO
                 { label: 'Días Extra Completos', desc: 'Trabajó en su descanso', val: diasExtra, set: setDiasExtra },
                 { label: 'Medios Turnos Extra', desc: 'Equivale a 5 horas', val: mediosTurnos, set: setMediosTurnos },
                 { label: 'Horas Sueltas', desc: null, val: horas, set: setHoras },
-              ].map(({ label, desc, val, set }) => (
+              ].map(({ label, desc, val, set, accent }) => (
                 <div key={label} className="flex justify-between items-center p-3 sm:p-4 rounded-xl bg-neutral-50 dark:bg-neutral-950/80">
                   <div className="min-w-0 flex-1 pr-2">
-                    <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-200">{label}</span>
+                    <span className={`text-xs sm:text-sm font-semibold ${accent || 'text-neutral-700 dark:text-neutral-200'}`}>{label}</span>
                     {desc && <p className="text-[9px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{desc}</p>}
                   </div>
                   <input
@@ -249,7 +243,7 @@ export default function ModalCalculadora({ isOpen, onClose, empleadoNombre, onAp
         <div className="px-4 sm:px-6 py-4 sm:py-5 border-t border-neutral-100 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900 rounded-b-3xl">
           <button
             onClick={() => {
-              onApply({ diasNormales, descanso, diasExtra, mediosTurnos, horas, diasEspeciales, precioEspecial })
+              onApply({ diasNormales, descanso, diasExtra, mediosTurnos, horas, diasEspeciales, precioEspecial, diasFeriados }) // 🚀 ENVIAR AL HOOK
               onClose()
             }}
             className="
