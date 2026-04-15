@@ -8,6 +8,8 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import Link from "next/link";
+// 🚀 NUEVO: Importamos el Server Action que creamos
+import { generarBackupCompletoAction } from "@/src/actions/backup/backupActions"; 
 
 export default function DashboardClient() {
   const supabase = createClient();
@@ -84,36 +86,33 @@ export default function DashboardClient() {
     fetchStats();
   }, [supabase]);
 
+  // 🚀 ACTUALIZADO: Manejador del Backup llamando al Server Action
   const handleBackup = async () => {
+    // Pequeña confirmación por seguridad
+    const confirmar = window.confirm(
+      '¿Deseas descargar una copia completa de la base de datos?\n\nSe descargarán las 25 tablas del sistema.'
+    );
+    if (!confirmar) return;
+
     setBackingUp(true);
     setBackupExito(false);
     try {
-      const [empleados, areas, roles, actividades, cursos, nominas] = await Promise.all([
-        supabase.from("empleados").select("*").is("deleted_at", null),
-        supabase.from("areas").select("*").is("deleted_at", null),
-        supabase.from("roles").select("*").is("deleted_at", null),
-        supabase.from("actividades").select("*").is("deleted_at", null),
-        supabase.from("cursos").select("*").is("deleted_at", null),
-        supabase.from("registros_nomina").select("*").is("deleted_at", null),
-      ]);
+      // 1. El servidor extrae y empaqueta la información
+      const backupCompleto = await generarBackupCompletoAction();
 
-      const backupData = {
-        fecha_respaldo: new Date().toISOString(),
-        datos: {
-          empleados: empleados.data,
-          areas: areas.data,
-          roles: roles.data,
-          actividades: actividades.data,
-          cursos: cursos.data,
-          nominas: nominas.data,
-        },
-      };
-
-      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      // 2. Preparamos el archivo descargable
+      const blob = new Blob([JSON.stringify(backupCompleto, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Backup_ComercialVA_${new Date().toISOString().split("T")[0]}.json`;
+      
+      // 3. Nombre del archivo con fecha y hora exacta
+      const fecha = new Date();
+      const dateStr = fecha.toISOString().split("T")[0];
+      const timeStr = `${fecha.getHours()}h${fecha.getMinutes()}m`;
+      a.download = `Backup_DB_ComercialVA_${dateStr}_${timeStr}.json`;
+      
+      // 4. Forzamos la descarga
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -121,8 +120,8 @@ export default function DashboardClient() {
 
       setBackupExito(true);
       setTimeout(() => setBackupExito(false), 3000);
-    } catch (error) {
-      alert("Hubo un error al generar el respaldo.");
+    } catch (error: any) {
+      alert("Hubo un error al generar el respaldo: " + error.message);
       console.error(error);
     } finally {
       setBackingUp(false);
@@ -291,7 +290,7 @@ export default function DashboardClient() {
             ) : (
               <DownloadCloud size={16} className="shrink-0" />
             )}
-            {backingUp ? "Generando…" : backupExito ? "¡Respaldo exitoso!" : "Respaldo Local"}
+            {backingUp ? "Generando…" : backupExito ? "¡Respaldo exitoso!" : "Respaldo Completo"}
 
             {!backingUp && !backupExito && (
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full hover:animate-[shimmer_1.8s_infinite]" />

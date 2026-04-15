@@ -51,7 +51,7 @@ export default async function RolesPage() {
         <RolesClient 
           initialRoles={rolesData}
           initialCatalogo={catalogoData}
-        />
+        />a 
       </div>
     </div>
   )
